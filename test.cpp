@@ -13,9 +13,7 @@
 
 
 /* INCLUDES */
-
 #include <iostream>
-
 #include <chess/bitboard.h>
 
 
@@ -24,6 +22,8 @@
 int main ()
 {
     std::cout << "Hello, world!" << std::endl;
+
+    std::cout << chess::masks::light_squares.popcount () << std::endl;
 
     return 0;
 }
