@@ -19,7 +19,6 @@
 
 
 /* INCLUDES */
-
 #include <array>
 #include <bitset>
 
@@ -31,7 +30,7 @@
  *
  * only defined if the GCC version allows for builtin popcount, clz and ctz operations
  */
-#if ( __GNUC__ > 3 ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ > 4 ) ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ == 4 ) && ( __GNUC_PATCH_LEVEL__ >= 6 ) )
+#if defined __GNUC__ && ( __GNUC__ > 3 ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ > 4 ) ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ == 4 ) && ( __GNUC_PATCH_LEVEL__ >= 6 ) )
     #define BITBOARD_HAS_BUILTIN_BIT_OPS
 #endif
 
@@ -61,7 +60,7 @@ namespace chess
 /* CLASS BITBOARD DEFINITION */
 
 /* class bitboard
- *
+ * 
  * purely a 64 bit integer with member functions to aid access, query and manipulation
  * bitboards are little-endian rank-file bijective mappings stored in 64-bit integers
  */
@@ -71,46 +70,47 @@ public:
 
     /* CONSTRUCTORS */
 
-    /* default constructor */
+    /** @brief default constructor */
     bitboard () noexcept : bits { 0 } {}
 
-    /* bits constructor */
+    /** @brief bits constructor */
     bitboard ( const long long unsigned _bits ) noexcept : bits { _bits } {}
 
 
 
     /* OPERATORS */
 
-    /* operator==, operator==
+    /** @name  operator==, operator!=
      * 
-     * @param other: the board to compare
-     * 
+     * @brief  equality comparison operators
+     * @param  other: the board to compare
      * @return boolean
      */
     bool operator== ( const bitboard& other ) const noexcept { return ( bits == other.bits ); }
     bool operator!= ( const bitboard& other ) const noexcept { return ( bits != other.bits ); }
 
-    /* operator bool, operator!
-     *
+    /** @name  operator bool, operator!
+     * 
+     * @brief  truth operators
      * @return boolean
      */
     operator bool () const noexcept { return bits; }
     bool operator! () const noexcept { return !bits; }
 
-    /* operator&, operator|, operator^
-     *
-     * @param other: the other board required for the bitwise operation
+    /** @name  operator&, operator|, operator^
      * 
+     * @brief  bitwise operators
+     * @param  other: the other board required for the bitwise operation
      * @return a new board from the bitwise operation of this and other
      */
     bitboard operator& ( const bitboard& other ) const noexcept { return bitboard { bits & other.bits }; }
     bitboard operator| ( const bitboard& other ) const noexcept { return bitboard { bits | other.bits }; }
     bitboard operator^ ( const bitboard& other ) const noexcept { return bitboard { bits ^ other.bits }; }
 
-    /* operator&=, operator|=, operator^=
-     *
-     * @param other: the other board required for the bitwise operation
-     * 
+    /** @name  operator&=, operator|=, operator^= 
+     *   
+     * @brief  inline bitwise operators
+     * @param  other: the other board required for the bitwise operation
      * @return a reference to this board after the inline bitwise operation
      */
     bitboard& operator&= ( const bitboard& other ) noexcept { bits &= other.bits; return * this; }
@@ -119,22 +119,22 @@ public:
 
 
 
-    /* popcount
-     *
+    /** @name  popcount
+     * 
      * @return popcount as an integer
      */
     int popcount () const noexcept;
 
-    /* leading/trailing_zeros
-     *
+    /** @name  leading/trailing_zeros
+     * 
      * @return number of leading/trailing zeros
      */
     int leading_zeros () const noexcept;
     int trailing_zeros () const noexcept;
 
-    /* leading/trailing_zeros_nocheck
-     *
-     * @return number of leading/trailing zeros, but undefined if bits == 0
+    /** @name  leading/trailing_zeros_nocheck
+     * 
+     * @return number of leading/trailing zeros, or undefined if bits == 0
      */
     int leading_zeros_nocheck () const noexcept;
     int trailing_zeros_nocheck () const noexcept;
@@ -147,6 +147,11 @@ private:
     long long unsigned bits;
 
 };
+
+
+
+/* INCLUDE INLINE IMPLEMENTATION */
+#include "../../src/chess/bitboard.hpp"
 
 
 
