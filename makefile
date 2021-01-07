@@ -4,11 +4,11 @@
 
 # gcc setup
 CC=g++
-CFLAGS=-std=c++17 -Iinclude -fpic -g -O2 -march=corei7
+CFLAGS=-std=c++20 -Iinclude -g -O2 -march=corei7 -flto
 
 # g++ setup
 CPP=g++
-CPPFLAGS=-std=c++17 -Iinclude -fpic -g -O2 -march=corei7
+CPPFLAGS=-std=c++20 -Iinclude -g -O2 -march=corei7 -flto
 
 # ar setup
 AR=ar
