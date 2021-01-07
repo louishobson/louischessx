@@ -18,5 +18,3 @@
 
 
 /* BITBOARD MASK DEFINITIONS */
-const chess::bitboard chess::masks::light_squares { 0x55AA55AA55AA55AA };
-const chess::bitboard chess::masks::dark_squares  { 0xAA55AA55AA55AA55 };
