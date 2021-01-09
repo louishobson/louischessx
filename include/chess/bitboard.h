@@ -76,7 +76,7 @@ public:
     constexpr bitboard () noexcept : bits { 0 } {}
 
     /** @name bits constructor */
-    constexpr bitboard ( const unsigned long long _bits ) noexcept : bits { _bits } {}
+    constexpr bitboard ( const long long unsigned _bits ) noexcept : bits { _bits } {}
 
 
 
@@ -263,6 +263,22 @@ public:
      */
     constexpr bitboard rotate_90_clock     () const noexcept { return vertical_flip ().neg_diag_flip (); }
     constexpr bitboard rotate_90_anticlock () const noexcept { return vertical_flip ().pos_diag_flip (); }
+
+    /** @name  pseudo_rotate_45_clock
+     * 
+     * @brief  flip the positive diagonals to ranks
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
+     * @return a new board
+     */
+    constexpr bitboard pseudo_rotate_45_clock () const noexcept;
+
+    /** @name  pseudo_rotate_45_aclock
+     * 
+     * @brief  flip the negative diagonals to ranks
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
+     * @return a new board
+     */
+    constexpr bitboard pseudo_rotate_45_aclock () const noexcept;
 
     /** @name  [compass]_shift
      * 

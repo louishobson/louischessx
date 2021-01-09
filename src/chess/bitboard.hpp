@@ -97,6 +97,38 @@ inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcep
     return bitboard { x };
 }
 
+/** @name  pseudo_rotate_45_clock
+ * 
+ * @brief  flip the positive diagonals to ranks
+ * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
+ * @return a new board
+ */
+inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () const noexcept
+{
+    constexpr unsigned long long k1 = 0xAAAAAAAAAAAAAAAA, k2 = 0xCCCCCCCCCCCCCCCC, k4 = 0xF0F0F0F0F0F0F0F0;
+    unsigned long long x = bits;
+    x ^= k1 & ( x ^ std::rotr ( x,  8 ) );
+    x ^= k2 & ( x ^ std::rotr ( x, 16 ) );
+    x ^= k4 & ( x ^ std::rotr ( x, 32 ) );
+    return bitboard { x };
+}
+
+/** @name  pseudo_rotate_45_aclock
+ * 
+ * @brief  flip the negative diagonals to ranks
+ * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
+ * @return a new board
+ */
+inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () const noexcept
+{
+    constexpr unsigned long long k1 = 0x5555555555555555, k2 = 0x3333333333333333, k4 = 0x0F0F0F0F0F0F0F0F;
+    unsigned long long x = bits;
+    x ^= k1 & ( x ^ std::rotr ( x,  8 ) );
+    x ^= k2 & ( x ^ std::rotr ( x, 16 ) );
+    x ^= k4 & ( x ^ std::rotr ( x, 32 ) );
+    return bitboard { x };
+}
+
 
 
 /* HEADER GUARD */
