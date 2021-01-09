@@ -13,13 +13,15 @@
 
 
 /* HEADER GUARD */
-#ifndef BITBOARD_H_INCLUDED
-#define BITBOARD_H_INCLUDED
+#ifndef CHESS_BITBOARD_H_INCLUDED
+#define CHESS_BITBOARD_H_INCLUDED
 
 
 
 /* INCLUDES */
 #include <bit>
+#include <byteswap.h>
+#include <chess/builtin_macros.h>
 
 
 
@@ -210,14 +212,57 @@ public:
     constexpr unsigned leading_zeros  () const noexcept { return std::countl_one ( bits ); }
     constexpr unsigned trailing_zeros () const noexcept { return std::countr_zero ( bits ); }
 
-    /** @name  rotate_l/r
+    /** @name  bit_rotl/r
      * 
-     * @brief  rotates the board by some amount (binary shift but wrap)
+     * @brief  applied a wrapping binary shift
      * @param  offset: the amount to shift by, defined for [1,63]
      * @return a new bitboard
      */
-    constexpr bitboard rotate_l ( const unsigned offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
-    constexpr bitboard rotate_r ( const unsigned offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
+    constexpr bitboard bit_rotl ( const unsigned offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
+    constexpr bitboard bit_rotr ( const unsigned offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
+
+    /** @name  vertical_flip
+     * 
+     * @brief  flip the board vertically
+     * @return a new bitboard
+     */
+    constexpr bitboard vertical_flip () const noexcept;
+
+    /** @name  horizontal_flip
+     * 
+     * @brief  flip the board horizontally
+     * @return a new bitboard
+     */
+    constexpr bitboard horizontal_flip () const noexcept;
+    
+    /** @name  pos_diag_flip
+     * 
+     * @brief  flip the board along y=x
+     * @return a new bitboard
+     */
+    constexpr bitboard pos_diag_flip () const noexcept;
+
+    /** @name  neg_diag_flip
+     * 
+     * @brief  flip the board along y=-x
+     * @return a new bitboard
+     */
+    constexpr bitboard neg_diag_flip () const noexcept;
+
+    /** @name  rotate_180
+     * 
+     * @brief  rotate the representation of the board 180 degrees
+     * @return a new board
+     */
+    constexpr bitboard rotate_180 () const noexcept { return vertical_flip ().horizontal_flip (); }
+
+    /** @name  rotate_90_(a)clock
+     * 
+     * @brief  rotate the representation of the board 90 degrees (anti)clockwise
+     * @return a new board
+     */
+    constexpr bitboard rotate_90_clock     () const noexcept { return vertical_flip ().neg_diag_flip (); }
+    constexpr bitboard rotate_90_anticlock () const noexcept { return vertical_flip ().pos_diag_flip (); }
 
     /** @name  [compass]_shift
      * 
@@ -237,20 +282,26 @@ public:
 
     /* BIT QUERY AND MODIFICATION */
 
-    /** @name  set, reset, flip
+    /** @name  get_value
      * 
-     * @brief  inline set, unset or flip a bit
+     * @return the value of the bitboard
+     */
+    constexpr unsigned long long get_value () const noexcept { return bits; }
+
+    /** @name  set, reset, toggle
+     * 
+     * @brief  inline set, unset or toggle a bit
      * @param  pos:  the absolute position [0,63]
      * @param  rank: the rank of the bit [0,7]
      * @param  file: the file of the bit [0,7]
      * @return void
      */
-    constexpr void set   ( const unsigned pos ) noexcept { bits |=  single_bitset ( pos ); }
-    constexpr void reset ( const unsigned pos ) noexcept { bits &= ~single_bitset ( pos ); }
-    constexpr void flip  ( const unsigned pos ) noexcept { bits ^=  single_bitset ( pos ); }
-    constexpr void set   ( const unsigned rank, const unsigned file ) noexcept { bits |=  single_bitset ( rank, file ); }
-    constexpr void reset ( const unsigned rank, const unsigned file ) noexcept { bits &= ~single_bitset ( rank, file ); }
-    constexpr void flip  ( const unsigned rank, const unsigned file ) noexcept { bits ^=  single_bitset ( rank, file ); }
+    constexpr void set    ( const unsigned pos ) noexcept { bits |=  single_bitset ( pos ); }
+    constexpr void reset  ( const unsigned pos ) noexcept { bits &= ~single_bitset ( pos ); }
+    constexpr void toggle ( const unsigned pos ) noexcept { bits ^=  single_bitset ( pos ); }
+    constexpr void set    ( const unsigned rank, const unsigned file ) noexcept { bits |=  single_bitset ( rank, file ); }
+    constexpr void reset  ( const unsigned rank, const unsigned file ) noexcept { bits &= ~single_bitset ( rank, file ); }
+    constexpr void toggle ( const unsigned rank, const unsigned file ) noexcept { bits ^=  single_bitset ( rank, file ); }
 
     /** @name  test
      * 
@@ -305,4 +356,4 @@ private:
 
 
 /* HEADER GUARD */
-#endif /* #ifndef BITBOARD_H_INCLUDED */
+#endif /* #ifndef CHESS_BITBOARD_H_INCLUDED */
