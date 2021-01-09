@@ -14,16 +14,26 @@
 
 /* INCLUDES */
 #include <iostream>
-#include <chess/bitboard.h>
+#include <chess/chessboard.h>
+
 
 
 /* MAIN */
 
 int main ()
 {
-    std::cout << "Hello, world!" << std::endl;
+    unsigned i;
+    std::cin >> i;
 
-    std::cout << chess::masks::light_squares.popcount () << std::endl;
+    chess::bitboard bb { i };
+    unsigned j = bb.rotate_90_anticlock ().popcount ();
+    //unsigned j = bb.rotate_right ( 5 ).popcount ();
+
+    /* DONE! */
+
+    std::cout << j << std::endl;
+
+
 
     return 0;
 }
