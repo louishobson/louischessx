@@ -407,7 +407,7 @@ public:
      * @param  one:  The character to insert for 1, default #
      * @return The formatted string
      */
-    std::string format_board ( const char zero = '.', const char one = '#' ) const;
+    std::string format_board ( char zero = '.', char one = '#' ) const;
 
 
 
