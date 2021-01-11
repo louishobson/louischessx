@@ -22,16 +22,15 @@
 
 int main ()
 {
-    unsigned i;
-    std::cin >> i;
+    unsigned long long i;
+    std::cin >> i; 
 
-    chess::bitboard bb { i };
-    unsigned j = bb.rotate_90_anticlock ().popcount ();
-    //unsigned j = bb.rotate_right ( 5 ).popcount ();
+    chess::bitboard a { i };
 
     /* DONE! */
 
-    std::cout << j << std::endl;
+    //std::cout << a.format_board () << std::endl << a.vertical_flip ().format_board () << std::endl;
+    std::cout << a.occluded_fill_ne ().format_board ();
 
 
 
