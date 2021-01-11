@@ -20,8 +20,8 @@
 
 /* INCLUDES */
 #include <bit>
-#include <byteswap.h>
 #include <chess/builtin_macros.h>
+#include <string>
 
 
 
@@ -52,20 +52,20 @@ public:
 
     /* TYPES */
 
-    /* enum masks
+    /* struct masks
      *
      * special masks for bitboards
      */
-    enum class mask : unsigned long long
+    struct masks
     {
-        empty         = 0x0000000000000000,
-        universe      = 0xFFFFFFFFFFFFFFFF,
-        white_squares = 0x55AA55AA55AA55AA,
-        black_squares = 0xAA55AA55AA55AA55,
-        a_file        = 0x0101010101010101,
-        h_file        = 0x8080808080808080,
-        not_a_file    = 0xfefefefefefefefe,
-        not_h_file    = 0x7f7f7f7f7f7f7f7f
+        static constexpr unsigned long long empty         { 0x0000000000000000 };
+        static constexpr unsigned long long universe      { 0xFFFFFFFFFFFFFFFF };
+        static constexpr unsigned long long white_squares { 0x55AA55AA55AA55AA };
+        static constexpr unsigned long long black_squares { 0xAA55AA55AA55AA55 };
+        static constexpr unsigned long long a_file        { 0x0101010101010101 };
+        static constexpr unsigned long long h_file        { 0x8080808080808080 };
+        static constexpr unsigned long long not_a_file    { 0xFEFEFEFEFEFEFEFE };
+        static constexpr unsigned long long not_h_file    { 0x7F7F7F7F7F7F7F7F };
     };
 
 
@@ -76,16 +76,16 @@ public:
     constexpr bitboard () noexcept : bits { 0 } {}
 
     /** @name bits constructor */
-    constexpr bitboard ( const long long unsigned _bits ) noexcept : bits { _bits } {}
+    explicit constexpr bitboard ( const unsigned long long _bits ) noexcept : bits { _bits } {}
 
 
 
-    /* OPERATORS */
+    /* SET OPERATORS */
 
     /** @name  operator==, operator!=
      * 
      * @brief  equality comparison operators
-     * @param  other: the board to compare
+     * @param  other: the bitboard to compare
      * @return boolean
      */
     constexpr bool operator== ( const bitboard& other ) const noexcept { return ( bits == other.bits ); }
@@ -96,14 +96,14 @@ public:
      * @brief  truth operators
      * @return boolean
      */
-    constexpr operator bool  () const noexcept { return  bits; }
+    explicit constexpr operator bool  () const noexcept { return bits; }
     constexpr bool operator! () const noexcept { return !bits; }
 
     /** @name  operator&, operator|, operator^
      * 
      * @brief  bitwise operators
-     * @param  other: the other board required for the bitwise operation
-     * @return a new board from the bitwise operation of this and other
+     * @param  other: the other bitboard required for the bitwise operation
+     * @return a new bitboard from the bitwise operation of this and other
      */
     constexpr bitboard operator& ( const bitboard& other ) const noexcept { return bitboard { bits & other.bits }; }
     constexpr bitboard operator| ( const bitboard& other ) const noexcept { return bitboard { bits | other.bits }; }
@@ -112,59 +112,77 @@ public:
     /** @name  operator~
      * 
      * @brief  ones-complement
-     * @return a new board from the ones-complement of this board
+     * @return a new bitboard from the ones-complement of this bitboard
      */
     constexpr bitboard operator~ () const noexcept { return bitboard { ~bits }; }
 
     /** @name  operator&=, operator|=, operator^= 
      *   
      * @brief  inline bitwise operators
-     * @param  other: the other board required for the bitwise operation
-     * @return a reference to this board after the inline bitwise operation
+     * @param  other: the other bitboard required for the bitwise operation
+     * @return a reference to this bitboard
      */
     constexpr bitboard& operator&= ( const bitboard& other ) noexcept { bits &= other.bits; return * this; }
     constexpr bitboard& operator|= ( const bitboard& other ) noexcept { bits |= other.bits; return * this; }
     constexpr bitboard& operator^= ( const bitboard& other ) noexcept { bits ^= other.bits; return * this; }
 
+    /** @name  operator<<, operator>>
+     * 
+     * @brief  binary shift operators
+     * @param  offset: the amount to shift by
+     * @return a new bitboard
+     */
+    constexpr bitboard operator<< ( const unsigned offset ) const noexcept { return bitboard { bits << offset }; }
+    constexpr bitboard operator>> ( const unsigned offset ) const noexcept { return bitboard { bits >> offset }; }
+
+    /** @name  operator<<=, operator>>=
+     * 
+     * @brief  inline binary shift operators
+     * @param  offset: the amount to shift by
+     * @return a reference to this bitboard
+     */
+    constexpr bitboard& operator<<= ( const unsigned offset ) noexcept { bits <<= offset; return * this; }
+    constexpr bitboard& operator>>= ( const unsigned offset ) noexcept { bits >>= offset; return * this; }
 
 
-    /* OTHER BITWISE OPERATIONS */
+
+    /* SET OPERATIONS */
 
     /** @name  rel_comp
      *
-     * @brief  the complement of this board relative to other
-     * @param  other: the other board as described above
+     * @brief  the complement of this bitboard relative to other
+     * @param  other: the other bitboard as described above
      * @return a new bitboard
      */
     constexpr bitboard rel_comp ( const bitboard& other ) const noexcept { return bitboard { ~bits & other.bits }; }
 
     /** @name  implication
      * 
-     * @brief  the board such that this implies other for all bits
-     * @param  other: the other board as described above
-     * @return a new board
+     * @brief  the bitboard such that this implies other for all bits
+     * @param  other: the other bitboard as described above
+     * @return a new bitboard
      */
     constexpr bitboard implication ( const bitboard& other ) const noexcept { return bitboard { ~bits | other.bits }; }
 
     /** @name  xnor
      * 
      * @brief  bitwise xnor
-     * @param  other: the other board to apply xnor to
-     * @return a new board
+     * @param  other: the other bitboard to apply xnor to
+     * @return a new bitboard
      */
     constexpr bitboard xnor ( const bitboard& other ) const noexcept { return bitboard { ~( bits ^ other.bits ) }; }
 
     /** @name  nand
      * 
      * @brief  bitwise nand
-     * @param  other: the other board to apply nand to
-     * @return a new board
+     * @param  other: the other bitboard to apply nand to
+     * @return a new bitboard
      */
     constexpr bitboard nand ( const bitboard& other ) const noexcept { return bitboard { ~( bits & other.bits ) }; }
 
     /** @name  is_subset
      * 
-     * @brief  finds if another board is a subset of this board
+     * @brief  finds if another bitboard is a subset of this bitboard
      * @param  other: the bitboard that is a potential subset
      * @return boolean
      */
@@ -172,22 +190,26 @@ public:
 
     /** @name  is_disjoint
      * 
-     * @brief  finds if another board is disjoint from this board
+     * @brief  finds if another bitboard is disjoint from this bitboard
      * @param  other: the other bitboard that is potentially disjoint
      * @return boolean
      */
     constexpr bool is_disjoint ( const bitboard& other ) const noexcept { return ( ( bits && other.bits ) == 0 ); }
 
+
+
+    /* OTHER BITWISE OPERATIONS */
+
     /** @name  is_empty
      *  
-     * @brief  tests if the board contains no set bits
+     * @brief  tests if the bitboard contains no set bits
      * @return boolean
      */
     constexpr bool is_empty () const noexcept { return ( bits == 0 ); }
 
     /** @name  is_single
      * 
-     * @brief  tests if the board contains a single set bit
+     * @brief  tests if the bitboard contains a single set bit
      * @return boolean
      */
     constexpr bool is_single () const noexcept { return ( std::has_single_bit ( bits ) ); }
@@ -223,43 +245,49 @@ public:
 
     /** @name  vertical_flip
      * 
-     * @brief  flip the board vertically
+     * @brief  flip the bitboard vertically
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return a new bitboard
      */
     constexpr bitboard vertical_flip () const noexcept;
 
     /** @name  horizontal_flip
      * 
-     * @brief  flip the board horizontally
+     * @brief  flip the bitboard horizontally
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return a new bitboard
      */
     constexpr bitboard horizontal_flip () const noexcept;
     
     /** @name  pos_diag_flip
      * 
-     * @brief  flip the board along y=x
+     * @brief  flip the bitboard along y=x
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return a new bitboard
      */
     constexpr bitboard pos_diag_flip () const noexcept;
 
     /** @name  neg_diag_flip
      * 
-     * @brief  flip the board along y=-x
+     * @brief  flip the bitboard along y=-x
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return a new bitboard
      */
     constexpr bitboard neg_diag_flip () const noexcept;
 
     /** @name  rotate_180
      * 
-     * @brief  rotate the representation of the board 180 degrees
-     * @return a new board
+     * @brief  rotate the representation of the bitboard 180 degrees
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Rotating
+     * @return a new bitboard
      */
     constexpr bitboard rotate_180 () const noexcept { return vertical_flip ().horizontal_flip (); }
 
     /** @name  rotate_90_(a)clock
      * 
-     * @brief  rotate the representation of the board 90 degrees (anti)clockwise
-     * @return a new board
+     * @brief  rotate the representation of the bitboard 90 degrees (anti)clockwise
+     * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Rotating
+     * @return a new bitboard
      */
     constexpr bitboard rotate_90_clock     () const noexcept { return vertical_flip ().neg_diag_flip (); }
     constexpr bitboard rotate_90_anticlock () const noexcept { return vertical_flip ().pos_diag_flip (); }
@@ -268,7 +296,7 @@ public:
      * 
      * @brief  flip the positive diagonals to ranks
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
-     * @return a new board
+     * @return a new bitboard
      */
     constexpr bitboard pseudo_rotate_45_clock () const noexcept;
 
@@ -276,23 +304,44 @@ public:
      * 
      * @brief  flip the negative diagonals to ranks
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
-     * @return a new board
+     * @return a new bitboard
      */
     constexpr bitboard pseudo_rotate_45_aclock () const noexcept;
 
-    /** @name  [compass]_shift
+    /** @name  shift_[compass]
      * 
-     * @brief  shift the board by one step based on a compass direction
-     * @return a new board
+     * @brief  shift the bitboard by one step based on a compass direction
+     * @see    https://www.chessprogramming.org/General_Setwise_Operations#Shifting_Bitboards
+     * @return a new bitboard
      */
-    constexpr bitboard shift_n  () const noexcept { return bitboard { bits << 8 }; }
-    constexpr bitboard shift_s  () const noexcept { return bitboard { bits >> 8 }; }
-    constexpr bitboard shift_e  () const noexcept { return bitboard { ( bits << 1 ) & mtoi ( mask::not_a_file ) }; }
-    constexpr bitboard shift_w  () const noexcept { return bitboard { ( bits >> 1 ) & mtoi ( mask::not_h_file ) }; }
-    constexpr bitboard shift_ne () const noexcept { return bitboard { ( bits << 9 ) & mtoi ( mask::not_a_file ) }; }
-    constexpr bitboard shift_nw () const noexcept { return bitboard { ( bits << 7 ) & mtoi ( mask::not_h_file ) }; }
-    constexpr bitboard shift_se () const noexcept { return bitboard { ( bits >> 7 ) & mtoi ( mask::not_a_file ) }; }
-    constexpr bitboard shift_sw () const noexcept { return bitboard { ( bits >> 9 ) & mtoi ( mask::not_h_file ) }; }
+    constexpr bitboard shift_n  () const noexcept { return bitboard { ( bits << 8 ) }; }
+    constexpr bitboard shift_s  () const noexcept { return bitboard { ( bits >> 8 ) }; }
+    constexpr bitboard shift_e  () const noexcept { return bitboard { ( bits << 1 ) & masks::not_a_file }; }
+    constexpr bitboard shift_w  () const noexcept { return bitboard { ( bits >> 1 ) & masks::not_h_file }; }
+    constexpr bitboard shift_ne () const noexcept { return bitboard { ( bits << 9 ) & masks::not_a_file }; }
+    constexpr bitboard shift_nw () const noexcept { return bitboard { ( bits << 7 ) & masks::not_h_file }; }
+    constexpr bitboard shift_se () const noexcept { return bitboard { ( bits >> 7 ) & masks::not_a_file }; }
+    constexpr bitboard shift_sw () const noexcept { return bitboard { ( bits >> 9 ) & masks::not_h_file }; }
+
+
+
+    /* FILL ALGORITHMS */
+
+    /** @name  occluded_fill_[compass]
+     * 
+     * @brief  fill the board in a given direction taking into account occluders
+     * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
+     * @param  p: propagator set: set bits are where the board is allowed to flow, by default universe
+     * @return a new bitboard
+     */
+    constexpr bitboard occluded_fill_n  ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_s  ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_e  ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_w  ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_ne ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_nw ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_se ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard occluded_fill_sw ( bitboard p = ~bitboard {} ) const noexcept;
 
 
 
@@ -332,6 +381,19 @@ public:
 
 
 
+    /* FORMATTING */
+
+    /** @name  format_board
+     * 
+     * @brief  return a string containing newlines for a 8x8 representation of the board
+     * @param  zero: the character to insert for 0, default .
+     * @param  one:  the character to insert for 1, default #
+     * @return the formatted string
+     */
+    std::string format_board ( const char zero = '.', const char one = '#' ) const;
+
+
+
 private:
 
     /* ATTRIBUTES */
@@ -343,14 +405,6 @@ private:
 
     /* INTERNAL METHODS */
 
-    /** @name  mtoi
-     * 
-     * @brief  converts a mask enum to a unsigned long long
-     * @param  m: the mask to convert
-     * @return unsigned long long
-     */
-    constexpr unsigned long long mtoi ( const mask m ) const noexcept { return static_cast<unsigned long long> ( m ); }
-
     /** @name  single_bitset
      *
      * @brief  create a 64-bit unsigned with one bit set
@@ -359,7 +413,7 @@ private:
      * @param  file: the file of the bit [0,7]
      * @return the 64-bit integer
      */
-    constexpr unsigned long long single_bitset ( const unsigned pos ) const noexcept { return single_bitset ( pos ); }
+    constexpr unsigned long long single_bitset ( const unsigned pos ) const noexcept { return ( 0x1ull << pos ); }
     constexpr unsigned long long single_bitset ( const unsigned rank, const unsigned file ) const noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
 
 };

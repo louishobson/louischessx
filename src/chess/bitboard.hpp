@@ -26,6 +26,7 @@
 /** @name  vertical_flip
  * 
  * @brief  flip the board vertically
+ * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return a new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcept 
@@ -34,100 +35,205 @@ inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcep
 #ifdef CHESS_BUILTIN_BSWAP64
     return bitboard { CHESS_BUILTIN_BSWAP64 ( bits ) }; 
 #else
-    constexpr unsigned long long k1 = 0x00FF00FF00FF00FF, k2 = 0x0000FFFF0000FFFF;
-    unsigned long long x = bits;
+    constexpr bitboard k1 { 0x00FF00FF00FF00FF }, k2 { 0x0000FFFF0000FFFF };
+    bitboard x { bits };
     x = ( ( x >>  8 ) & k1 ) | ( ( x & k1 ) <<  8 );
     x = ( ( x >> 16 ) & k2 ) | ( ( x & k2 ) << 16 );
     x = ( ( x >> 32 )      ) | ( ( x      ) << 32 );
-    return bitboard { x };
+    return x;
 #endif
 }
 
 /** @name  horizontal_flip
  * 
  * @brief  flip the board horizontally
+ * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return a new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::horizontal_flip () const noexcept
 {
     /* manually compute using rotations */
-    constexpr unsigned long long k1 = 0x5555555555555555, k2 = 0x3333333333333333, k4 = 0x0F0F0F0F0F0F0F0F;
-    unsigned long long x = bits;
-    x ^= k4 & ( x ^ std::rotl ( x, 8 ) );
-    x ^= k2 & ( x ^ std::rotl ( x, 4 ) );
-    x ^= k1 & ( x ^ std::rotl ( x, 2 ) );
-    return bitboard { std::rotr ( x, 7 ) };
+    constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0F0F0F0F0F0F0F0F };
+    bitboard x { bits };
+    x ^= k4 & ( x ^ x.bit_rotl ( 8 ) );
+    x ^= k2 & ( x ^ x.bit_rotl ( 4 ) );
+    x ^= k1 & ( x ^ x.bit_rotl ( 2 ) );
+    return x.bit_rotr ( 7 );
 }
 
 /** @name  pos_diag_flip
  * 
  * @brief  flip the board along y=x
+ * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return a new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::pos_diag_flip () const noexcept
 {
     /* manually compute */
-    constexpr unsigned long long k1 = 0x5500550055005500, k2 = 0x3333000033330000, k4 = 0x0F0F0F0F00000000;
-    unsigned long long x = bits, t;
+    constexpr bitboard k1 { 0x5500550055005500 }, k2 { 0x3333000033330000 }, k4 { 0x0F0F0F0F00000000 };
+    bitboard x { bits }, t;
     t  = k4 & ( x ^ ( x << 28 ) );
     x ^=      ( t ^ ( t >> 28 ) );
     t  = k2 & ( x ^ ( x << 14 ) );
     x ^=      ( t ^ ( t >> 14 ) );
     t  = k1 & ( x ^ ( x <<  7 ) );
     x ^=      ( t ^ ( t >>  7 ) );
-    return bitboard { x };
+    return x;
 }
 
 /** @name  neg_diag_flip
  * 
  * @brief  flip the board along y=-x
+ * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return a new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcept
 {
     /* manually compute */
-    constexpr unsigned long long k1 = 0xAA00AA00AA00AA00, k2 = 0xCCCC0000CCCC0000, k4 = 0xF0F0F0F00F0F0F0F;
-    unsigned long long x = bits, t;
+    constexpr bitboard k1 { 0xAA00AA00AA00AA00 }, k2 { 0xCCCC0000CCCC0000 }, k4 { 0xF0F0F0F00F0F0F0F };
+    bitboard x { bits }, t;
     t  =      ( x ^ ( x << 36 ) );
     x ^= k4 & ( t ^ ( x >> 36 ) );
     t  = k2 & ( x ^ ( x << 18 ) );
     x ^=      ( t ^ ( t >> 18 ) );
     t  = k1 & ( x ^ ( x <<  9 ) );
     x ^=      ( t ^ ( t >>  9 ) );
-    return bitboard { x };
+    return x;
 }
 
 /** @name  pseudo_rotate_45_clock
  * 
  * @brief  flip the positive diagonals to ranks
- * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
+ * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
  * @return a new board
  */
 inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () const noexcept
 {
-    constexpr unsigned long long k1 = 0xAAAAAAAAAAAAAAAA, k2 = 0xCCCCCCCCCCCCCCCC, k4 = 0xF0F0F0F0F0F0F0F0;
-    unsigned long long x = bits;
-    x ^= k1 & ( x ^ std::rotr ( x,  8 ) );
-    x ^= k2 & ( x ^ std::rotr ( x, 16 ) );
-    x ^= k4 & ( x ^ std::rotr ( x, 32 ) );
-    return bitboard { x };
+    constexpr bitboard k1 { 0xAAAAAAAAAAAAAAAA }, k2 { 0xCCCCCCCCCCCCCCCC }, k4 { 0xF0F0F0F0F0F0F0F0 };
+    bitboard x { bits };
+    x ^= k1 & ( x ^ x.bit_rotr (  8 ) );
+    x ^= k2 & ( x ^ x.bit_rotr ( 16 ) );
+    x ^= k4 & ( x ^ x.bit_rotr ( 32 ) );
+    return x;
 }
 
 /** @name  pseudo_rotate_45_aclock
  * 
  * @brief  flip the negative diagonals to ranks
- * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
+ * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
  * @return a new board
  */
 inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () const noexcept
 {
-    constexpr unsigned long long k1 = 0x5555555555555555, k2 = 0x3333333333333333, k4 = 0x0F0F0F0F0F0F0F0F;
-    unsigned long long x = bits;
-    x ^= k1 & ( x ^ std::rotr ( x,  8 ) );
-    x ^= k2 & ( x ^ std::rotr ( x, 16 ) );
-    x ^= k4 & ( x ^ std::rotr ( x, 32 ) );
-    return bitboard { x };
+    constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0F0F0F0F0F0F0F0F };
+    bitboard x { bits };
+    x ^= k1 & ( x ^ x.bit_rotr (  8 ) );
+    x ^= k2 & ( x ^ x.bit_rotr ( 16 ) );
+    x ^= k4 & ( x ^ x.bit_rotr ( 32 ) );
+    return x;
 }
+
+/** @name  occluded_fill_[compass]
+ * 
+ * @brief  fill the board in a given direction taking into account occluders
+ * @see    https://www.chesspgramming.org/Kogge-Stone_Algorithm#OccludedFill
+ * @param  p: ppagator set: set bits are where the board is allowed to flow, by default universe
+ * @return a new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_n ( bitboard p ) const noexcept
+{
+    bitboard x { bits };
+    x |= p & ( x <<  8 );
+    p &=     ( p <<  8 );
+    x |= p & ( x << 16 );
+    p &=     ( p << 16 );
+    x |= p & ( x << 32 );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_s ( bitboard p ) const noexcept
+{
+    bitboard x { bits };
+    x |= p & ( x >>  8 );
+    p &=     ( p >>  8 );
+    x |= p & ( x >> 16 );
+    p &=     ( p >> 16 );
+    x |= p & ( x >> 32 );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_e ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::not_a_file };
+    bitboard x { bits };
+    p &= k1;
+    x |= p & ( x << 1 );
+    p &=     ( p << 1 );
+    x |= p & ( x << 2 );
+    p &=     ( p << 2 );
+    x |= p & ( x << 4 );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_w ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::not_a_file };
+    bitboard x { bits };
+    p &= k1;
+    x |= p & ( x >> 1 );
+    p &=     ( p >> 1 );
+    x |= p & ( x >> 2 );
+    p &=     ( p >> 2 );
+    x |= p & ( x >> 4 );
+    return  x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_ne ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::not_a_file };
+    bitboard x { bits };
+    p &= k1;
+    x |= p & ( x <<  9 );
+    p &=     ( p <<  9 );
+    x |= p & ( x << 18 );
+    p &=     ( p << 18 );
+    x |= p & ( x << 36 );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_nw ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::not_h_file };
+    bitboard x { bits };
+    p &= k1;
+    x |= p & ( x <<  7 );
+    p &=     ( p <<  7 );
+    x |= p & ( x << 14 );
+    p &=     ( p << 14 );
+    x |= p & ( x << 28 );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_se ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::not_a_file };
+    bitboard x { bits };
+    p &= k1;
+    x |= p & ( x >>  7 );
+    p &=     ( p >>  7 );
+    x |= p & ( x >> 14 );
+    p &=     ( p >> 14 );
+    x |= p & ( x >> 28 );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::occluded_fill_sw ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::not_h_file };
+    bitboard x { bits };
+    p &= k1;
+    x |= p & ( x >>  9 );
+    p &=     ( p >>  9 );
+    x |= p & ( x >> 18 );
+    p &=     ( p >> 18 );
+    x |= p & ( x >> 36 );
+    return x;
+}
+
+
 
 
 
