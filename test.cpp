@@ -6,7 +6,7 @@
  * 
  * test.cpp
  * 
- * test source for Chess
+ * Test source for Chess
  * 
  */
 
@@ -22,15 +22,15 @@
 
 int main ()
 {
-    unsigned long long i;
-    std::cin >> i; 
+    //unsigned long long i;
+    //std::cin >> i; 
 
-    chess::bitboard a { i };
+    chess::bitboard a { 0x1 };
 
     /* DONE! */
 
     //std::cout << a.format_board () << std::endl << a.vertical_flip ().format_board () << std::endl;
-    std::cout << a.occluded_fill_ne ().format_board ();
+    std::cout << a.span_ne ( ~chess::bitboard { 255 }.rotate_90_aclock () ).popcount ();
 
 
 

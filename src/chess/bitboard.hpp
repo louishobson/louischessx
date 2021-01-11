@@ -6,7 +6,7 @@
  * 
  * src/chess/bitboard.hpp
  * 
- * inline implementation of include/chess/bitboard.h
+ * Inline implementation of include/chess/bitboard.h
  * 
  */
 
@@ -25,13 +25,13 @@
 
 /** @name  vertical_flip
  * 
- * @brief  flip the board vertically
+ * @brief  Flip the board vertically
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
- * @return a new bitboard
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcept 
 {
-    /* use builtin if availible, otherwise compute manually */
+    /* Use builtin if availible, otherwise compute manually */
 #ifdef CHESS_BUILTIN_BSWAP64
     return bitboard { CHESS_BUILTIN_BSWAP64 ( bits ) }; 
 #else
@@ -46,13 +46,12 @@ inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcep
 
 /** @name  horizontal_flip
  * 
- * @brief  flip the board horizontally
+ * @brief  Flip the board horizontally
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
- * @return a new bitboard
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::horizontal_flip () const noexcept
 {
-    /* manually compute using rotations */
     constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0F0F0F0F0F0F0F0F };
     bitboard x { bits };
     x ^= k4 & ( x ^ x.bit_rotl ( 8 ) );
@@ -63,13 +62,12 @@ inline constexpr chess::bitboard chess::bitboard::horizontal_flip () const noexc
 
 /** @name  pos_diag_flip
  * 
- * @brief  flip the board along y=x
+ * @brief  Flip the board along y=x
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
- * @return a new bitboard
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::pos_diag_flip () const noexcept
 {
-    /* manually compute */
     constexpr bitboard k1 { 0x5500550055005500 }, k2 { 0x3333000033330000 }, k4 { 0x0F0F0F0F00000000 };
     bitboard x { bits }, t;
     t  = k4 & ( x ^ ( x << 28 ) );
@@ -83,13 +81,12 @@ inline constexpr chess::bitboard chess::bitboard::pos_diag_flip () const noexcep
 
 /** @name  neg_diag_flip
  * 
- * @brief  flip the board along y=-x
+ * @brief  Flip the board along y=-x
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
- * @return a new bitboard
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcept
 {
-    /* manually compute */
     constexpr bitboard k1 { 0xAA00AA00AA00AA00 }, k2 { 0xCCCC0000CCCC0000 }, k4 { 0xF0F0F0F00F0F0F0F };
     bitboard x { bits }, t;
     t  =      ( x ^ ( x << 36 ) );
@@ -103,9 +100,9 @@ inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcep
 
 /** @name  pseudo_rotate_45_clock
  * 
- * @brief  flip the positive diagonals to ranks
+ * @brief  Flip the positive diagonals to ranks
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
- * @return a new board
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () const noexcept
 {
@@ -119,9 +116,9 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () cons
 
 /** @name  pseudo_rotate_45_aclock
  * 
- * @brief  flip the negative diagonals to ranks
+ * @brief  Flip the negative diagonals to ranks
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
- * @return a new board
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () const noexcept
 {
@@ -135,10 +132,10 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
 
 /** @name  fill_[compass]
  * 
- * @brief  fill the board in a given direction taking into account occluders
- * @see    https://www.chesspgramming.org/Kogge-Stone_Algorithm#OccludedFill
- * @param  p: ppagator set: set bits are where the board is allowed to flow, by default universe
- * @return a new bitboard
+ * @brief  Fill the board in a given direction taking into account occluders
+ * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
+ * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
+ * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::fill_n ( bitboard p ) const noexcept
 {

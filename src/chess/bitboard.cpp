@@ -6,7 +6,7 @@
  * 
  * src/chess/bitboard.cpp
  * 
- * implementation of include/chess/bitboard.h
+ * Implementation of include/chess/bitboard.h
  * 
  */
 
@@ -21,20 +21,20 @@
 
 /** @name  format_board
  * 
- * @brief  return a string containing newlines for a 8x8 representation of the board
- * @param  zero: the character to insert for 0
- * @param  one:  the character to insert for 1
- * @return the formatted string
+ * @brief  Return a string containing newlines for a 8x8 representation of the board
+ * @param  zero: The character to insert for 0
+ * @param  one:  The character to insert for 1
+ * @return The formatted string
  */
 std::string chess::bitboard::format_board ( const char zero, const char one ) const
 {
-    /* flip the board vertically to access the top rank first */
+    /* Flip the board vertically to access the top rank first */
     bitboard trans = vertical_flip ();
 
-    /* add to string one byte at a time */
+    /* Add to string one byte at a time */
     std::string out;
     for ( unsigned i = 0; i < 64; ++i ) { out += ( trans.test ( i ) ? one : zero ); out += ( ( i + 1 ) & 7 ? " " : "\n" ); };
 
-    /* return the formatted board */
+    /* Return the formatted board */
     return out;
 }

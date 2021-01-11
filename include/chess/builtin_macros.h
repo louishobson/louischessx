@@ -6,7 +6,7 @@
  * 
  * include/chess/builtin_macros.h
  * 
- * checks for builtin or intrinsic functions and aliases them with macros
+ * Checks for builtin or intrinsic functions and aliases them with macros
  * 
  */
 
@@ -20,9 +20,9 @@
 
 /** @name  CHESS_BUILTIN_POPCOUNT64
  * 
- * @brief  finds the popcount of a 64-bit integer
- * @param  x: the integer
- * @return the number of set zeros
+ * @brief  Finds the popcount of a 64-bit integer
+ * @param  x: The integer
+ * @return The number of set zeros
  */
 #if ( __GNUC__ > 3 ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ > 4 ) ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ == 4 ) && ( __GNUC_PATCHLEVEL__ >= 6 ) )
     #define CHESS_BUILTIN_POPCOUNT64( x ) __builtin_popcountll ( x )
@@ -32,9 +32,9 @@
 
 /** @name  CHESS_BUILTIN_CLZ64/CTZ64
  * 
- * @brief  counts the leading/trailing zeros of a 64-bit integer
- * @param  x: the integer
- * @return the number of leading/trailing zeros
+ * @brief  Counts the leading/trailing zeros of a 64-bit integer
+ * @param  x: The integer
+ * @return The number of leading/trailing zeros
  */
 #if ( __GNUC__ > 3 ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ > 4 ) ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ == 4 ) && ( __GNUC_PATCHLEVEL__ >= 6 ) )
     #define CHESS_BUILTIN_CLZ64( x ) __builtin_clzll ( x )
@@ -45,9 +45,9 @@
 
 /** @name  CHESS_BUILTIN_BSWAP64
  * 
- * @brief  vertically swaps the bytes of a 64-bit integer
- * @param  x: the integer
- * @return the swapped integer
+ * @brief  Vertically swaps the bytes of a 64-bit integer
+ * @param  x: The integer
+ * @return The swapped integer
  */
 #if ( __GNUC__ > 4 ) || ( ( __GNUC__ == 4 ) && ( __GNUC_MINOR__ > 3 ) ) || ( ( __GNUC__ == 4 ) && ( __GNUC_MINOR__ == 3 ) && ( __GNUC_PATCHLEVEL__ >= 6 ) )
     #define CHESS_BUILTIN_BSWAP64( x ) __builtin_bswap64 ( x )
