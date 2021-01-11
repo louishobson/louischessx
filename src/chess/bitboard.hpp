@@ -133,14 +133,14 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
     return x;
 }
 
-/** @name  occluded_fill_[compass]
+/** @name  fill_[compass]
  * 
  * @brief  fill the board in a given direction taking into account occluders
  * @see    https://www.chesspgramming.org/Kogge-Stone_Algorithm#OccludedFill
  * @param  p: ppagator set: set bits are where the board is allowed to flow, by default universe
  * @return a new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_n ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_n ( bitboard p ) const noexcept
 {
     bitboard x { bits };
     x |= p & ( x <<  8 );
@@ -150,7 +150,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_n ( bitboard p )
     x |= p & ( x << 32 );
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_s ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_s ( bitboard p ) const noexcept
 {
     bitboard x { bits };
     x |= p & ( x >>  8 );
@@ -160,7 +160,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_s ( bitboard p )
     x |= p & ( x >> 32 );
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_e ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_e ( bitboard p ) const noexcept
 {
     constexpr bitboard k1 { masks::not_a_file };
     bitboard x { bits };
@@ -172,7 +172,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_e ( bitboard p )
     x |= p & ( x << 4 );
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_w ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_w ( bitboard p ) const noexcept
 {
     constexpr bitboard k1 { masks::not_a_file };
     bitboard x { bits };
@@ -184,7 +184,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_w ( bitboard p )
     x |= p & ( x >> 4 );
     return  x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_ne ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_ne ( bitboard p ) const noexcept
 {
     constexpr bitboard k1 { masks::not_a_file };
     bitboard x { bits };
@@ -196,7 +196,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_ne ( bitboard p 
     x |= p & ( x << 36 );
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_nw ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_nw ( bitboard p ) const noexcept
 {
     constexpr bitboard k1 { masks::not_h_file };
     bitboard x { bits };
@@ -208,7 +208,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_nw ( bitboard p 
     x |= p & ( x << 28 );
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_se ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_se ( bitboard p ) const noexcept
 {
     constexpr bitboard k1 { masks::not_a_file };
     bitboard x { bits };
@@ -220,7 +220,7 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_se ( bitboard p 
     x |= p & ( x >> 28 );
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::occluded_fill_sw ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill_sw ( bitboard p ) const noexcept
 {
     constexpr bitboard k1 { masks::not_h_file };
     bitboard x { bits };
@@ -232,8 +232,6 @@ inline constexpr chess::bitboard chess::bitboard::occluded_fill_sw ( bitboard p 
     x |= p & ( x >> 36 );
     return x;
 }
-
-
 
 
 
