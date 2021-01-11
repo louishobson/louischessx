@@ -15,7 +15,7 @@
 /* INCLUDES */
 #include <chess/bitboard.h>
 
-#include <iostream>
+
 
 /* FORMATTING */
 
