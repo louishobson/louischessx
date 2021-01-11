@@ -95,8 +95,8 @@ public:
      * @param  pt: One of piece_type
      * @return The bitboard for pt 
      */
-    bitboard& get ( const piece_type pt ) { return boards.at ( ptoi ( pt ) ); } 
-    const bitboard& get ( const piece_type pt ) const { return boards.at ( ptoi ( pt ) ); }
+    bitboard& get ( piece_type pt ) { return boards.at ( ptoi ( pt ) ); } 
+    const bitboard& get ( piece_type pt ) const { return boards.at ( ptoi ( pt ) ); }
 
     /** @name  get_comp
      * 
@@ -105,7 +105,7 @@ public:
      * @param  pt1: One of piece_type
      * @return The bitboard for pt 
      */
-    bitboard get ( const piece_type pt0, const piece_type pt1 ) const { return boards.at ( ptoi ( pt0 ) ) & boards.at ( ptoi ( pt0 ) ); }
+    bitboard get ( piece_type pt0, const piece_type pt1 ) const { return boards.at ( ptoi ( pt0 ) ) & boards.at ( ptoi ( pt0 ) ); }
 
 
 
@@ -126,7 +126,7 @@ private:
      * @param  pt: The piece_type to convert
      * @return integer
      */
-    constexpr int ptoi ( const piece_type pt ) const noexcept { return static_cast<int> ( pt ); }
+    constexpr int ptoi ( piece_type pt ) const noexcept { return static_cast<int> ( pt ); }
 
 };
 

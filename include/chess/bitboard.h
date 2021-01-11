@@ -76,7 +76,7 @@ public:
     constexpr bitboard () noexcept : bits { 0 } {}
 
     /** @name bits constructor */
-    explicit constexpr bitboard ( const unsigned long long _bits ) noexcept : bits { _bits } {}
+    explicit constexpr bitboard ( unsigned long long _bits ) noexcept : bits { _bits } {}
 
 
 
@@ -132,8 +132,8 @@ public:
      * @param  offset: The amount to shift by
      * @return A new bitboard
      */
-    constexpr bitboard operator<< ( const unsigned offset ) const noexcept { return bitboard { bits << offset }; }
-    constexpr bitboard operator>> ( const unsigned offset ) const noexcept { return bitboard { bits >> offset }; }
+    constexpr bitboard operator<< ( unsigned offset ) const noexcept { return bitboard { bits << offset }; }
+    constexpr bitboard operator>> ( unsigned offset ) const noexcept { return bitboard { bits >> offset }; }
 
     /** @name  operator<<=, operator>>=
      * 
@@ -141,8 +141,8 @@ public:
      * @param  offset: The amount to shift by
      * @return A reference to this bitboard
      */
-    constexpr bitboard& operator<<= ( const unsigned offset ) noexcept { bits <<= offset; return * this; }
-    constexpr bitboard& operator>>= ( const unsigned offset ) noexcept { bits >>= offset; return * this; }
+    constexpr bitboard& operator<<= ( unsigned offset ) noexcept { bits <<= offset; return * this; }
+    constexpr bitboard& operator>>= ( unsigned offset ) noexcept { bits >>= offset; return * this; }
 
 
 
@@ -240,8 +240,8 @@ public:
      * @param  offset: The amount to shift by, defined for [1,63]
      * @return A new bitboard
      */
-    constexpr bitboard bit_rotl ( const unsigned offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
-    constexpr bitboard bit_rotr ( const unsigned offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
+    constexpr bitboard bit_rotl ( unsigned offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
+    constexpr bitboard bit_rotr ( unsigned offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
 
     /** @name  vertical_flip
      * 
@@ -378,12 +378,12 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return void
      */
-    constexpr void set    ( const unsigned pos ) noexcept { bits |=  single_bitset ( pos ); }
-    constexpr void reset  ( const unsigned pos ) noexcept { bits &= ~single_bitset ( pos ); }
-    constexpr void toggle ( const unsigned pos ) noexcept { bits ^=  single_bitset ( pos ); }
-    constexpr void set    ( const unsigned rank, const unsigned file ) noexcept { bits |=  single_bitset ( rank, file ); }
-    constexpr void reset  ( const unsigned rank, const unsigned file ) noexcept { bits &= ~single_bitset ( rank, file ); }
-    constexpr void toggle ( const unsigned rank, const unsigned file ) noexcept { bits ^=  single_bitset ( rank, file ); }
+    constexpr void set    ( unsigned pos ) noexcept { bits |=  single_bitset ( pos ); }
+    constexpr void reset  ( unsigned pos ) noexcept { bits &= ~single_bitset ( pos ); }
+    constexpr void toggle ( unsigned pos ) noexcept { bits ^=  single_bitset ( pos ); }
+    constexpr void set    ( unsigned rank, unsigned file ) noexcept { bits |=  single_bitset ( rank, file ); }
+    constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~single_bitset ( rank, file ); }
+    constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  single_bitset ( rank, file ); }
 
     /** @name  test
      * 
@@ -393,8 +393,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return boolean
      */
-    constexpr bool test ( const unsigned pos ) const noexcept { return ( bits & single_bitset ( pos ) ); }
-    constexpr bool test ( const unsigned rank, const unsigned file ) const noexcept { return ( bits & single_bitset ( rank, file ) ); }
+    constexpr bool test ( unsigned pos ) const noexcept { return ( bits & single_bitset ( pos ) ); }
+    constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return ( bits & single_bitset ( rank, file ) ); }
 
 
 
@@ -430,8 +430,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return The 64-bit integer
      */
-    constexpr unsigned long long single_bitset ( const unsigned pos ) const noexcept { return ( 0x1ull << pos ); }
-    constexpr unsigned long long single_bitset ( const unsigned rank, const unsigned file ) const noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
+    constexpr unsigned long long single_bitset ( unsigned pos ) const noexcept { return ( 0x1ull << pos ); }
+    constexpr unsigned long long single_bitset ( unsigned rank, unsigned file ) const noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
 
 };
 
