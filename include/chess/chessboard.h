@@ -60,7 +60,7 @@ public:
      *
      * Enum values for the different bitboards
      */
-    enum class piece_type : int
+    enum class piece_type
     {
         white,
         black,
