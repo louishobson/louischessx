@@ -169,7 +169,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_s ( bitboard p ) const no
 }
 inline constexpr chess::bitboard chess::bitboard::fill_e ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { ~masks::file_h };
+    constexpr bitboard k1 { ~masks::file_a };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x << 1 );
@@ -193,7 +193,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_w ( bitboard p ) const no
 }
 inline constexpr chess::bitboard chess::bitboard::fill_ne ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { ~masks::file_h };
+    constexpr bitboard k1 { ~masks::file_a };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x <<  9 );
@@ -217,7 +217,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_nw ( bitboard p ) const n
 }
 inline constexpr chess::bitboard chess::bitboard::fill_se ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { ~masks::file_h };
+    constexpr bitboard k1 { ~masks::file_a };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x >>  7 );
