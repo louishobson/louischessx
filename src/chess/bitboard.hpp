@@ -144,122 +144,54 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
  * 
  * @brief  Fill the board in a given direction taking into account occluders
  * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
+ * @param  dir: The direction to shift
  * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::fill_n ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p ) const noexcept
 {
-    bitboard x { bits };
-    x |= p & ( x <<  8 );
-    p &=     ( p <<  8 );
-    x |= p & ( x << 16 );
-    p &=     ( p << 16 );
-    x |= p & ( x << 32 );
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_s ( bitboard p ) const noexcept
-{
-    bitboard x { bits };
-    x |= p & ( x >>  8 );
-    p &=     ( p >>  8 );
-    x |= p & ( x >> 16 );
-    p &=     ( p >> 16 );
-    x |= p & ( x >> 32 );
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_e ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { ~masks::file_a };
-    bitboard x { bits };
-    p &= k1;
-    x |= p & ( x << 1 );
-    p &=     ( p << 1 );
-    x |= p & ( x << 2 );
-    p &=     ( p << 2 );
-    x |= p & ( x << 4 );
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_w ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { ~masks::file_h };
-    bitboard x { bits };
-    p &= k1;
-    x |= p & ( x >> 1 );
-    p &=     ( p >> 1 );
-    x |= p & ( x >> 2 );
-    p &=     ( p >> 2 );
-    x |= p & ( x >> 4 );
-    return  x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_ne ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { ~masks::file_a };
-    bitboard x { bits };
-    p &= k1;
-    x |= p & ( x <<  9 );
-    p &=     ( p <<  9 );
-    x |= p & ( x << 18 );
-    p &=     ( p << 18 );
-    x |= p & ( x << 36 );
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_nw ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { ~masks::file_h };
-    bitboard x { bits };
-    p &= k1;
-    x |= p & ( x <<  7 );
-    p &=     ( p <<  7 );
-    x |= p & ( x << 14 );
-    p &=     ( p << 14 );
-    x |= p & ( x << 28 );
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_se ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { ~masks::file_a };
-    bitboard x { bits };
-    p &= k1;
-    x |= p & ( x >>  7 );
-    p &=     ( p >>  7 );
-    x |= p & ( x >> 14 );
-    p &=     ( p >> 14 );
-    x |= p & ( x >> 28 );
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::fill_sw ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { ~masks::file_h };
-    bitboard x { bits };
-    p &= k1;
-    x |= p & ( x >>  9 );
-    p &=     ( p >>  9 );
-    x |= p & ( x >> 18 );
-    p &=     ( p >> 18 );
-    x |= p & ( x >> 36 );
+    bitboard x { bits }; int r = shift_val ( dir );
+    p &=     shift_mask ( dir );
+    x |= p & x.bitshift ( r );
+    p &=     p.bitshift ( r );
+    x |= p & x.bitshift ( r * 2 );
+    p &=     p.bitshift ( r * 2 );
+    x |= p & x.bitshift ( r * 4 );
     return x;
 }
 
-/** @name  pawn_push_n/s
+/** @name  pawn_push_attack
  * 
- * @brief  Gives the span of pawn pushes, including double pushes
+ * @brief  Gives the span of pawn pushes or attacks, depending on the compass direction given
  * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
- * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
+ * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
+ * @param  dir: The direction to push or attack in
+ * @param  p: Propagator set: if pushing then set bits are empty cells; if attacking then set bits are opposing pieces; universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::pawn_push_attack ( compass dir, bitboard p ) const
 {
-    constexpr bitboard k1 { masks::rank_4 };
-    bitboard x { p &   shift_n () };
-    x |=    k1 & p & x.shift_n ();
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) const noexcept
-{
-    constexpr bitboard k1 { masks::rank_5 };
-    bitboard x { p &   shift_s () };
-    x |=    k1 & p & x.shift_s ();
-    return x;
+    /* if is a north push */
+    if ( dir == compass::n )
+    {
+        constexpr bitboard k1 { masks::rank_4 };
+        bitboard x { shift ( compass::n ) & p };
+        return { x | ( x.shift ( compass::n ) & p & k1 ) };
+    } else
+
+    /* if is a south push */
+    if ( dir == compass::s )
+    {
+        constexpr bitboard k1 { masks::rank_4 };
+        bitboard x { shift ( compass::s ) & p };
+        return { x | ( x.shift ( compass::s ) & p & k1 ) };
+    } else
+
+    /* if is an attack */
+    {
+        assert (( dir != compass::w && dir != compass::e ));
+        return shift ( dir ) & p;
+    }
 }
 
 /** @name  knight_any_attack

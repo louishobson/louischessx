@@ -26,6 +26,7 @@
 
 /* INCLUDES */
 #include <bit>
+#include <cassert>
 #include <chess/builtin_macros.h>
 #include <string>
 
@@ -35,6 +36,19 @@
 
 namespace chess
 {
+
+    /* enum compass
+     *
+     * Enum for compass directions
+     */
+    enum class compass { sw, s, se, w, e, nw, n, ne };
+
+    /* enum knight_compass
+     *
+     * Enum for knight compass directions
+     */
+    enum class knight_compass { ssw, sse, sww, see, nww, nee, nnw, nne };
+
     /* class bitboard
      *
      * Purely a 64 bit integer with member functions to aid access, query and manipulation.
@@ -223,11 +237,19 @@ public:
     /** @name  bit_rotl/r
      * 
      * @brief  Applied a wrapping binary shift
-     * @param  offset: The amount to shift by, defined for [1,63]
+     * @param  offset: The amount to shift by
      * @return A new bitboard
      */
-    constexpr bitboard bit_rotl ( unsigned offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
-    constexpr bitboard bit_rotr ( unsigned offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
+    constexpr bitboard bit_rotl ( int offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
+    constexpr bitboard bit_rotr ( int offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
+
+    /** @name  bitshift
+     * 
+     * @brief  Generalised bitwise shift, shifting left when positive and right when negative
+     * @param  offset: The amount to shift by
+     * @return A new bitboard
+     */
+    constexpr bitboard bitshift ( int offset ) const noexcept { return bitboard { offset > 0 ? ( bits << offset ) : ( bits >> -offset ) }; }
 
     /** @name  vertical_flip
      * 
@@ -298,31 +320,19 @@ public:
      * 
      * @brief  Shift the bitboard by one step based on a compass direction
      * @see    https://www.chessprogramming.org/General_Setwise_Operations#Shifting_Bitboards
+     * @param  dir: The direction to shift
      * @return A new bitboard
      */
-    constexpr bitboard shift_n  () const noexcept { return bitboard { ( bits << 8 ) }; }
-    constexpr bitboard shift_s  () const noexcept { return bitboard { ( bits >> 8 ) }; }
-    constexpr bitboard shift_e  () const noexcept { return bitboard { ( bits << 1 ) & ~masks::file_a }; }
-    constexpr bitboard shift_w  () const noexcept { return bitboard { ( bits >> 1 ) & ~masks::file_h }; }
-    constexpr bitboard shift_ne () const noexcept { return bitboard { ( bits << 9 ) & ~masks::file_a }; }
-    constexpr bitboard shift_nw () const noexcept { return bitboard { ( bits << 7 ) & ~masks::file_h }; }
-    constexpr bitboard shift_se () const noexcept { return bitboard { ( bits >> 7 ) & ~masks::file_a }; }
-    constexpr bitboard shift_sw () const noexcept { return bitboard { ( bits >> 9 ) & ~masks::file_h }; }
+    constexpr bitboard shift ( compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
 
     /** @name  knight_shift_[compass]
      * 
      * @brief  Shift the board based on knight compas directions
      * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
+     * @param  dir: The direction to shift
      * @return A new bitboard
      */
-    constexpr bitboard knight_shift_nne () const noexcept { return bitboard { ( bits << 17 ) & ~masks::file_a }; }
-    constexpr bitboard knight_shift_nnw () const noexcept { return bitboard { ( bits << 15 ) & ~masks::file_h }; }
-    constexpr bitboard knight_shift_nee () const noexcept { return bitboard { ( bits << 10 ) & ~masks::file_a & ~masks::file_b }; }
-    constexpr bitboard knight_shift_nww () const noexcept { return bitboard { ( bits <<  6 ) & ~masks::file_g & ~masks::file_h }; }
-    constexpr bitboard knight_shift_sse () const noexcept { return bitboard { ( bits >> 15 ) & ~masks::file_a }; }
-    constexpr bitboard knight_shift_ssw () const noexcept { return bitboard { ( bits >> 17 ) & ~masks::file_h }; }
-    constexpr bitboard knight_shift_see () const noexcept { return bitboard { ( bits >>  6 ) & ~masks::file_a & ~masks::file_b }; }
-    constexpr bitboard knight_shift_sww () const noexcept { return bitboard { ( bits >> 10 ) & ~masks::file_g & ~masks::file_h }; }
+    constexpr bitboard knight_shift ( knight_compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
 
 
 
@@ -332,56 +342,33 @@ public:
      * 
      * @brief  Fill the board in a given direction taking into account occluders
      * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
+     * @param  dir: The direction to fill
      * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard fill_n  ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_s  ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_e  ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_w  ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_ne ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_nw ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_se ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard fill_sw ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard fill ( compass dir, bitboard p = ~bitboard {} ) const noexcept;
 
     /** @name  span_[compass]
      * 
      * @brief  Gives the possible movement of sliding pieces (not including the initial position), taking into account occluders and attackable pieces
+     * @param  dir: The direction to fill
      * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
      * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
      *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
-    constexpr bitboard span_n  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_n  ( pp ).shift_n  () & ( pp | sp ) ); }
-    constexpr bitboard span_s  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_s  ( pp ).shift_s  () & ( pp | sp ) ); }
-    constexpr bitboard span_e  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_e  ( pp ).shift_e  () & ( pp | sp ) ); }
-    constexpr bitboard span_w  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_w  ( pp ).shift_w  () & ( pp | sp ) ); }
-    constexpr bitboard span_ne ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_ne ( pp ).shift_ne () & ( pp | sp ) ); }
-    constexpr bitboard span_nw ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_nw ( pp ).shift_nw () & ( pp | sp ) ); }
-    constexpr bitboard span_se ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_se ( pp ).shift_se () & ( pp | sp ) ); }
-    constexpr bitboard span_sw ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_sw ( pp ).shift_sw () & ( pp | sp ) ); }
+    constexpr bitboard span ( compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill ( dir ).shift ( dir ) & ( pp | sp ) ); }
 
-    /** @name  pawn_push_n/s
+    /** @name  pawn_push_attack
      * 
-     * @brief  Gives the span of pawn pushes, including double pushes where applicable
+     * @brief  Gives the span of pawn pushes or attacks, depending on the compass direction given
      * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
-     * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
-     * @return A new bitboard
-     */
-    constexpr bitboard pawn_push_n ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard pawn_push_s ( bitboard p = ~bitboard {} ) const noexcept;
-
-    /** @name  pawn_attack_[diagonal compass]
-     * 
-     * @brief  Gives the span of pawn attacks
      * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
-     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @param  dir: The direction to push or attack in
+     * @param  p: Propagator set: if pushing then set bits are empty cells; if attacking then set bits are opposing pieces; universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_attack_ne ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_ne () & p ); }
-    constexpr bitboard pawn_attack_nw ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_nw () & p ); }
-    constexpr bitboard pawn_attack_se ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_se () & p ); }
-    constexpr bitboard pawn_attack_sw ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_sw () & p ); }
+    constexpr bitboard pawn_push_attack ( compass dir, bitboard p = ~bitboard {} ) const;
 
     /** @name  pawn_any_attack_n/s
      * 
@@ -390,8 +377,8 @@ public:
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift_ne () | shift_nw () ) & p ); }
-    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift_se () | shift_sw () ) & p ); }
+    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::ne ) | shift ( compass::nw ) ) & p ); }
+    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::se ) | shift ( compass::sw ) ) & p ); }
 
     /** @name  pawn_double_attack_n/s
      * 
@@ -400,24 +387,18 @@ public:
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_ne () & shift_nw () & p ); }
-    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_se () & shift_sw () & p ); }
+    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::ne ) & shift ( compass::nw ) & p ); }
+    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::se ) & shift ( compass::sw ) & p ); }
 
     /** @name  knight_attack_[compass]
      * 
      * @brief  Shift the board based on knight compass directions
      * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
+     * @param  dir: The direction to attack in
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard knight_attack_nne ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nne () & p ); }
-    constexpr bitboard knight_attack_nnw ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nnw () & p ); }
-    constexpr bitboard knight_attack_nee ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nee () & p ); }
-    constexpr bitboard knight_attack_nww ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nww () & p ); }
-    constexpr bitboard knight_attack_sse ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_sse () & p ); }
-    constexpr bitboard knight_attack_ssw ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_ssw () & p ); }
-    constexpr bitboard knight_attack_see ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_see () & p ); }
-    constexpr bitboard knight_attack_sww ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_sww () & p ); }
+    constexpr bitboard knight_attack ( knight_compass dir, bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift ( dir ) & p ); }
 
     /** @name  knight_any_attack
      * 
@@ -481,13 +462,6 @@ public:
 
 private:
 
-    /* ATTRIBUTES */
-
-    /* The contents of the bitboard */
-    unsigned long long bits;
-
-
-
     /* TYPES */
 
     /* struct masks
@@ -496,33 +470,96 @@ private:
      */
     struct masks
     {
-        static constexpr unsigned long long empty         { 0x0000000000000000 };
-        static constexpr unsigned long long universe      { 0xFFFFFFFFFFFFFFFF };
-        static constexpr unsigned long long white_squares { 0x55AA55AA55AA55AA };
-        static constexpr unsigned long long black_squares { 0xAA55AA55AA55AA55 };
+        static constexpr unsigned long long empty           { 0x0000000000000000 };
+        static constexpr unsigned long long universe        { 0xFFFFFFFFFFFFFFFF };
+        static constexpr unsigned long long white_squares   { 0x55AA55AA55AA55AA };
+        static constexpr unsigned long long black_squares   { 0xAA55AA55AA55AA55 };
 
-        static constexpr unsigned long long file_a        { 0x0101010101010101 };
-        static constexpr unsigned long long file_b        { 0x0202020202020202 };
-        static constexpr unsigned long long file_c        { 0x0404040404040404 };
-        static constexpr unsigned long long file_d        { 0x0808080808080808 };
-        static constexpr unsigned long long file_e        { 0x1010101010101010 };
-        static constexpr unsigned long long file_f        { 0x2020202020202020 };
-        static constexpr unsigned long long file_g        { 0x4040404040404040 };
-        static constexpr unsigned long long file_h        { 0x8080808080808080 };
+        static constexpr unsigned long long file_a          { 0x0101010101010101 };
+        static constexpr unsigned long long file_b          { 0x0202020202020202 };
+        static constexpr unsigned long long file_c          { 0x0404040404040404 };
+        static constexpr unsigned long long file_d          { 0x0808080808080808 };
+        static constexpr unsigned long long file_e          { 0x1010101010101010 };
+        static constexpr unsigned long long file_f          { 0x2020202020202020 };
+        static constexpr unsigned long long file_g          { 0x4040404040404040 };
+        static constexpr unsigned long long file_h          { 0x8080808080808080 };
 
-        static constexpr unsigned long long rank_1        { 0x00000000000000FF };
-        static constexpr unsigned long long rank_2        { 0x000000000000FF00 };
-        static constexpr unsigned long long rank_3        { 0x0000000000FF0000 };
-        static constexpr unsigned long long rank_4        { 0x00000000FF000000 };
-        static constexpr unsigned long long rank_5        { 0x000000FF00000000 };
-        static constexpr unsigned long long rank_6        { 0x0000FF0000000000 };
-        static constexpr unsigned long long rank_7        { 0x00FF000000000000 };
-        static constexpr unsigned long long rank_8        { 0xFF00000000000000 };
+        static constexpr unsigned long long rank_1          { 0x00000000000000FF };
+        static constexpr unsigned long long rank_2          { 0x000000000000FF00 };
+        static constexpr unsigned long long rank_3          { 0x0000000000FF0000 };
+        static constexpr unsigned long long rank_4          { 0x00000000FF000000 };
+        static constexpr unsigned long long rank_5          { 0x000000FF00000000 };
+        static constexpr unsigned long long rank_6          { 0x0000FF0000000000 };
+        static constexpr unsigned long long rank_7          { 0x00FF000000000000 };
+        static constexpr unsigned long long rank_8          { 0xFF00000000000000 };
+
+        static constexpr unsigned long long shift_sw         { ~rank_8 & ~file_h };
+        static constexpr unsigned long long shift_s          { ~rank_8           };
+        static constexpr unsigned long long shift_se         { ~rank_8 & ~file_a };
+        static constexpr unsigned long long shift_w          {           ~file_h };
+        static constexpr unsigned long long shift_e          {           ~file_a };
+        static constexpr unsigned long long shift_nw         { ~rank_1 & ~file_h };
+        static constexpr unsigned long long shift_n          { ~rank_1           };
+        static constexpr unsigned long long shift_ne         { ~rank_1 & ~file_a };
+
+        static constexpr unsigned long long knight_shift_ssw { ~rank_8 & ~rank_7 & ~file_h           };
+        static constexpr unsigned long long knight_shift_sse { ~rank_8 & ~rank_7 & ~file_a           };
+        static constexpr unsigned long long knight_shift_sww { ~rank_8 &           ~file_h & ~file_g };
+        static constexpr unsigned long long knight_shift_see { ~rank_8 &           ~file_a & ~file_b };
+        static constexpr unsigned long long knight_shift_nww { ~rank_1 &           ~file_h & ~file_g };
+        static constexpr unsigned long long knight_shift_nee { ~rank_1 &           ~file_a & ~file_b };
+        static constexpr unsigned long long knight_shift_nnw { ~rank_1 & ~rank_2 & ~file_h           };
+        static constexpr unsigned long long knight_shift_nne { ~rank_1 & ~rank_2 & ~file_a           };
+    };
+
+
+
+    /* ATTRIBUTES */
+
+    /* The contents of the bitboard */
+    unsigned long long bits;
+
+    /* Shift amounts */
+    static constexpr int shift_vals [] = { -9, -8, -7, -1, 1, 7, 8, 9 };
+
+    /* Knight shift amounts */
+    static constexpr int knight_shift_vals [] = { -17, -15, -10, -6, 6, 10, 15, 17 };
+
+    /* Masks for shifts */
+    static constexpr unsigned long long shift_masks [] =
+    {
+        masks::shift_sw, masks::shift_s, masks::shift_se, masks::shift_w, masks::shift_e, masks::shift_nw, masks::shift_n, masks::shift_ne
+    };
+
+    /* Masks for knight shifts */
+    static constexpr unsigned long long knight_shift_masks [] =
+    {
+        masks::knight_shift_ssw, masks::knight_shift_sse, masks::knight_shift_sww, masks::knight_shift_see, masks::knight_shift_nww, masks::knight_shift_nee, masks::knight_shift_nnw, masks::knight_shift_nne
     };
 
 
 
     /* INTERNAL METHODS */
+
+    /** @name  ctoi
+     * 
+     * @brief  Cast a compass direction to an integer
+     * @param  dir: Compass direction
+     * @return integer
+     */
+    static constexpr int ctoi ( compass dir ) noexcept { return static_cast<int> ( dir ); }
+    static constexpr int ctoi ( knight_compass dir ) noexcept { return static_cast<int> ( dir ); }
+
+    /** @name  shift_val, shift_mask
+     * 
+     * @brief  Get a shift value or mask from a compass direction
+     * @param  dir: Compass direction
+     * @return Shift value or mask
+     */
+    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals         [ ctoi ( dir ) ]; }
+    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals  [ ctoi ( dir ) ]; }
+    static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ ctoi ( dir ) ] }; }
+    static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ ctoi ( dir ) ] }; }
 
     /** @name  singular_bitset
      *
@@ -532,8 +569,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return The 64-bit integer
      */
-    constexpr unsigned long long singular_bitset ( unsigned pos ) const noexcept { return ( 0x1ull << pos ); }
-    constexpr unsigned long long singular_bitset ( unsigned rank, unsigned file ) const noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
+    static constexpr unsigned long long singular_bitset ( unsigned pos ) noexcept { return ( 0x1ull << pos ); }
+    static constexpr unsigned long long singular_bitset ( unsigned rank, unsigned file ) noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
 
 };
 
