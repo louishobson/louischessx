@@ -316,7 +316,7 @@ public:
      */
     constexpr bitboard pseudo_rotate_45_aclock () const noexcept;
 
-    /** @name  shift_[compass]
+    /** @name  shift
      * 
      * @brief  Shift the bitboard by one step based on a compass direction
      * @see    https://www.chessprogramming.org/General_Setwise_Operations#Shifting_Bitboards
@@ -325,7 +325,7 @@ public:
      */
     constexpr bitboard shift ( compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
 
-    /** @name  knight_shift_[compass]
+    /** @name  knight_shift
      * 
      * @brief  Shift the board based on knight compas directions
      * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
@@ -338,7 +338,7 @@ public:
 
     /* FILL, MOVE AND CAPTURE ALGORITHMS */
 
-    /** @name  fill_[compass]
+    /** @name  fill
      * 
      * @brief  Fill the board in a given direction taking into account occluders
      * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
@@ -348,7 +348,7 @@ public:
      */
     constexpr bitboard fill ( compass dir, bitboard p = ~bitboard {} ) const noexcept;
 
-    /** @name  span_[compass]
+    /** @name  span
      * 
      * @brief  Gives the possible movement of sliding pieces (not including the initial position), taking into account occluders and attackable pieces
      * @param  dir: The direction to fill
@@ -390,7 +390,7 @@ public:
     constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::ne ) & shift ( compass::nw ) & p ); }
     constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::se ) & shift ( compass::sw ) & p ); }
 
-    /** @name  knight_attack_[compass]
+    /** @name  knight_attack
      * 
      * @brief  Shift the board based on knight compass directions
      * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation

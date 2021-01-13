@@ -140,7 +140,7 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
 
 
 
-/** @name  fill_[compass]
+/** @name  fill
  * 
  * @brief  Fill the board in a given direction taking into account occluders
  * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
