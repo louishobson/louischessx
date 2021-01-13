@@ -17,22 +17,11 @@
 #include <chess/chessboard.h>
 
 
-
 /* MAIN */
 
 int main ()
 {
-    //unsigned long long i;
-    //std::cin >> i; 
-
-    chess::bitboard a { 0x1 };
-
-    /* DONE! */
-
-    //std::cout << a.format_board () << std::endl << a.vertical_flip ().format_board () << std::endl;
-    std::cout << a.span_ne ( ~chess::bitboard { 255 }.rotate_90_aclock () ).popcount ();
-
-
-
+    chess::bitboard a { 0xff };
+    std::cout << a.fill ( chess::compass::n ).popcount ();
     return 0;
 }
