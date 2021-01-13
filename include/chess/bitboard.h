@@ -377,8 +377,8 @@ public:
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::ne ) | shift ( compass::nw ) ) & p ); }
-    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::se ) | shift ( compass::sw ) ) & p ); }
+    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::nw ) | shift ( compass::ne ) ) & p ); }
+    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::sw ) | shift ( compass::se ) ) & p ); }
 
     /** @name  pawn_double_attack_n/s
      * 
@@ -387,8 +387,8 @@ public:
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::ne ) & shift ( compass::nw ) & p ); }
-    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::se ) & shift ( compass::sw ) & p ); }
+    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::nw ) & shift ( compass::ne ) & p ); }
+    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::sw ) & shift ( compass::se ) & p ); }
 
     /** @name  knight_attack
      * 
