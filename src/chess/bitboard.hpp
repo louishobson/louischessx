@@ -159,7 +159,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_s ( bitboard p ) const no
 }
 inline constexpr chess::bitboard chess::bitboard::fill_e ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::not_a_file };
+    constexpr bitboard k1 { ~masks::file_h };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x << 1 );
@@ -171,7 +171,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_e ( bitboard p ) const no
 }
 inline constexpr chess::bitboard chess::bitboard::fill_w ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::not_a_file };
+    constexpr bitboard k1 { ~masks::file_h };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x >> 1 );
@@ -183,7 +183,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_w ( bitboard p ) const no
 }
 inline constexpr chess::bitboard chess::bitboard::fill_ne ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::not_a_file };
+    constexpr bitboard k1 { ~masks::file_h };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x <<  9 );
@@ -195,7 +195,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_ne ( bitboard p ) const n
 }
 inline constexpr chess::bitboard chess::bitboard::fill_nw ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::not_h_file };
+    constexpr bitboard k1 { ~masks::file_h };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x <<  7 );
@@ -207,7 +207,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_nw ( bitboard p ) const n
 }
 inline constexpr chess::bitboard chess::bitboard::fill_se ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::not_a_file };
+    constexpr bitboard k1 { ~masks::file_h };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x >>  7 );
@@ -219,7 +219,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_se ( bitboard p ) const n
 }
 inline constexpr chess::bitboard chess::bitboard::fill_sw ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::not_h_file };
+    constexpr bitboard k1 { ~masks::file_h };
     bitboard x { bits };
     p &= k1;
     x |= p & ( x >>  9 );
@@ -227,6 +227,27 @@ inline constexpr chess::bitboard chess::bitboard::fill_sw ( bitboard p ) const n
     x |= p & ( x >> 18 );
     p &=     ( p >> 18 );
     x |= p & ( x >> 36 );
+    return x;
+}
+
+/** @name  pawn_push_n/s
+ * 
+ * @brief  Gives the span of pawn pushes, including double pushes
+ * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::rank_4 };
+    bitboard x { p &   shift_n () };
+    x |=    k1 & p & x.shift_n ();
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::rank_5 };
+    bitboard x { p &   shift_s () };
+    x |=    k1 & p & x.shift_s ();
     return x;
 }
 

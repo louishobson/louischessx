@@ -62,10 +62,24 @@ public:
         static constexpr unsigned long long universe      { 0xFFFFFFFFFFFFFFFF };
         static constexpr unsigned long long white_squares { 0x55AA55AA55AA55AA };
         static constexpr unsigned long long black_squares { 0xAA55AA55AA55AA55 };
-        static constexpr unsigned long long a_file        { 0x0101010101010101 };
-        static constexpr unsigned long long h_file        { 0x8080808080808080 };
-        static constexpr unsigned long long not_a_file    { 0xFEFEFEFEFEFEFEFE };
-        static constexpr unsigned long long not_h_file    { 0x7F7F7F7F7F7F7F7F };
+
+        static constexpr unsigned long long file_a        { 0x0101010101010101 };
+        static constexpr unsigned long long file_b        { 0x0202020202020202 };
+        static constexpr unsigned long long file_c        { 0x0404040404040404 };
+        static constexpr unsigned long long file_d        { 0x0808080808080808 };
+        static constexpr unsigned long long file_e        { 0x1010101010101010 };
+        static constexpr unsigned long long file_f        { 0x2020202020202020 };
+        static constexpr unsigned long long file_g        { 0x4040404040404040 };
+        static constexpr unsigned long long file_h        { 0x8080808080808080 };
+
+        static constexpr unsigned long long rank_1        { 0x00000000000000FF };
+        static constexpr unsigned long long rank_2        { 0x000000000000FF00 };
+        static constexpr unsigned long long rank_3        { 0x0000000000FF0000 };
+        static constexpr unsigned long long rank_4        { 0x00000000FF000000 };
+        static constexpr unsigned long long rank_5        { 0x000000FF00000000 };
+        static constexpr unsigned long long rank_6        { 0x0000FF0000000000 };
+        static constexpr unsigned long long rank_7        { 0x00FF000000000000 };
+        static constexpr unsigned long long rank_8        { 0xFF00000000000000 };
     };
 
 
@@ -316,12 +330,12 @@ public:
      */
     constexpr bitboard shift_n  () const noexcept { return bitboard { ( bits << 8 ) }; }
     constexpr bitboard shift_s  () const noexcept { return bitboard { ( bits >> 8 ) }; }
-    constexpr bitboard shift_e  () const noexcept { return bitboard { ( bits << 1 ) & masks::not_a_file }; }
-    constexpr bitboard shift_w  () const noexcept { return bitboard { ( bits >> 1 ) & masks::not_h_file }; }
-    constexpr bitboard shift_ne () const noexcept { return bitboard { ( bits << 9 ) & masks::not_a_file }; }
-    constexpr bitboard shift_nw () const noexcept { return bitboard { ( bits << 7 ) & masks::not_h_file }; }
-    constexpr bitboard shift_se () const noexcept { return bitboard { ( bits >> 7 ) & masks::not_a_file }; }
-    constexpr bitboard shift_sw () const noexcept { return bitboard { ( bits >> 9 ) & masks::not_h_file }; }
+    constexpr bitboard shift_e  () const noexcept { return bitboard { ( bits << 1 ) & ~masks::file_a }; }
+    constexpr bitboard shift_w  () const noexcept { return bitboard { ( bits >> 1 ) & ~masks::file_h }; }
+    constexpr bitboard shift_ne () const noexcept { return bitboard { ( bits << 9 ) & ~masks::file_a }; }
+    constexpr bitboard shift_nw () const noexcept { return bitboard { ( bits << 7 ) & ~masks::file_h }; }
+    constexpr bitboard shift_se () const noexcept { return bitboard { ( bits >> 7 ) & ~masks::file_a }; }
+    constexpr bitboard shift_sw () const noexcept { return bitboard { ( bits >> 9 ) & ~masks::file_h }; }
 
 
 
@@ -348,7 +362,7 @@ public:
      * @brief  Gives the possible movement of sliding pieces (not including the initial position), taking into account occluders and attackable pieces
      * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
      * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
-     *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, so this is not strictly necessary.
+     *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
     constexpr bitboard span_n  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_n  ( pp ).shift_n  () & ( pp | sp ) ); }
@@ -359,6 +373,44 @@ public:
     constexpr bitboard span_nw ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_nw ( pp ).shift_nw () & ( pp | sp ) ); }
     constexpr bitboard span_se ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_se ( pp ).shift_se () & ( pp | sp ) ); }
     constexpr bitboard span_sw ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill_sw ( pp ).shift_sw () & ( pp | sp ) ); }
+
+    /** @name  pawn_push_n/s
+     * 
+     * @brief  Gives the span of pawn pushes, including double pushes where applicable
+     * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard pawn_push_n ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard pawn_push_s ( bitboard p = ~bitboard {} ) const noexcept;
+
+    /** @name  pawn_attack_[diagonal compass]
+     * 
+     * @brief  Gives the span of pawn attacks
+     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard pawn_attack_ne ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_ne () & p ); }
+    constexpr bitboard pawn_attack_nw ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_nw () & p ); }
+    constexpr bitboard pawn_attack_se ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_se () & p ); }
+    constexpr bitboard pawn_attack_sw ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_sw () & p ); }
+
+    /** @name  pawn_any_attack_n/s
+     * 
+     * @brief  Gives the union of north/south attacks
+     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift_ne () | shift_nw () ) & p ); }
+    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift_se () | shift_sw () ) & p ); }
+
+    /** @name  pawn_double_attack_n/s
+     * 
+     * @brief  Gives the intersection of north/south attacks
+     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_ne () & shift_nw () & p ); }
+    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_se () & shift_sw () & p ); }
 
 
 
