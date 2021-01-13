@@ -8,6 +8,11 @@
  * 
  * Header file for managing a chess bitboard
  * 
+ * TO ADD:
+ * 
+ * https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Attack_Maps
+ * https://www.chessprogramming.org/Pawn_Spans#Interspans
+ * 
  */
 
 
