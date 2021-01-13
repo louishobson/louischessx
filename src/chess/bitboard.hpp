@@ -23,6 +23,10 @@
 
 
 
+/* OTHER BITWISE OPERATIONS */
+
+
+
 /** @name  vertical_flip
  * 
  * @brief  Flip the board vertically
@@ -130,6 +134,12 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
     return x;
 }
 
+
+
+/* FILL, MOVE AND CAPTURE ALGORITHMS */
+
+
+
 /** @name  fill_[compass]
  * 
  * @brief  Fill the board in a given direction taking into account occluders
@@ -233,6 +243,7 @@ inline constexpr chess::bitboard chess::bitboard::fill_sw ( bitboard p ) const n
 /** @name  pawn_push_n/s
  * 
  * @brief  Gives the span of pawn pushes, including double pushes
+ * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
  * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
  * @return A new bitboard
  */
@@ -249,6 +260,24 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) con
     bitboard x { p &   shift_s () };
     x |=    k1 & p & x.shift_s ();
     return x;
+}
+
+/** @name  knight_any_attack
+ * 
+ * @brief  Gives the union of all knight attacks
+ * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
+ * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p ) const noexcept
+{
+    return bitboard
+    {
+        ( ( bits << 17 | bits >> 15 ) & ~masks::file_a ) |
+        ( ( bits << 15 | bits >> 17 ) & ~masks::file_h ) |
+        ( ( bits << 10 | bits >>  6 ) & ~masks::file_a & ~masks::file_b ) | 
+        ( ( bits <<  6 | bits >> 10 ) & ~masks::file_g & ~masks::file_h )
+    } & p;
 }
 
 

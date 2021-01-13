@@ -8,6 +8,12 @@
  * 
  * Header file for managing a chess bitboard
  * 
+ * TO ADD:
+ * 
+ * PAWN AND KNIGHT ATTACKS BY LOOKUP
+ * KNIGHT FORKS?
+ * GENERALISED COMPASS DIRECTIONS
+ * 
  */
 
 
@@ -49,40 +55,6 @@ namespace chess
 class chess::bitboard
 {
 public:
-
-    /* TYPES */
-
-    /* struct masks
-     *
-     * Special masks for bitboards
-     */
-    struct masks
-    {
-        static constexpr unsigned long long empty         { 0x0000000000000000 };
-        static constexpr unsigned long long universe      { 0xFFFFFFFFFFFFFFFF };
-        static constexpr unsigned long long white_squares { 0x55AA55AA55AA55AA };
-        static constexpr unsigned long long black_squares { 0xAA55AA55AA55AA55 };
-
-        static constexpr unsigned long long file_a        { 0x0101010101010101 };
-        static constexpr unsigned long long file_b        { 0x0202020202020202 };
-        static constexpr unsigned long long file_c        { 0x0404040404040404 };
-        static constexpr unsigned long long file_d        { 0x0808080808080808 };
-        static constexpr unsigned long long file_e        { 0x1010101010101010 };
-        static constexpr unsigned long long file_f        { 0x2020202020202020 };
-        static constexpr unsigned long long file_g        { 0x4040404040404040 };
-        static constexpr unsigned long long file_h        { 0x8080808080808080 };
-
-        static constexpr unsigned long long rank_1        { 0x00000000000000FF };
-        static constexpr unsigned long long rank_2        { 0x000000000000FF00 };
-        static constexpr unsigned long long rank_3        { 0x0000000000FF0000 };
-        static constexpr unsigned long long rank_4        { 0x00000000FF000000 };
-        static constexpr unsigned long long rank_5        { 0x000000FF00000000 };
-        static constexpr unsigned long long rank_6        { 0x0000FF0000000000 };
-        static constexpr unsigned long long rank_7        { 0x00FF000000000000 };
-        static constexpr unsigned long long rank_8        { 0xFF00000000000000 };
-    };
-
-
 
     /* CONSTRUCTORS */
 
@@ -337,9 +309,24 @@ public:
     constexpr bitboard shift_se () const noexcept { return bitboard { ( bits >> 7 ) & ~masks::file_a }; }
     constexpr bitboard shift_sw () const noexcept { return bitboard { ( bits >> 9 ) & ~masks::file_h }; }
 
+    /** @name  knight_shift_[compass]
+     * 
+     * @brief  Shift the board based on knight compas directions
+     * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
+     * @return A new bitboard
+     */
+    constexpr bitboard knight_shift_nne () const noexcept { return bitboard { ( bits << 17 ) & ~masks::file_a }; }
+    constexpr bitboard knight_shift_nnw () const noexcept { return bitboard { ( bits << 15 ) & ~masks::file_h }; }
+    constexpr bitboard knight_shift_nee () const noexcept { return bitboard { ( bits << 10 ) & ~masks::file_a & ~masks::file_b }; }
+    constexpr bitboard knight_shift_nww () const noexcept { return bitboard { ( bits <<  6 ) & ~masks::file_g & ~masks::file_h }; }
+    constexpr bitboard knight_shift_sse () const noexcept { return bitboard { ( bits >> 15 ) & ~masks::file_a }; }
+    constexpr bitboard knight_shift_ssw () const noexcept { return bitboard { ( bits >> 17 ) & ~masks::file_h }; }
+    constexpr bitboard knight_shift_see () const noexcept { return bitboard { ( bits >>  6 ) & ~masks::file_a & ~masks::file_b }; }
+    constexpr bitboard knight_shift_sww () const noexcept { return bitboard { ( bits >> 10 ) & ~masks::file_g & ~masks::file_h }; }
 
 
-    /* FILL ALGORITHMS */
+
+    /* FILL, MOVE AND CAPTURE ALGORITHMS */
 
     /** @name  fill_[compass]
      * 
@@ -377,6 +364,7 @@ public:
     /** @name  pawn_push_n/s
      * 
      * @brief  Gives the span of pawn pushes, including double pushes where applicable
+     * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
      * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
      * @return A new bitboard
      */
@@ -386,6 +374,7 @@ public:
     /** @name  pawn_attack_[diagonal compass]
      * 
      * @brief  Gives the span of pawn attacks
+     * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
@@ -397,6 +386,7 @@ public:
     /** @name  pawn_any_attack_n/s
      * 
      * @brief  Gives the union of north/south attacks
+     * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
@@ -406,11 +396,37 @@ public:
     /** @name  pawn_double_attack_n/s
      * 
      * @brief  Gives the intersection of north/south attacks
+     * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
      * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
      * @return A new bitboard
      */
     constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_ne () & shift_nw () & p ); }
     constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift_se () & shift_sw () & p ); }
+
+    /** @name  knight_attack_[compass]
+     * 
+     * @brief  Shift the board based on knight compass directions
+     * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
+     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard knight_attack_nne ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nne () & p ); }
+    constexpr bitboard knight_attack_nnw ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nnw () & p ); }
+    constexpr bitboard knight_attack_nee ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nee () & p ); }
+    constexpr bitboard knight_attack_nww ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_nww () & p ); }
+    constexpr bitboard knight_attack_sse ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_sse () & p ); }
+    constexpr bitboard knight_attack_ssw ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_ssw () & p ); }
+    constexpr bitboard knight_attack_see ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_see () & p ); }
+    constexpr bitboard knight_attack_sww ( bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift_sww () & p ); }
+
+    /** @name  knight_any_attack
+     * 
+     * @brief  Gives the union of all knight attacks
+     * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
+     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard knight_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
 
 
 
@@ -430,12 +446,12 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return void
      */
-    constexpr void set    ( unsigned pos ) noexcept { bits |=  single_bitset ( pos ); }
-    constexpr void reset  ( unsigned pos ) noexcept { bits &= ~single_bitset ( pos ); }
-    constexpr void toggle ( unsigned pos ) noexcept { bits ^=  single_bitset ( pos ); }
-    constexpr void set    ( unsigned rank, unsigned file ) noexcept { bits |=  single_bitset ( rank, file ); }
-    constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~single_bitset ( rank, file ); }
-    constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  single_bitset ( rank, file ); }
+    constexpr void set    ( unsigned pos ) noexcept { bits |=  singular_bitset ( pos ); }
+    constexpr void reset  ( unsigned pos ) noexcept { bits &= ~singular_bitset ( pos ); }
+    constexpr void toggle ( unsigned pos ) noexcept { bits ^=  singular_bitset ( pos ); }
+    constexpr void set    ( unsigned rank, unsigned file ) noexcept { bits |=  singular_bitset ( rank, file ); }
+    constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~singular_bitset ( rank, file ); }
+    constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  singular_bitset ( rank, file ); }
 
     /** @name  test
      * 
@@ -445,8 +461,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return boolean
      */
-    constexpr bool test ( unsigned pos ) const noexcept { return ( bits & single_bitset ( pos ) ); }
-    constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return ( bits & single_bitset ( rank, file ) ); }
+    constexpr bool test ( unsigned pos ) const noexcept { return ( bits & singular_bitset ( pos ) ); }
+    constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return ( bits & singular_bitset ( rank, file ) ); }
 
 
 
@@ -472,9 +488,43 @@ private:
 
 
 
+    /* TYPES */
+
+    /* struct masks
+     *
+     * Special masks for bitboards
+     */
+    struct masks
+    {
+        static constexpr unsigned long long empty         { 0x0000000000000000 };
+        static constexpr unsigned long long universe      { 0xFFFFFFFFFFFFFFFF };
+        static constexpr unsigned long long white_squares { 0x55AA55AA55AA55AA };
+        static constexpr unsigned long long black_squares { 0xAA55AA55AA55AA55 };
+
+        static constexpr unsigned long long file_a        { 0x0101010101010101 };
+        static constexpr unsigned long long file_b        { 0x0202020202020202 };
+        static constexpr unsigned long long file_c        { 0x0404040404040404 };
+        static constexpr unsigned long long file_d        { 0x0808080808080808 };
+        static constexpr unsigned long long file_e        { 0x1010101010101010 };
+        static constexpr unsigned long long file_f        { 0x2020202020202020 };
+        static constexpr unsigned long long file_g        { 0x4040404040404040 };
+        static constexpr unsigned long long file_h        { 0x8080808080808080 };
+
+        static constexpr unsigned long long rank_1        { 0x00000000000000FF };
+        static constexpr unsigned long long rank_2        { 0x000000000000FF00 };
+        static constexpr unsigned long long rank_3        { 0x0000000000FF0000 };
+        static constexpr unsigned long long rank_4        { 0x00000000FF000000 };
+        static constexpr unsigned long long rank_5        { 0x000000FF00000000 };
+        static constexpr unsigned long long rank_6        { 0x0000FF0000000000 };
+        static constexpr unsigned long long rank_7        { 0x00FF000000000000 };
+        static constexpr unsigned long long rank_8        { 0xFF00000000000000 };
+    };
+
+
+
     /* INTERNAL METHODS */
 
-    /** @name  single_bitset
+    /** @name  singular_bitset
      *
      * @brief  Create a 64-bit unsigned with one bit set
      * @param  pos:  The absolute position [0,63]
@@ -482,8 +532,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return The 64-bit integer
      */
-    constexpr unsigned long long single_bitset ( unsigned pos ) const noexcept { return ( 0x1ull << pos ); }
-    constexpr unsigned long long single_bitset ( unsigned rank, unsigned file ) const noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
+    constexpr unsigned long long singular_bitset ( unsigned pos ) const noexcept { return ( 0x1ull << pos ); }
+    constexpr unsigned long long singular_bitset ( unsigned rank, unsigned file ) const noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
 
 };
 
