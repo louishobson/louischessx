@@ -12,6 +12,8 @@
  * 
  * https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Attack_Maps
  * https://www.chessprogramming.org/Pawn_Spans#Interspans
+ * https://www.chessprogramming.org/Pawn_Rams_(Bitboards)
+ * https://www.chessprogramming.org/Pawn_Levers_(Bitboards)
  * 
  */
 
