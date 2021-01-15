@@ -207,12 +207,12 @@ public:
      */
     constexpr bool is_empty () const noexcept { return ( bits == 0 ); }
 
-    /** @name  is_single
+    /** @name  is_singleton
      * 
      * @brief  Tests if the bitboard contains a single set bit
      * @return boolean
      */
-    constexpr bool is_single () const noexcept { return ( std::has_single_bit ( bits ) ); }
+    constexpr bool is_singleton () const noexcept { return ( std::has_single_bit ( bits ) ); }
 
     /** @name  popcount
      * 
@@ -408,6 +408,16 @@ public:
      * @return A new bitboard
      */
     constexpr bitboard knight_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
+
+    /** @name  king_any_attack
+     * 
+     * @brief  Gives the union of all possible king moves.
+     *         The board should be a singleton (only one king per color), but this is not asserted by the function.
+     * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
+     * @param  p: Propagator set: set bits are empty or capturable pieces, but which are not protected by an enemy piece, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard king_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
 
 
 

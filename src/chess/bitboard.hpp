@@ -213,6 +213,25 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
 }
 
 
+/** @name  king_any_attack
+ * 
+ * @brief  Gives the union of all possible king moves
+ * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
+ * @param  p: Propagator set: set bits are empty or capturable pieces, but which are not protected by an enemy piece, universe by default
+ * @return A new bitboard
+ */
+constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p ) const noexcept
+{
+    bitboard x { bits };
+    p &= ~x;
+    x |=   shift ( compass::w ) |   shift ( compass::e );
+    x |= x.shift ( compass::s ) | x.shift ( compass::n );
+    x &= p;
+    return x;
+}
+
+
+
 
 /* HEADER GUARD */
 #endif /* #ifndef CHESS_BITBOARD_HPP_INCLUDED */
