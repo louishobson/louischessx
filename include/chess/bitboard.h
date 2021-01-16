@@ -49,6 +49,13 @@ namespace chess
      */
     enum class knight_compass { ssw, sse, sww, see, nww, nee, nnw, nne };
 
+    /* enum pawn_atk_compass
+     *
+     * Enum for pawn attack directions.
+     * Can be safely cast to compass directions.
+     */
+    enum class pawn_atk_compass { sw = 0, se = 2, nw = 5, ne = 7 };
+
     /* class bitboard
      *
      * Purely a 64 bit integer with member functions to aid access, query and manipulation.
@@ -386,16 +393,25 @@ public:
 
 
 
-    /** @name  pawn_push_attack
+    /** @name  pawn_push_n/s
      * 
-     * @brief  Gives the span of pawn pushes or attacks, depending on the compass direction given
+     * @brief  Gives the span of pawn pushes, including double pushes
      * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
-     * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
-     * @param  dir: The direction to push or attack in
-     * @param  p: Propagator set: if pushing then set bits are empty cells; if attacking then set bits are opposing pieces; universe by default
+     * @param  p: Propagator set: set bits are empty cells, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_push_attack ( compass dir, bitboard p = ~bitboard {} ) const;
+    constexpr bitboard pawn_push_n ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard pawn_push_s ( bitboard p = ~bitboard {} ) const noexcept;
+
+    /** @name  pawn_attack
+     * 
+     * @brief  Gives the span of pawn attacks
+     * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
+     * @param  dir: The direction to attack in
+     * @param  p: Propagator set: set bits are opposing pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard pawn_attack ( pawn_atk_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( patktoc ( dir ) ) & p; }
 
     /** @name  pawn_any_attack_n/s
      * 
@@ -586,6 +602,14 @@ private:
      */
     static constexpr int ctoi ( compass dir ) noexcept { return static_cast<int> ( dir ); }
     static constexpr int ctoi ( knight_compass dir ) noexcept { return static_cast<int> ( dir ); }
+
+    /** @name  patktoc
+     * 
+     * @brief  Cast a pawn attack compass direction to a normal compass direction
+     * @param  dir: Compass direction
+     * @return Cast compass direction
+     */
+    static constexpr compass patktoc ( pawn_atk_compass dir ) noexcept { return static_cast<compass> ( dir ); }
 
     /** @name  shift_val, shift_mask
      * 

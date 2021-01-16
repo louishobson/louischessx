@@ -168,7 +168,7 @@ inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p
  *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
  * @return A new bitboard
  */
-constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
 {
     bitboard x { bits }, prev;
     do {
@@ -189,7 +189,7 @@ constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexc
  * @param  t: Target set: if all set bits can be reached then true is returned, false otherwise
  * @return boolean
  */
-constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const noexcept
+inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const noexcept
 {
     bitboard x { bits }, prev;
     do {
@@ -208,38 +208,24 @@ constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const no
 
 
 
-/** @name  pawn_push_attack
+/** @name  pawn_push_n/s
  * 
- * @brief  Gives the span of pawn pushes or attacks, depending on the compass direction given
+ * @brief  Gives the span of pawn pushes, including double pushes
  * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
- * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
- * @param  dir: The direction to push or attack in
- * @param  p: Propagator set: if pushing then set bits are empty cells; if attacking then set bits are opposing pieces; universe by default
+ * @param  p: Propagator set: set bits are empty cells, universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::pawn_push_attack ( compass dir, bitboard p ) const
+inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) const noexcept
 {
-    /* if is a north push */
-    if ( dir == compass::n )
-    {
-        constexpr bitboard k1 { masks::rank_4 };
-        bitboard x { shift ( compass::n ) & p };
-        return { x | ( x.shift ( compass::n ) & p & k1 ) };
-    } else
-
-    /* if is a south push */
-    if ( dir == compass::s )
-    {
-        constexpr bitboard k1 { masks::rank_4 };
-        bitboard x { shift ( compass::s ) & p };
-        return { x | ( x.shift ( compass::s ) & p & k1 ) };
-    } else
-
-    /* if is an attack */
-    {
-        assert (( dir != compass::w && dir != compass::e ));
-        return shift ( dir ) & p;
-    }
+    constexpr bitboard k1 { masks::rank_4 };
+    bitboard x { shift ( compass::n ) & p };
+    return { x | ( x.shift ( compass::n ) & p & k1 ) };
+}
+inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) const noexcept
+{
+    constexpr bitboard k1 { masks::rank_5 };
+    bitboard x { shift ( compass::s ) & p };
+    return { x | ( x.shift ( compass::s ) & p & k1 ) };
 }
 
 /** @name  knight_any_attack
@@ -269,7 +255,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
  *         Sometimes called a 'taboo set'.
  * @return A new bitboard
  */
-constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p ) const noexcept
 {
     bitboard x { bits };
     p &= ~x;
