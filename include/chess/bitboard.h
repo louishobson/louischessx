@@ -180,13 +180,13 @@ public:
      */
     constexpr bitboard nand ( bitboard other ) const noexcept { return bitboard { ~( bits & other.bits ) }; }
 
-    /** @name  is_subset
+    /** @name  contains
      * 
      * @brief  Finds if another bitboard is a subset of this bitboard
      * @param  other: The bitboard that is a potential subset
      * @return boolean
      */
-    constexpr bool is_subset ( bitboard other ) const noexcept { return ( ( bits & other.bits ) == other.bits ); }
+    constexpr bool contains ( bitboard other ) const noexcept { return ( ( bits & other.bits ) == other.bits ); }
 
     /** @name  is_disjoint
      * 
@@ -195,10 +195,6 @@ public:
      * @return boolean
      */
     constexpr bool is_disjoint ( bitboard other ) const noexcept { return ( ( bits && other.bits ) == 0 ); }
-
-
-
-    /* OTHER BITWISE OPERATIONS */
 
     /** @name  is_empty
      *  
@@ -213,6 +209,10 @@ public:
      * @return boolean
      */
     constexpr bool is_singleton () const noexcept { return ( std::has_single_bit ( bits ) ); }
+
+
+
+    /* OTHER BITWISE OPERATIONS */
 
     /** @name  popcount
      * 
@@ -336,7 +336,7 @@ public:
 
 
 
-    /* FILL, MOVE AND CAPTURE ALGORITHMS */
+    /* GENERIC FILL ALGORITHMS */
 
     /** @name  fill
      * 
@@ -350,7 +350,7 @@ public:
 
     /** @name  span
      * 
-     * @brief  Gives the possible movement of sliding pieces (not including the initial position), taking into account occluders and attackable pieces
+     * @brief  Gives the possible movement of slSometimesiding pieces (not including the initial position), taking into account occluders and attackable pieces
      * @param  dir: The direction to fill
      * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
      * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
@@ -358,6 +358,33 @@ public:
      * @return A new bitboard
      */
     constexpr bitboard span ( compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill ( dir ).shift ( dir ) & ( pp | sp ) ); }
+
+    /** @name  flood_fill
+     * 
+     * @brief  Fill the board in all directions until all positions reachable from the current are found
+     * @see    https://www.chessprogramming.org/King_Pattern#Flood_Fill_Algorithms
+     * @param  p: Propagator set: set bits are where the board is allowed to flow.
+     *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
+     * @return A new bitboard
+     */
+    constexpr bitboard flood_fill ( bitboard p ) const noexcept;
+
+    /** @name  is_connected
+     * 
+     * @brief  Use a flood fill algorithm to test whether a set of targets can all be reached
+     * @see    https://www.chessprogramming.org/King_Pattern#Flood_Fill_Algorithms
+     * @param  p: Propagator set: set bits are where the board is allowed to flow.
+     *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
+     * @param  t: Target set: if all set bits can be reached then true is returned, false otherwise
+     * @return boolean
+     */
+    constexpr bool is_connected ( bitboard p, bitboard t ) const noexcept;
+
+
+
+    /* PIECE-SPECIFIC ALGORITHMS */
+
+
 
     /** @name  pawn_push_attack
      * 
@@ -374,7 +401,7 @@ public:
      * 
      * @brief  Gives the union of north/south attacks
      * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
-     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
     constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::nw ) | shift ( compass::ne ) ) & p ); }
@@ -384,7 +411,7 @@ public:
      * 
      * @brief  Gives the intersection of north/south attacks
      * @see    https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Pawns_set-wise
-     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
     constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::nw ) & shift ( compass::ne ) & p ); }
@@ -395,7 +422,7 @@ public:
      * @brief  Shift the board based on knight compass directions
      * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
      * @param  dir: The direction to attack in
-     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
     constexpr bitboard knight_attack ( knight_compass dir, bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift ( dir ) & p ); }
@@ -404,17 +431,17 @@ public:
      * 
      * @brief  Gives the union of all knight attacks
      * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
-     * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
     constexpr bitboard knight_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
 
     /** @name  king_any_attack
      * 
-     * @brief  Gives the union of all possible king moves.
-     *         The board should be a singleton (only one king per color), but this is not asserted by the function.
+     * @brief  Gives the union of all possible king moves
      * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
-     * @param  p: Propagator set: set bits are empty or capturable pieces, but which are not protected by an enemy piece, universe by default
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
+     *         Sometimes called a 'taboo set'.
      * @return A new bitboard
      */
     constexpr bitboard king_any_attack ( bitboard p = ~bitboard {} ) const noexcept;

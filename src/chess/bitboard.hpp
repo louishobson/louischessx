@@ -43,7 +43,7 @@ inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcep
     bitboard x { bits };
     x = ( ( x >>  8 ) & k1 ) | ( ( x & k1 ) <<  8 );
     x = ( ( x >> 16 ) & k2 ) | ( ( x & k2 ) << 16 );
-    x = ( ( x >> 32 )      ) | ( ( x      ) << 32 );
+    std::cout << sizeof ( bb ) << std::endl;    x = ( ( x >> 32 )      ) | ( ( x      ) << 32 );
     return x;
 #endif
 }
@@ -136,7 +136,7 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
 
 
 
-/* FILL, MOVE AND CAPTURE ALGORITHMS */
+/* GENERIC FILL ALGORITHMS */
 
 
 
@@ -159,6 +159,54 @@ inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p
     x |= p & x.bitshift ( r * 4 );
     return x;
 }
+
+/** @name  flood_fill
+ * 
+ * @brief  Fill the board in all directions until all positions reachable from the current are found.
+ * @see    https://www.chessprogramming.org/King_Pattern#Flood_Fill_Algorithms
+ * @param  p: Propagator set: set bits are where the board is allowed to flow.
+ *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
+ * @return A new bitboard
+ */
+constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
+{
+    bitboard x { bits }, prev;
+    do {
+        prev = x;
+        x |= x.shift ( compass::w ) | x.shift ( compass::e );
+        x |= x.shift ( compass::s ) | x.shift ( compass::n );
+        x &= p;
+    } while ( x != prev );
+    return x;    
+}
+
+/** @name  is_connected
+ * 
+ * @brief  Use a flood fill algorithm to test whether a set of targets can all be reached
+ * @see    https://www.chessprogramming.org/King_Pattern#Flood_Fill_Algorithms
+ * @param  p: Propagator set: set bits are where the board is allowed to flow.
+ *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
+ * @param  t: Target set: if all set bits can be reached then true is returned, false otherwise
+ * @return boolean
+ */
+constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const noexcept
+{
+    bitboard x { bits }, prev;
+    do {
+        prev = x;
+        x |= x.shift ( compass::w ) | x.shift ( compass::e );
+        x |= x.shift ( compass::s ) | x.shift ( compass::n );
+        x &= p;
+        if ( x.contains ( t ) ) return true;
+    } while ( x != prev );
+    return false;    
+}
+
+
+
+/* PIECE-SPECIFIC ALGORITHMS */
+
+
 
 /** @name  pawn_push_attack
  * 
@@ -198,7 +246,7 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_attack ( compass dir
  * 
  * @brief  Gives the union of all knight attacks
  * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
- * @param  p: Propagator set: set bits are empty or capturable pieces, universe by default
+ * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
  * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p ) const noexcept
@@ -217,7 +265,8 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
  * 
  * @brief  Gives the union of all possible king moves
  * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
- * @param  p: Propagator set: set bits are empty or capturable pieces, but which are not protected by an enemy piece, universe by default
+ * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
+ *         Sometimes called a 'taboo set'.
  * @return A new bitboard
  */
 constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p ) const noexcept
