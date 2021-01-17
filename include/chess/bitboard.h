@@ -266,10 +266,17 @@ public:
 
     /** @name  leading/trailing_zeros
      * 
-     * @return The number of leading/trailing zeros
+     * @return The number of leading/trailing zeros, 64 if the bitboard is empty
      */
-    constexpr unsigned leading_zeros  () const noexcept { return std::countl_one ( bits ); }
+    constexpr unsigned leading_zeros  () const noexcept { return std::countl_zero ( bits ); }
     constexpr unsigned trailing_zeros () const noexcept { return std::countr_zero ( bits ); }
+
+    /** @name  leading/trailing_zeros_nocheck
+     * 
+     * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
+     */
+    constexpr unsigned leading_zeros_nocheck  () const noexcept;
+    constexpr unsigned trailing_zeros_nocheck () const noexcept;
 
     /** @name  bit_rotl/r
      * 
@@ -510,7 +517,8 @@ public:
      * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
      *         Sometimes called a 'taboo set'.
-     * @param  single: If set to true, will assume the board is a singleton, false by default
+     * @param  single: If set to true, will assume the board is a singleton, false by default.
+     *         Note: setting to true using an empty bitboard will cause undefined behavior.
      * @return A new bitboard
      */
     constexpr bitboard king_any_attack ( bitboard p = ~bitboard {}, bool single = false ) const noexcept;

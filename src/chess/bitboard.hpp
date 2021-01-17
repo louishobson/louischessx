@@ -25,6 +25,8 @@
 
 /* COMPASSES */
 
+
+
 /** @name  compass_start, knight_compass_start
  *
  * @brief  Gives the first direction in a compass (useful for iterating over a compass)
@@ -47,6 +49,29 @@ inline constexpr chess::knight_compass chess::compass_next ( knight_compass dir 
 /* OTHER BITWISE OPERATIONS */
 
 
+
+/** @name  leading/trailing_zeros_nocheck
+ * 
+ * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
+ */
+inline constexpr unsigned chess::bitboard::leading_zeros_nocheck  () const noexcept
+{
+    /* Use builtin if availible, otherwise use the checking method */
+#ifdef CHESS_BUILTIN_CLZ64
+    return CHESS_BUILTIN_CLZ64 ( bits );
+#else
+    return leading_zeros ();
+#endif
+}
+inline constexpr unsigned chess::bitboard::trailing_zeros_nocheck () const noexcept
+{
+    /* Use builtin if availible, otherwise use the checking method */
+#ifdef CHESS_BUILTIN_CTZ64
+    return CHESS_BUILTIN_CTZ64 ( bits );
+#else
+    return trailing_zeros ();
+#endif
+}
 
 /** @name  vertical_flip
  *
@@ -305,12 +330,13 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard 
  * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
  * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
  *         Sometimes called a 'taboo set'.
- * @param  single: If set to true, will assume the board is a singleton, false by default
+ * @param  single: If set to true, will assume the board is a singleton, false by default.
+ *         Note: setting to true using an empty bitboard will cause undefined behavior.
  * @return A new bitboard
  */
 inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, bool single ) const noexcept
 {
-    if ( single ) return king_attack_lookup ( trailing_zeros () ); else // If was declared as a singleton set, simply look up and return the attacks of the king.
+    if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ); else // If was declared as a singleton set, simply look up and return the attacks of the king.
     {
         bitboard x, t { bits };                                // x will store the output, t will help form the output.
         x  = t.shift ( compass::w ) | t.shift ( compass::e );  // Set the east and west shifts to x.
