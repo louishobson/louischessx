@@ -310,7 +310,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard 
  */
 inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, bool single ) const noexcept
 {
-    if ( single ) return king_attack_lookup ( trailing_zeros () ); else // If was declared as a singleton set, simply look up the attacks of the king.
+    if ( single ) return king_attack_lookup ( trailing_zeros () ); else // If was declared as a singleton set, simply look up and return the attacks of the king.
     {
         bitboard x, t { bits };                                // x will store the output, t will help form the output.
         x  = t.shift ( compass::w ) | t.shift ( compass::e );  // Set the east and west shifts to x.
