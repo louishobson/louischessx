@@ -1,13 +1,13 @@
 /*
  * Copyright (C) 2020 Louis Hobson <louis-hobson@hotmail.co.uk>. All Rights Reserved.
- * 
+ *
  * Distributed under MIT licence as a part of the Chess C++ library.
  * For details, see: https://github.com/louishobson/Chess/blob/master/LICENSE
- * 
+ *
  * src/chess/bitboard.hpp
- * 
+ *
  * Inline implementation of include/chess/bitboard.h
- * 
+ *
  */
 
 
@@ -23,33 +23,54 @@
 
 
 
+/* COMPASSES */
+
+/** @name  compass_start, knight_compass_start
+ *
+ * @brief  Gives the first direction in a compass (useful for iterating over a compass)
+ * @return A compass
+ */
+inline constexpr chess::compass chess::compass_start () noexcept { return static_cast<compass> ( 0 ); }
+inline constexpr chess::knight_compass chess::knight_compass_start () noexcept { return static_cast<knight_compass> ( 0 ); }
+
+/** @name  compass_next
+ *
+ * @brief  Gives the next direction in a compass, looping back to the start if reaching the end (useful for iterating over a compass)
+ * @param  dir: The compass direction to advance.
+ * @return A compass
+ */
+inline constexpr chess::compass chess::compass_next ( compass dir ) noexcept { return static_cast<compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
+inline constexpr chess::knight_compass chess::compass_next ( knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
+
+
+
 /* OTHER BITWISE OPERATIONS */
 
 
 
 /** @name  vertical_flip
- * 
+ *
  * @brief  Flip the board vertically
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcept 
+inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcept
 {
     /* Use builtin if availible, otherwise compute manually */
 #ifdef CHESS_BUILTIN_BSWAP64
-    return bitboard { CHESS_BUILTIN_BSWAP64 ( bits ) }; 
+    return bitboard { CHESS_BUILTIN_BSWAP64 ( bits ) };
 #else
     constexpr bitboard k1 { 0x00FF00FF00FF00FF }, k2 { 0x0000FFFF0000FFFF };
     bitboard x { bits };
     x = ( ( x >>  8 ) & k1 ) | ( ( x & k1 ) <<  8 );
     x = ( ( x >> 16 ) & k2 ) | ( ( x & k2 ) << 16 );
-    std::cout << sizeof ( bb ) << std::endl;    x = ( ( x >> 32 )      ) | ( ( x      ) << 32 );
+    x = ( ( x >> 32 )      ) | ( ( x      ) << 32 );
     return x;
 #endif
 }
 
 /** @name  horizontal_flip
- * 
+ *
  * @brief  Flip the board horizontally
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return A new bitboard
@@ -65,7 +86,7 @@ inline constexpr chess::bitboard chess::bitboard::horizontal_flip () const noexc
 }
 
 /** @name  pos_diag_flip
- * 
+ *
  * @brief  Flip the board along y=x
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return A new bitboard
@@ -84,7 +105,7 @@ inline constexpr chess::bitboard chess::bitboard::pos_diag_flip () const noexcep
 }
 
 /** @name  neg_diag_flip
- * 
+ *
  * @brief  Flip the board along y=-x
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
  * @return A new bitboard
@@ -103,7 +124,7 @@ inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcep
 }
 
 /** @name  pseudo_rotate_45_clock
- * 
+ *
  * @brief  Flip the positive diagonals to ranks
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
  * @return A new bitboard
@@ -119,7 +140,7 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () cons
 }
 
 /** @name  pseudo_rotate_45_aclock
- * 
+ *
  * @brief  Flip the negative diagonals to ranks
  * @see    https://www.chesspgramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
  * @return A new bitboard
@@ -141,7 +162,7 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
 
 
 /** @name  fill
- * 
+ *
  * @brief  Fill the board in a given direction taking into account occluders
  * @see    https://www.chessprogramming.org/Kogge-Stone_Algorithm#OccludedFill
  * @param  dir: The direction to shift
@@ -161,7 +182,7 @@ inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p
 }
 
 /** @name  flood_fill
- * 
+ *
  * @brief  Fill the board in all directions until all positions reachable from the current are found.
  * @see    https://www.chessprogramming.org/King_Pattern#Flood_Fill_Algorithms
  * @param  p: Propagator set: set bits are where the board is allowed to flow.
@@ -170,18 +191,18 @@ inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p
  */
 inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
 {
-    bitboard x { bits }, prev;
+    bitboard x { bits }, prev; // x will store the output, prev will remember the result of the previous iteration.
     do {
-        prev = x;
-        x |= x.shift ( compass::w ) | x.shift ( compass::e );
-        x |= x.shift ( compass::s ) | x.shift ( compass::n );
-        x &= p;
-    } while ( x != prev );
-    return x;    
+        prev = x;                                             // Starting new iteration, so copy x over to prev.
+        x |= x.shift ( compass::w ) | x.shift ( compass::e ); // Union the east and west shift of x with itself.
+        x |= x.shift ( compass::s ) | x.shift ( compass::n ); // Union the north and south shift of x with itself, so that x has expanded outward by 1 cell in each direction.
+        x &= p;            // Check with propagator.
+    } while ( x != prev ); // Repeat until no change has been made.
+    return x;              // Return x.
 }
 
 /** @name  is_connected
- * 
+ *
  * @brief  Use a flood fill algorithm to test whether a set of targets can all be reached
  * @see    https://www.chessprogramming.org/King_Pattern#Flood_Fill_Algorithms
  * @param  p: Propagator set: set bits are where the board is allowed to flow.
@@ -191,25 +212,25 @@ inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) cons
  */
 inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const noexcept
 {
-    bitboard x { bits }, prev;
+    bitboard x { bits }, prev; // x will store the output, prev will remember the result of the previous iteration.
     do {
-        prev = x;
-        x |= x.shift ( compass::w ) | x.shift ( compass::e );
-        x |= x.shift ( compass::s ) | x.shift ( compass::n );
-        x &= p;
-        if ( x.contains ( t ) ) return true;
-    } while ( x != prev );
-    return false;    
+        prev = x;                                             // Starting new iteration, so copy x over to prev.
+        x |= x.shift ( compass::w ) | x.shift ( compass::e ); // Union the east and west shift of x with itself.
+        x |= x.shift ( compass::s ) | x.shift ( compass::n ); // Union the north and south shift of x with itself, so that x has expanded outward by 1 cell in each direction.
+        x &= p;                              // Check with propagator.
+        if ( x.contains ( t ) ) return true; // If all targets are now found within the flood, return true.
+    } while ( x != prev );                   // Repeat until no change has been made.
+    return false;                            // Not all targets reached, so return false.
 }
 
 
 
-/* PIECE-SPECIFIC ALGORITHMS */
+/* PAWN MOVES */
 
 
 
 /** @name  pawn_push_n/s
- * 
+ *
  * @brief  Gives the span of pawn pushes, including double pushes
  * @see    https://www.chessprogramming.org/Pawn_Pushes_(Bitboards)#Push_per_Side
  * @param  p: Propagator set: set bits are empty cells, universe by default
@@ -217,19 +238,25 @@ inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) c
  */
 inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::rank_4 };
-    bitboard x { shift ( compass::n ) & p };
-    return { x | ( x.shift ( compass::n ) & p & k1 ) };
+    constexpr bitboard k1 { masks::rank_4 };            // A legal double south push will leave a pawn in rank 5.
+    bitboard x { shift ( compass::n ) & p };            // For the first push, shift the board north one, check with propagator and store in x.
+    return { x | ( x.shift ( compass::n ) & p & k1 ) }; // For the second push, shift the board north one again, check with propagator and k1, then return the union with x.
 }
 inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::rank_5 };
-    bitboard x { shift ( compass::s ) & p };
-    return { x | ( x.shift ( compass::s ) & p & k1 ) };
+    constexpr bitboard k1 { masks::rank_5 };            // A legal double south push will leave a pawn in rank 5.
+    bitboard x { shift ( compass::s ) & p };            // For the first push, shift the board south one, check with propagator and store in x.
+    return { x | ( x.shift ( compass::s ) & p & k1 ) }; // For the second push, shift the board south one again, check with propagator and k1, then return the union with x.
 }
 
+
+
+/* KNIGHT MOVES */
+
+
+
 /** @name  knight_any_attack
- * 
+ *
  * @brief  Gives the union of all knight attacks
  * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
  * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
@@ -237,32 +264,60 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) con
  */
 inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p ) const noexcept
 {
-    return bitboard
+    bitboard x, temp { bits }; // x will store the output, temp allows for the iteration through the set bits of this.
+    while ( temp )             // While there are set bits left in temp, continue to add to x.
     {
-        ( ( bits << 17 | bits >> 15 ) & ~masks::file_a ) |
-        ( ( bits << 15 | bits >> 17 ) & ~masks::file_h ) |
-        ( ( bits << 10 | bits >>  6 ) & ~masks::file_a & ~masks::file_b ) | 
-        ( ( bits <<  6 | bits >> 10 ) & ~masks::file_g & ~masks::file_h )
-    } & p;
+        int pos = temp.trailing_zeros ();  // The position of the next set bit in temp is given by the number if trailing zeros.
+        x |= knight_attack_lookup ( pos ); // Lookup the knight attacks at pos, and union them with x.
+        temp.reset ( pos );                // Reset the bit in temp.
+    }
+    return x & p; // Check with the propagator and return x.
+}
+
+/** @name  knight_mult_attack
+ *
+ * @brief  Gives the set of cells attacked by more than one knight
+ * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard p ) const noexcept
+{
+    bitboard once, mult, temp { bits }; // once and mult will remember if a cell is attacked once or multiple times, temp allows for the iteration through the set bits of this.
+    while ( temp )                      // While there are set bits left in temp, continue to add to x.
+    {
+        int pos = temp.trailing_zeros ();            // The position of the next set bit in temp is given by the number if trailing zeros.
+        mult |= knight_attack_lookup ( pos ) & once; // Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
+        once |= knight_attack_lookup ( pos );        // Union the attacked cells with once.
+        temp.reset ( pos );                          // Reset the bit in temp.
+    }
+    return mult & p; // Check with the propagator and return x.
 }
 
 
+
+/* KING MOVES */
+
+
+
 /** @name  king_any_attack
- * 
+ *
  * @brief  Gives the union of all possible king moves
  * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
  * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
  *         Sometimes called a 'taboo set'.
+ * @param  single: If set to true, will assume the board is a singleton, false by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, bool single ) const noexcept
 {
-    bitboard x { bits };
-    p &= ~x;
-    x |=   shift ( compass::w ) |   shift ( compass::e );
-    x |= x.shift ( compass::s ) | x.shift ( compass::n );
-    x &= p;
-    return x;
+    if ( single ) return king_attack_lookup ( trailing_zeros () ); else // If was declared as a singleton set, simply look up the attacks of the king.
+    {
+        bitboard x, t { bits };                                // x will store the output, t will help form the output.
+        x  = t.shift ( compass::w ) | t.shift ( compass::e );  // Set the east and west shifts to x.
+        t |= x;                                                // Union them back to t.
+        x |= t.shift ( compass::s ) | t.shift ( compass::n );  // Since t now comprises of the initial, east and west shifts, the shifting north and south gives the remaining 6 attack cells.
+        return x & p;                                          // Check with the propagator and return x.
+    }
 }
 
 

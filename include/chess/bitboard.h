@@ -36,6 +36,7 @@
 
 namespace chess
 {
+    /* COMPASSES */
 
     /* enum compass
      *
@@ -49,12 +50,41 @@ namespace chess
      */
     enum class knight_compass { ssw, sse, sww, see, nww, nee, nnw, nne };
 
-    /* enum pawn_atk_compass
+    /* enum straight/diag_compass
      *
-     * Enum for pawn attack directions.
-     * Can be safely cast to compass directions.
+     * Enums for straight and diagonal compasses.
+     * Can be cast to a normal compass.
      */
-    enum class pawn_atk_compass { sw = 0, se = 2, nw = 5, ne = 7 };
+    enum straight_compass { s  = 1, w  = 3, e  = 4, n  = 6 };
+    enum diagonal_compass { sw = 0, se = 2, nw = 5, ne = 7 };
+
+    /* Typedefs for clarity and consistency */
+    typedef compass king_compass;
+    typedef compass queen_compass;
+    typedef straight_compass rook_compass;
+    typedef diagonal_compass bishop_compass;
+    typedef diagonal_compass pawn_atk_compass;
+
+    /** @name  compass_start, knight_compass_start
+     * 
+     * @brief  Gives the first direction in a compass (useful for iterating over a compass)
+     * @return A compass
+     */
+    constexpr compass compass_start () noexcept;
+    constexpr knight_compass knight_compass_start () noexcept;
+
+    /** @name  compass_next
+     * 
+     * @brief  Gives the next direction in a compass, looping back to the start if reaching the end (useful for iterating over a compass)
+     * @param  dir: The compass direction to advance.
+     * @return A compass
+     */
+    constexpr compass compass_next ( compass dir ) noexcept;
+    constexpr knight_compass compass_next ( knight_compass dir ) noexcept;
+
+
+
+    /* BITBOARD */
 
     /* class bitboard
      *
@@ -95,8 +125,8 @@ public:
      * @param  other: The bitboard to compare
      * @return boolean
      */
-    constexpr bool operator== ( bitboard other ) const noexcept { return ( bits == other.bits ); }
-    constexpr bool operator!= ( bitboard other ) const noexcept { return ( bits != other.bits ); }
+    constexpr bool operator== ( bitboard other ) const noexcept { return bits == other.bits; }
+    constexpr bool operator!= ( bitboard other ) const noexcept { return bits != other.bits; }
 
     /** @name  operator bool, operator!
      * 
@@ -193,7 +223,7 @@ public:
      * @param  other: The bitboard that is a potential subset
      * @return boolean
      */
-    constexpr bool contains ( bitboard other ) const noexcept { return ( ( bits & other.bits ) == other.bits ); }
+    constexpr bool contains ( bitboard other ) const noexcept { return ( bits & other.bits ) == other.bits; }
 
     /** @name  is_disjoint
      * 
@@ -201,7 +231,7 @@ public:
      * @param  other: The other bitboard that is potentially disjoint
      * @return boolean
      */
-    constexpr bool is_disjoint ( bitboard other ) const noexcept { return ( ( bits && other.bits ) == 0 ); }
+    constexpr bool is_disjoint ( bitboard other ) const noexcept { return ( bits && other.bits ) == 0; }
 
     /** @name  is_empty
      *  
@@ -330,16 +360,8 @@ public:
      * @param  dir: The direction to shift
      * @return A new bitboard
      */
-    constexpr bitboard shift ( compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
-
-    /** @name  knight_shift
-     * 
-     * @brief  Shift the board based on knight compas directions
-     * @see    https://www.chessprogramming.org/Knight_Pattern#by_Calculation
-     * @param  dir: The direction to shift
-     * @return A new bitboard
-     */
-    constexpr bitboard knight_shift ( knight_compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
+    constexpr bitboard shift ( compass dir )          const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
+    constexpr bitboard shift ( knight_compass dir )   const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
 
 
 
@@ -357,14 +379,14 @@ public:
 
     /** @name  span
      * 
-     * @brief  Gives the possible movement of slSometimesiding pieces (not including the initial position), taking into account occluders and attackable pieces
+     * @brief  Gives the possible movement of sliding pieces (not including the initial position), taking into account occluders and attackable pieces
      * @param  dir: The direction to fill
      * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
      * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
      *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
-    constexpr bitboard span ( compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return ( fill ( dir ).shift ( dir ) & ( pp | sp ) ); }
+    constexpr bitboard span ( compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return fill ( dir ).shift ( dir ) & ( pp | sp ); }
 
     /** @name  flood_fill
      * 
@@ -389,9 +411,7 @@ public:
 
 
 
-    /* PIECE-SPECIFIC ALGORITHMS */
-
-
+    /* PAWN MOVES */
 
     /** @name  pawn_push_n/s
      * 
@@ -411,7 +431,7 @@ public:
      * @param  p: Propagator set: set bits are opposing pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_attack ( pawn_atk_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( patktoc ( dir ) ) & p; }
+    constexpr bitboard pawn_attack ( pawn_atk_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( toc ( dir ) ) & p; }
 
     /** @name  pawn_any_attack_n/s
      * 
@@ -420,8 +440,8 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::nw ) | shift ( compass::ne ) ) & p ); }
-    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( ( shift ( compass::sw ) | shift ( compass::se ) ) & p ); }
+    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::nw ) | shift ( compass::ne ) ) & p; }
+    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::sw ) | shift ( compass::se ) ) & p; }
 
     /** @name  pawn_double_attack_n/s
      * 
@@ -430,8 +450,23 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::nw ) & shift ( compass::ne ) & p ); }
-    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::sw ) & shift ( compass::se ) & p ); }
+    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::nw ) & shift ( compass::ne ) & p; }
+    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::sw ) & shift ( compass::se ) & p; }
+
+
+
+    /* ROOK, BISHOP AND QUEEN MOVES */
+
+    /** @name  rook/bishop/queen_attack
+     *  @brief See span ()
+     */
+    constexpr bitboard rook_attack   ( rook_compass dir,   bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
+    constexpr bitboard bishop_attack ( bishop_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
+    constexpr bitboard queen_attack  ( queen_compass dir,  bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
+
+
+
+    /* KNIGHT MOVES */
 
     /** @name  knight_attack
      * 
@@ -441,7 +476,7 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard knight_attack ( knight_compass dir, bitboard p = ~bitboard {} ) const noexcept { return ( knight_shift ( dir ) & p ); }
+    constexpr bitboard knight_attack ( knight_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
 
     /** @name  knight_any_attack
      * 
@@ -452,15 +487,33 @@ public:
      */
     constexpr bitboard knight_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
 
+    /** @name  knight_mult_attack
+     * 
+     * @brief  Gives the set of cells attacked by more than one knight
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
+     * @return A new bitboard
+     */
+    constexpr bitboard knight_mult_attack ( bitboard p = ~bitboard {} ) const noexcept;
+
+
+
+    /* KING MOVES */
+
+    /** @name  king_attack
+     * @brief  See shift ()
+     */
+    constexpr bitboard king_attack ( king_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( toc ( dir ) ) & p; }
+
     /** @name  king_any_attack
      * 
      * @brief  Gives the union of all possible king moves
      * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
      *         Sometimes called a 'taboo set'.
+     * @param  single: If set to true, will assume the board is a singleton, false by default
      * @return A new bitboard
      */
-    constexpr bitboard king_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
+    constexpr bitboard king_any_attack ( bitboard p = ~bitboard {}, bool single = false ) const noexcept;
 
 
 
@@ -480,12 +533,12 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return void
      */
-    constexpr void set    ( unsigned pos ) noexcept { bits |=  singular_bitset ( pos ); }
-    constexpr void reset  ( unsigned pos ) noexcept { bits &= ~singular_bitset ( pos ); }
-    constexpr void toggle ( unsigned pos ) noexcept { bits ^=  singular_bitset ( pos ); }
-    constexpr void set    ( unsigned rank, unsigned file ) noexcept { bits |=  singular_bitset ( rank, file ); }
-    constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~singular_bitset ( rank, file ); }
-    constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  singular_bitset ( rank, file ); }
+    constexpr void set    ( unsigned pos ) noexcept { bits |=  singleton_bitset ( pos ); }
+    constexpr void reset  ( unsigned pos ) noexcept { bits &= ~singleton_bitset ( pos ); }
+    constexpr void toggle ( unsigned pos ) noexcept { bits ^=  singleton_bitset ( pos ); }
+    constexpr void set    ( unsigned rank, unsigned file ) noexcept { bits |=  singleton_bitset ( rank, file ); }
+    constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~singleton_bitset ( rank, file ); }
+    constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  singleton_bitset ( rank, file ); }
 
     /** @name  test
      * 
@@ -495,8 +548,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return boolean
      */
-    constexpr bool test ( unsigned pos ) const noexcept { return ( bits & singular_bitset ( pos ) ); }
-    constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return ( bits & singular_bitset ( rank, file ) ); }
+    constexpr bool test ( unsigned pos ) const noexcept { return bits & singleton_bitset ( pos ); }
+    constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return bits & singleton_bitset ( rank, file ); }
 
 
 
@@ -572,6 +625,10 @@ private:
     /* The contents of the bitboard */
     unsigned long long bits;
 
+
+
+    /* SHIFT CONSTEXPRS */
+
     /* Shift amounts */
     static constexpr int shift_vals [] = { -9, -8, -7, -1, 1, 7, 8, 9 };
 
@@ -592,6 +649,38 @@ private:
 
 
 
+    /* KING AND KNIGHT LOOKUP ATTACKS */
+
+    /* King lookup attacks (extra zero allows for ctz on an empty bitboard to be used as a position) */
+    static constexpr unsigned long long king_attack_lookups [] =
+    {
+        0x0000000000000302, 0x0000000000000705, 0x0000000000000e0a, 0x0000000000001c14, 0x0000000000003828, 0x0000000000007050, 0x000000000000e0a0, 0x000000000000c040,
+        0x0000000000030203, 0x0000000000070507, 0x00000000000e0a0e, 0x00000000001c141c, 0x0000000000382838, 0x0000000000705070, 0x0000000000e0a0e0, 0x0000000000c040c0,
+        0x0000000003020300, 0x0000000007050700, 0x000000000e0a0e00, 0x000000001c141c00, 0x0000000038283800, 0x0000000070507000, 0x00000000e0a0e000, 0x00000000c040c000,
+        0x0000000302030000, 0x0000000705070000, 0x0000000e0a0e0000, 0x0000001c141c0000, 0x0000003828380000, 0x0000007050700000, 0x000000e0a0e00000, 0x000000c040c00000,
+        0x0000030203000000, 0x0000070507000000, 0x00000e0a0e000000, 0x00001c141c000000, 0x0000382838000000, 0x0000705070000000, 0x0000e0a0e0000000, 0x0000c040c0000000,
+        0x0003020300000000, 0x0007050700000000, 0x000e0a0e00000000, 0x001c141c00000000, 0x0038283800000000, 0x0070507000000000, 0x00e0a0e000000000, 0x00c040c000000000,
+        0x0302030000000000, 0x0705070000000000, 0x0e0a0e0000000000, 0x1c141c0000000000, 0x3828380000000000, 0x7050700000000000, 0xe0a0e00000000000, 0xc040c00000000000,
+        0x0203000000000000, 0x0507000000000000, 0x0a0e000000000000, 0x141c000000000000, 0x2838000000000000, 0x5070000000000000, 0xa0e0000000000000, 0x40c0000000000000,
+        0x0000000000000000
+    };
+
+    /* Knight lookup attacks (extra zero allows for ctz on an empty bitboard to be used as a position) */
+    static constexpr unsigned long long knight_attack_lookups [] =
+    {
+        0x0000000000020400, 0x0000000000050800, 0x00000000000a1100, 0x0000000000142200, 0x0000000000284400, 0x0000000000508800, 0x0000000000a01000, 0x0000000000402000,
+        0x0000000002040004, 0x0000000005080008, 0x000000000a110011, 0x0000000014220022, 0x0000000028440044, 0x0000000050880088, 0x00000000a0100010, 0x0000000040200020,
+        0x0000000204000402, 0x0000000508000805, 0x0000000a1100110a, 0x0000001422002214, 0x0000002844004428, 0x0000005088008850, 0x000000a0100010a0, 0x0000004020002040,
+        0x0000020400040200, 0x0000050800080500, 0x00000a1100110a00, 0x0000142200221400, 0x0000284400442800, 0x0000508800885000, 0x0000a0100010a000, 0x0000402000204000,
+        0x0002040004020000, 0x0005080008050000, 0x000a1100110a0000, 0x0014220022140000, 0x0028440044280000, 0x0050880088500000, 0x00a0100010a00000, 0x0040200020400000,
+        0x0204000402000000, 0x0508000805000000, 0x0a1100110a000000, 0x1422002214000000, 0x2844004428000000, 0x5088008850000000, 0xa0100010a0000000, 0x4020002040000000,
+        0x0400040200000000, 0x0800080500000000, 0x1100110a00000000, 0x2200221400000000, 0x4400442800000000, 0x8800885000000000, 0x100010a000000000, 0x2000204000000000,
+        0x0004020000000000, 0x0008050000000000, 0x00110a0000000000, 0x0022140000000000, 0x0044280000000000, 0x0088500000000000, 0x0010a00000000000, 0x0020400000000000,
+        0x0000000000000000
+    };
+
+
+
     /* INTERNAL METHODS */
 
     /** @name  ctoi
@@ -600,16 +689,20 @@ private:
      * @param  dir: Compass direction
      * @return integer
      */
-    static constexpr int ctoi ( compass dir ) noexcept { return static_cast<int> ( dir ); }
-    static constexpr int ctoi ( knight_compass dir ) noexcept { return static_cast<int> ( dir ); }
+    static constexpr int ctoi ( compass dir )          noexcept { return static_cast<int> ( dir ); }
+    static constexpr int ctoi ( straight_compass dir ) noexcept { return static_cast<int> ( dir ); }
+    static constexpr int ctoi ( diagonal_compass dir ) noexcept { return static_cast<int> ( dir ); }
+    static constexpr int ctoi ( knight_compass dir )   noexcept { return static_cast<int> ( dir ); }
 
-    /** @name  patktoc
+    /** @name  toc
      * 
-     * @brief  Cast a pawn attack compass direction to a normal compass direction
-     * @param  dir: Compass direction
-     * @return Cast compass direction
+     * @brief  Convert a straight or diagonal compass to a normal compass
+     * @param  dir: The compass to convert
+     * @return compass
      */
-    static constexpr compass patktoc ( pawn_atk_compass dir ) noexcept { return static_cast<compass> ( dir ); }
+    static constexpr compass toc ( compass dir )          noexcept { return                      ( dir ); }
+    static constexpr compass toc ( straight_compass dir ) noexcept { return static_cast<compass> ( dir ); }
+    static constexpr compass toc ( diagonal_compass dir ) noexcept { return static_cast<compass> ( dir ); }
 
     /** @name  shift_val, shift_mask
      * 
@@ -617,21 +710,45 @@ private:
      * @param  dir: Compass direction
      * @return Shift value or mask
      */
-    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals         [ ctoi ( dir ) ]; }
-    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals  [ ctoi ( dir ) ]; }
+    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ ctoi ( dir ) ]; }
+    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ ctoi ( dir ) ]; }
     static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ ctoi ( dir ) ] }; }
     static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ ctoi ( dir ) ] }; }
 
-    /** @name  singular_bitset
-     *
-     * @brief  Create a 64-bit unsigned with one bit set
+    /** @name  king_attack_lookup, knight_attack_lookup
+     * 
+     * @brief  Lookup the possible moves of single king or knight
      * @param  pos:  The absolute position [0,63]
      * @param  rank: The rank of the bit [0,7]
      * @param  file: The file of the bit [0,7]
-     * @return The 64-bit integer
+     * @return bitboard
      */
-    static constexpr unsigned long long singular_bitset ( unsigned pos ) noexcept { return ( 0x1ull << pos ); }
-    static constexpr unsigned long long singular_bitset ( unsigned rank, unsigned file ) noexcept { return ( 0x1ull << ( rank * 8 + file ) ); }
+    static constexpr bitboard king_attack_lookup   ( unsigned pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
+    static constexpr bitboard knight_attack_lookup ( unsigned pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
+    static constexpr bitboard king_attack_lookup   ( unsigned rank, unsigned file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
+    static constexpr bitboard knight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
+
+    /** @name  singleton_bitset
+     * 
+     * @brief  Create a 64-bit integer with one bit set
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return 64-bit integer
+     */
+    static constexpr unsigned long long singleton_bitset ( unsigned pos ) noexcept { return 0x1ull << pos; }
+    static constexpr unsigned long long singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 0x1ull << ( rank * 8 + file ); }
+
+    /** @name  singleton_bitboard
+     *
+     * @brief  Create a bitboard with one bit set
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return bitboard
+     */
+    static constexpr bitboard singleton_bitboard ( unsigned pos ) noexcept { return bitboard { singleton_bitset ( pos ) }; }
+    static constexpr bitboard singleton_bitboard ( unsigned rank, unsigned file ) noexcept { return bitboard { singleton_bitset ( rank, file ) }; }
 
 };
 
