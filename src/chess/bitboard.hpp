@@ -292,9 +292,9 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
     bitboard x, temp { bits }; // x will store the output, temp allows for the iteration through the set bits of this.
     while ( temp )             // While there are set bits left in temp, continue to add to x.
     {
-        int pos = temp.trailing_zeros ();  // The position of the next set bit in temp is given by the number if trailing zeros.
-        x |= knight_attack_lookup ( pos ); // Lookup the knight attacks at pos, and union them with x.
-        temp.reset ( pos );                // Reset the bit in temp.
+        int pos = temp.trailing_zeros_nocheck (); // The position of the next set bit in temp is given by the number if trailing zeros.
+        x |= knight_attack_lookup ( pos );        // Lookup the knight attacks at pos, and union them with x.
+        temp.reset ( pos );                       // Reset the bit in temp.
     }
     return x & p; // Check with the propagator and return x.
 }
@@ -310,7 +310,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard 
     bitboard once, mult, temp { bits }; // once and mult will remember if a cell is attacked once or multiple times, temp allows for the iteration through the set bits of this.
     while ( temp )                      // While there are set bits left in temp, continue to add to x.
     {
-        int pos = temp.trailing_zeros ();            // The position of the next set bit in temp is given by the number if trailing zeros.
+        int pos = temp.trailing_zeros_nocheck ();    // The position of the next set bit in temp is given by the number if trailing zeros.
         mult |= knight_attack_lookup ( pos ) & once; // Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
         once |= knight_attack_lookup ( pos );        // Union the attacked cells with once.
         temp.reset ( pos );                          // Reset the bit in temp.
