@@ -738,8 +738,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return 64-bit integer
      */
-    static constexpr unsigned long long singleton_bitset ( unsigned pos ) noexcept { return 0x1ull << pos; }
-    static constexpr unsigned long long singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 0x1ull << ( rank * 8 + file ); }
+    static constexpr unsigned long long singleton_bitset ( unsigned pos ) noexcept { return 1ull << pos; }
+    static constexpr unsigned long long singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 1ull << ( rank * 8 + file ); }
 
     /** @name  singleton_bitboard
      *
