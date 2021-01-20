@@ -435,7 +435,7 @@ public:
      * @param  p: Propagator set: set bits are opposing pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_attack ( diagonal_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( toc ( dir ) ) & p; }
+    constexpr bitboard pawn_attack ( diagonal_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( static_cast<compass> ( dir ) ) & p; }
 
     /** @name  pawn_any_attack_n/s
      * 
