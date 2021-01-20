@@ -28,12 +28,16 @@
  */
 std::string chess::bitboard::format_board ( const char zero, const char one ) const
 {
-    /* Flip the board vertically to access the top rank first */
-    bitboard trans = vertical_flip ();
-
-    /* Add to string one byte at a time */
-    std::string out;
-    for ( unsigned i = 0; i < 64; ++i ) { out += ( trans.test ( i ) ? one : zero ); out += ( ( i + 1 ) & 7 ? " " : "\n" ); };
+    /* Add to string one bit at a time.
+     * i ^ 56 changes the endianness of i, such that the top row is read first.
+     * Multiplying by 2 skips the spaces inbetween cells.
+     */
+    std::string out ( 128, ' ' );
+    for ( unsigned i = 0; i < 64; ++i ) 
+    { 
+        out [ i * 2 ] = ( test ( i ^ 56 ) ? one : zero );
+        if ( ( i & 7 ) == 7 ) out [ i * 2 ] = '\n';
+    };
 
     /* Return the formatted board */
     return out;
