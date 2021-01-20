@@ -4,7 +4,7 @@
  * Distributed under MIT licence as a part of the Chess C++ library.
  * For details, see: https://github.com/louishobson/Chess/blob/master/LICENSE
  *
- * src/chess/bitboard.hpp
+ * include/chess/bitboard.hpp
  *
  * Inline implementation of include/chess/bitboard.h
  *
