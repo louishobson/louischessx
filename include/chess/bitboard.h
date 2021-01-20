@@ -25,7 +25,6 @@
 
 
 /* INCLUDES */
-#include <array>
 #include <bit>
 #include <cassert>
 #include <chess/builtin_macros.h>
