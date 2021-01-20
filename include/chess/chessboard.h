@@ -27,7 +27,9 @@
 
 /* INCLUDES */
 #include <array>
+#include <cctype>
 #include <chess/bitboard.h>
+#include <string>
 
 
 
@@ -35,6 +37,23 @@
 
 namespace chess
 {
+    /* enum piece_type
+     *
+     * Enum values for the different bitboards
+     */
+    enum class piece_type
+    {
+        white,
+        black,
+        pawn,
+        king,
+        queen,
+        bishop,
+        knight,
+        rook,
+        no_piece
+    };
+
     /* class chessboard 
      *
      * Store and manipulate a bitboard-based chess board
@@ -54,26 +73,6 @@ class chess::chessboard
 {
 public:
 
-    /* TYPES */
-
-    /* enum piece_type
-     *
-     * Enum values for the different bitboards
-     */
-    enum class piece_type
-    {
-        white,
-        black,
-        pawn,
-        knight,
-        bishop,
-        rook,
-        queen,
-        king
-    };
-
-
-
     /* CONSTRUCTORS */
 
     /** @name  default constructor
@@ -85,12 +84,24 @@ public:
         bitboard { 0x000000000000FFFF },
         bitboard { 0xFFFF000000000000 },
         bitboard { 0x00FF00000000FF00 },
+        bitboard { 0x0800000000000010 },
+        bitboard { 0x1000000000000008 },
         bitboard { 0x2400000000000024 },
         bitboard { 0x4200000000000042 },
-        bitboard { 0x8100000000000081 },
-        bitboard { 0x1000000000000008 },
-        bitboard { 0x0800000000000010 }
+        bitboard { 0x8100000000000081 }
     } {}
+
+
+
+    /* FORMATTING */
+
+    /** @name  simple_format_board
+     * 
+     * @brief  Create a simple representation of the board.
+     *         Lower-case letters mean black, upper case white.
+     * @return string
+     */
+    std::string simple_format_board () const;
 
 
 
@@ -107,21 +118,58 @@ private:
 
     /** @name  get_bb
      * 
-     * @brief  Gets a bitboard based on a single piece type
+     * @brief  Gets a bitboard, by reference, based on a single piece type
      * @param  pt: One of piece_type
      * @return The bitboard for pt 
      */
     bitboard& get_bb ( piece_type pt ) noexcept { return boards [ static_cast<int> ( pt ) ]; } 
     const bitboard& get_bb ( piece_type pt ) const noexcept { return boards [ static_cast<int> ( pt ) ]; }
 
-    /** @name  get_bb 
+    /** @name  bb
+     * 
+     * @brief  Gets a bitboard, by copy, based on a single piece type
+     * @param  pt: One of piece_type
+     * @return The bitboard for pt
+     */
+    bitboard bb ( piece_type pt ) const noexcept { return boards [ static_cast<int> ( pt ) ]; }
+
+    /** @name  comp_bb 
      * 
      * @brief  Gets a composite bitboard from the intersection of two bitboards
      * @param  pt0: One of piece_type 
      * @param  pt1: One of piece_type
-     * @return The bitboard for pt 
+     * @return A new bitboard
      */
-    bitboard get_bb ( piece_type pt0, piece_type pt1 ) const noexcept { return boards [ static_cast<int> ( pt0 ) ] & boards [ static_cast<int> ( pt0 ) ]; }
+    bitboard comp_bb ( piece_type pt0, piece_type pt1 ) const noexcept { return boards [ static_cast<int> ( pt0 ) ] & boards [ static_cast<int> ( pt0 ) ]; }
+
+    /** @name  occupied_bb
+     * 
+     * @brief  Gets the union of white and black pieces
+     * @return A new bitboard
+     */
+    bitboard occupied_bb () const noexcept { return get_bb ( piece_type::white ) | get_bb ( piece_type::black ); }
+
+
+
+    /* BOARD LOOKUP */
+
+    /** @name  find_color
+     *
+     * @brief  Determines the color of piece at a board position.
+     *         Note: an out of range position leads to undefined behavior.
+     * @param  pos: Board position
+     * @return One of the colours in piece_type or no_piece
+     */
+    piece_type find_color ( unsigned pos ) const noexcept;
+
+    /** @name  find_type
+     * 
+     * @brief  Determines the type of piece at a board position.
+     *         Note: an out of range position leads to undefined behavior.
+     * @param  pos: Board position
+     * @return One of the types in piece_type or no_piece
+     */
+    piece_type find_type ( unsigned pos ) const noexcept;
 
 };
 
