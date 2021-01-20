@@ -229,14 +229,22 @@ inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p
  */
 inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
 {
-    bitboard x { bits }, prev; // x will store the output, prev will remember the result of the previous iteration.
+    /* x will store the output, prev will remember the result of the previous iteration */
+    bitboard x { bits }, prev; 
     do {
-        prev = x;                                             // Starting new iteration, so copy x over to prev.
-        x |= x.shift ( compass::w ) | x.shift ( compass::e ); // Union the east and west shift of x with itself.
-        x |= x.shift ( compass::s ) | x.shift ( compass::n ); // Union the north and south shift of x with itself, so that x has expanded outward by 1 cell in each direction.
-        x &= p;            // Check with propagator.
-    } while ( x != prev ); // Repeat until no change has been made.
-    return x;              // Return x.
+        /* Starting new iteration, so copy x over to prev.
+         * Union the east and west shift of x with itself.
+         * Union the north and south shift of x with itself, so that x has expanded outward by 1 cell in each direction.
+         * Check with the propagator and repeat until no change has been made.
+         */
+        prev = x;
+        x |= x.shift ( compass::w ) | x.shift ( compass::e );
+        x |= x.shift ( compass::s ) | x.shift ( compass::n );
+        x &= p;
+    } while ( x != prev );
+
+    /* return the flood */
+    return x;
 }
 
 /** @name  is_connected
@@ -250,15 +258,24 @@ inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) cons
  */
 inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const noexcept
 {
-    bitboard x { bits }, prev; // x will store the output, prev will remember the result of the previous iteration.
+    /* x will store the output, prev will remember the result of the previous iteration */
+    bitboard x { bits }, prev;
     do {
-        prev = x;                                             // Starting new iteration, so copy x over to prev.
-        x |= x.shift ( compass::w ) | x.shift ( compass::e ); // Union the east and west shift of x with itself.
-        x |= x.shift ( compass::s ) | x.shift ( compass::n ); // Union the north and south shift of x with itself, so that x has expanded outward by 1 cell in each direction.
-        x &= p;                              // Check with propagator.
-        if ( x.contains ( t ) ) return true; // If all targets are now found within the flood, return true.
-    } while ( x != prev );                   // Repeat until no change has been made.
-    return false;                            // Not all targets reached, so return false.
+        /* Starting new iteration, so copy x over to prev.
+         * Union the east and west shift of x with itself.
+         * Union the north and south shift of x with itself, so that x has expanded outward by 1 cell in each direction.
+         * Check with the propagator.
+         * If all targets are now found within the flood then return true, else repeat until no change has been made.
+         */
+        prev = x;                                            
+        x |= x.shift ( compass::w ) | x.shift ( compass::e );
+        x |= x.shift ( compass::s ) | x.shift ( compass::n );
+        x &= p;                              
+        if ( x.contains ( t ) ) return true;
+    } while ( x != prev );
+
+    /* not all targets found so return false */           
+    return false;                            
 }
 
 
@@ -276,108 +293,23 @@ inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) c
  */
 inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::rank_4 };            // A legal double south push will leave a pawn in rank 5.
-    bitboard x { shift ( compass::n ) & p };            // For the first push, shift the board north one, check with propagator and store in x.
-    return { x | ( x.shift ( compass::n ) & p & k1 ) }; // For the second push, shift the board north one again, check with propagator and k1, then return the union with x.
+    /* A legal double south push will leave a pawn in rank 5.
+     * For the first push, shift the board north one, check with propagator and store in x.
+     * For the second push, shift the board north one again, check with propagator and k1, then return the union with x.
+     */
+    constexpr bitboard k1 { masks::rank_4 };            
+    bitboard x { shift ( compass::n ) & p };            
+    return { x | ( x.shift ( compass::n ) & p & k1 ) }; 
 }
 inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) const noexcept
 {
-    constexpr bitboard k1 { masks::rank_5 };            // A legal double south push will leave a pawn in rank 5.
-    bitboard x { shift ( compass::s ) & p };            // For the first push, shift the board south one, check with propagator and store in x.
-    return { x | ( x.shift ( compass::s ) & p & k1 ) }; // For the second push, shift the board south one again, check with propagator and k1, then return the union with x.
-}
-
-
-
-/* ROOK BISHOP AND QUEEN MOVES */
-
-/** @name  rook/bishop/queen_any_attack
- * 
- * @brief  Gives the intersection of attacks in all directions
- * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
- * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
- *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
- * @return A new bitboard
- */
-inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( bitboard pp, bitboard sp ) const noexcept
-{
-    bitboard x;
-    straight_compass dir = straight_compass_start ();
-    #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
-    {
-        x |= rook_attack ( dir, pp, sp );
-        dir = compass_next ( dir );
-    }
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard pp, bitboard sp ) const noexcept
-{
-    bitboard x;
-    diagonal_compass dir = diagonal_compass_start ();
-    #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
-    {
-        x |= bishop_attack ( dir, pp, sp );
-        dir = compass_next ( dir );
-    }
-    return x;
-}
-inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( bitboard pp, bitboard sp ) const noexcept
-{
-    bitboard x;
-    compass dir = compass_start ();
-    #pragma GCC unroll 8
-    for ( int i = 0; i < 8; ++i )
-    {
-        x |= queen_attack ( dir, pp, sp );
-        dir = compass_next ( dir );
-    }
-    return x;
-}
-
-
-
-/* KNIGHT MOVES */
-
-
-
-/** @name  knight_any_attack
- *
- * @brief  Gives the union of all knight attacks
- * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
- * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
- * @return A new bitboard
- */
-inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p ) const noexcept
-{
-    bitboard x, temp { bits }; // x will store the output, temp allows for the iteration through the set bits of this.
-    while ( temp )             // While there are set bits left in temp, continue to add to x.
-    {
-        int pos = temp.trailing_zeros_nocheck (); // The position of the next set bit in temp is given by the number if trailing zeros.
-        x |= knight_attack_lookup ( pos );        // Lookup the knight attacks at pos, and union them with x.
-        temp.reset ( pos );                       // Reset the bit in temp.
-    }
-    return x & p; // Check with the propagator and return x.
-}
-
-/** @name  knight_mult_attack
- *
- * @brief  Gives the set of cells attacked by more than one knight
- * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
- * @return A new bitboard
- */
-inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard p ) const noexcept
-{
-    bitboard once, mult, temp { bits }; // once and mult will remember if a cell is attacked once or multiple times, temp allows for the iteration through the set bits of this.
-    while ( temp )                      // While there are set bits left in temp, continue to add to x.
-    {
-        int pos = temp.trailing_zeros_nocheck ();    // The position of the next set bit in temp is given by the number if trailing zeros.
-        mult |= knight_attack_lookup ( pos ) & once; // Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
-        once |= knight_attack_lookup ( pos );        // Union the attacked cells with once.
-        temp.reset ( pos );                          // Reset the bit in temp.
-    }
-    return mult & p; // Check with the propagator and return x.
+    /* A legal double south push will leave a pawn in rank 5.
+     * For the first push, shift the board south one, check with propagator and store in x.
+     * For the second push, shift the board south one again, check with propagator and k1, then return the union with x.
+     */
+    constexpr bitboard k1 { masks::rank_5 };           
+    bitboard x { shift ( compass::s ) & p };           
+    return { x | ( x.shift ( compass::s ) & p & k1 ) };
 }
 
 
@@ -398,14 +330,156 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard 
  */
 inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, bool single ) const noexcept
 {
-    if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ); else // If was declared as a singleton set, simply look up and return the attacks of the king.
+    /* If was declared as a singleton set, simply look up and return the attacks of the king */
+    if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ); else
     {
-        bitboard x, t { bits };                                // x will store the output, t will help form the output.
-        x  = t.shift ( compass::w ) | t.shift ( compass::e );  // Set the east and west shifts to x.
-        t |= x;                                                // Union them back to t.
-        x |= t.shift ( compass::s ) | t.shift ( compass::n );  // Since t now comprises of the initial, east and west shifts, the shifting north and south gives the remaining 6 attack cells.
-        return x & p;                                          // Check with the propagator and return x.
+        /* x will store the output, t will help form the output.
+         * Set the east and west shifts to x, then union them back to t.
+         * Since t now comprises of the initial, east and west shifts, the shifting north and south gives the remaining 6 attack cells.
+         * Check with the propagator and return x.
+         */
+        bitboard x, t { bits };                               
+        x  = t.shift ( compass::w ) | t.shift ( compass::e ); 
+        t |= x;                                               
+        x |= t.shift ( compass::s ) | t.shift ( compass::n ); 
+        return x & p;                                         
     }
+}
+
+
+
+/* ROOK BISHOP AND QUEEN MOVES */
+
+
+
+/** @name  rook/bishop/queen_any_attack
+ * 
+ * @brief  Gives the intersection of attacks in all directions
+ * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
+ * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
+ *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( bitboard pp, bitboard sp ) const noexcept
+{
+    /* x will store the output, dir iterates over the directions of the compass */
+    bitboard x;
+    straight_compass dir = straight_compass_start ();
+
+    /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
+     * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
+     */
+    #pragma GCC unroll 4
+    for ( int i = 0; i < 4; ++i )
+    {
+        /* Union the attacks in this direction to x, and increment dir */
+        x |= rook_attack ( dir, pp, sp );
+        dir = compass_next ( dir );
+    }
+
+    /* Return the union of all attacks */
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard pp, bitboard sp ) const noexcept
+{
+    /* x will store the output, dir iterates over the directions of the compass */
+    bitboard x;
+    diagonal_compass dir = diagonal_compass_start ();
+    #pragma GCC unroll 4
+
+    /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
+     * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
+     */
+    for ( int i = 0; i < 4; ++i )
+    {
+        /* Union the attacks in this direction to x, and increment dir */
+        x |= bishop_attack ( dir, pp, sp );
+        dir = compass_next ( dir );
+    }
+
+    /* Return the union of all attacks */
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( bitboard pp, bitboard sp ) const noexcept
+{
+    /* x will store the output, dir iterates over the directions of the compass */
+    bitboard x;
+    compass dir = compass_start ();
+
+    /* Iterate over the 8 compass directions, forcing GCC to unroll the loop.
+     * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
+     */
+    #pragma GCC unroll 8
+    for ( int i = 0; i < 8; ++i )
+    {
+        /* Union the attacks in this direction to x, and increment dir */
+        x |= queen_attack ( dir, pp, sp );
+        dir = compass_next ( dir );
+    }
+
+    /* Return the union of all attacks */
+    return x;
+}
+
+
+
+/* KNIGHT MOVES */
+
+
+
+/** @name  knight_any_attack
+ *
+ * @brief  Gives the union of all knight attacks
+ * @see    https://www.chessprogramming.org/Knight_Pattern#Multiple_Knight_Attacks
+ * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p ) const noexcept
+{
+    /* x will store the output, temp allows for the iteration through the set bits of this */
+    bitboard x, temp { bits }; 
+
+    /* While there are set bits left in temp (i.e. knights on the board), continue to add to x */
+    while ( temp )
+    {
+        /* The position of the next set bit in temp is given by the number of trailing zeros.
+         * Lookup the knight attacks at pos and union them with x, then reset the bit in temp.
+         */
+        int pos = temp.trailing_zeros_nocheck (); 
+        x |= knight_attack_lookup ( pos );        
+        temp.reset ( pos );                       
+    }
+
+    /* Check with the propagator and return x */
+    return x & p;
+}
+
+/** @name  knight_mult_attack
+ *
+ * @brief  Gives the set of cells attacked by more than one knight
+ * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard p ) const noexcept
+{
+    /* once and mult will remember if a cell is attacked once or multiple times, temp allows for the iteration through the set bits of this */
+    bitboard once, mult, temp { bits };
+
+    /* While there are set bits left in temp (i.e. kings on the board), continue to add to x */
+    while ( temp )
+    {
+        /* The position of the next set bit in temp is given by the number if trailing zeros.
+         * Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
+         * Union the attacked cells with once then reset the bit in temp.
+         */
+        int pos = temp.trailing_zeros_nocheck ();   
+        mult |= knight_attack_lookup ( pos ) & once;
+        once |= knight_attack_lookup ( pos );       
+        temp.reset ( pos );                         
+    }
+
+    /* Check with the propagator and return x */
+    return mult & p;
 }
 
 

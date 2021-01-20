@@ -459,6 +459,27 @@ public:
 
 
 
+    /* KING MOVES */
+
+    /** @name  king_attack
+     * @brief  See shift ()
+     */
+    constexpr bitboard king_attack ( compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
+
+    /** @name  king_any_attack
+     * 
+     * @brief  Gives the union of all possible king moves
+     * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
+     * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
+     *         Sometimes called a 'taboo set'.
+     * @param  single: If set to true, will assume the board is a singleton, false by default.
+     *         Note: setting to true using an empty bitboard will cause undefined behavior.
+     * @return A new bitboard
+     */
+    constexpr bitboard king_any_attack ( bitboard p = ~bitboard {}, bool single = false ) const noexcept;
+
+
+
     /* ROOK, BISHOP AND QUEEN MOVES */
 
     /** @name  rook/bishop/queen_attack
@@ -516,27 +537,6 @@ public:
      * @return A new bitboard
      */
     constexpr bitboard knight_mult_attack ( bitboard p = ~bitboard {} ) const noexcept;
-
-
-
-    /* KING MOVES */
-
-    /** @name  king_attack
-     * @brief  See shift ()
-     */
-    constexpr bitboard king_attack ( compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
-
-    /** @name  king_any_attack
-     * 
-     * @brief  Gives the union of all possible king moves
-     * @see    https://www.chessprogramming.org/King_Pattern#by_Calculation
-     * @param  p: Propagator set: set bits are empty cells or capturable pieces, but which are not protected by an enemy piece, universe by default.
-     *         Sometimes called a 'taboo set'.
-     * @param  single: If set to true, will assume the board is a singleton, false by default.
-     *         Note: setting to true using an empty bitboard will cause undefined behavior.
-     * @return A new bitboard
-     */
-    constexpr bitboard king_any_attack ( bitboard p = ~bitboard {}, bool single = false ) const noexcept;
 
 
 
