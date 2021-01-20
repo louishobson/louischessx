@@ -470,9 +470,9 @@ public:
      *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
-    constexpr bitboard rook_attack   ( straight_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
-    constexpr bitboard bishop_attack ( diagonal_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
-    constexpr bitboard queen_attack  ( compass dir,          bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span (       dir,   pp, sp ); }
+    constexpr bitboard rook_attack   ( straight_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( static_cast<compass> ( dir ), pp, sp ); }
+    constexpr bitboard bishop_attack ( diagonal_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( static_cast<compass> ( dir ), pp, sp ); }
+    constexpr bitboard queen_attack  ( compass dir,          bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( dir, pp, sp ); }
 
     /** @name  rook/bishop/queen_any_attack
      * 
@@ -706,36 +706,16 @@ private:
 
     /* INTERNAL METHODS */
 
-    /** @name  ctoi
-     * 
-     * @brief  Cast a compass direction to an integer
-     * @param  dir: Compass direction
-     * @return integer
-     */
-    static constexpr int ctoi ( compass dir )          noexcept { return static_cast<int> ( dir ); }
-    static constexpr int ctoi ( straight_compass dir ) noexcept { return static_cast<int> ( dir ); }
-    static constexpr int ctoi ( diagonal_compass dir ) noexcept { return static_cast<int> ( dir ); }
-    static constexpr int ctoi ( knight_compass dir )   noexcept { return static_cast<int> ( dir ); }
-
-    /** @name  toc
-     * 
-     * @brief  Convert a straight or diagonal compass to a normal compass
-     * @param  dir: The compass to convert
-     * @return compass
-     */
-    static constexpr compass toc ( straight_compass dir ) noexcept { return static_cast<compass> ( dir ); }
-    static constexpr compass toc ( diagonal_compass dir ) noexcept { return static_cast<compass> ( dir ); }
-
     /** @name  shift_val, shift_mask
      * 
      * @brief  Get a shift value or mask from a compass direction
      * @param  dir: Compass direction
      * @return Shift value or mask
      */
-    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ ctoi ( dir ) ]; }
-    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ ctoi ( dir ) ]; }
-    static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ ctoi ( dir ) ] }; }
-    static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ ctoi ( dir ) ] }; }
+    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ static_cast<int> ( dir ) ]; }
+    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ static_cast<int> ( dir ) ]; }
+    static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ static_cast<int> ( dir ) ] }; }
+    static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ static_cast<int> ( dir ) ] }; }
 
     /** @name  king_attack_lookup, knight_attack_lookup
      * 
