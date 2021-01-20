@@ -777,7 +777,7 @@ private:
 
 
 /* INCLUDE INLINE IMPLEMENTATION */
-#include "../../src/chess/bitboard.hpp"
+#include <chess/bitboard.hpp>
 
 
 
