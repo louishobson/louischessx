@@ -37,9 +37,6 @@
 
 namespace chess
 {
-    /* u64 typedef */
-    typedef unsigned long long u64;
-
     /* COMPASSES */
 
     /* enum compass
@@ -114,7 +111,7 @@ public:
     constexpr bitboard () noexcept : bits { 0 } {}
 
     /** @name bits constructor */
-    explicit constexpr bitboard ( u64 _bits ) noexcept : bits { _bits } {}
+    explicit constexpr bitboard ( unsigned long long _bits ) noexcept : bits { _bits } {}
 
 
 
@@ -550,7 +547,7 @@ public:
      * 
      * @return The value of the bitboard
      */
-    constexpr u64 get_value () const noexcept { return bits; }
+    constexpr unsigned long long get_value () const noexcept { return bits; }
 
     /** @name  set, reset, toggle
      * 
@@ -603,46 +600,46 @@ private:
      */
     struct masks
     {
-        static constexpr u64 empty           { 0x0000000000000000 };
-        static constexpr u64 universe        { 0xFFFFFFFFFFFFFFFF };
-        static constexpr u64 white_squares   { 0x55AA55AA55AA55AA };
-        static constexpr u64 black_squares   { 0xAA55AA55AA55AA55 };
+        static constexpr unsigned long long empty           { 0x0000000000000000 };
+        static constexpr unsigned long long universe        { 0xFFFFFFFFFFFFFFFF };
+        static constexpr unsigned long long white_squares   { 0x55AA55AA55AA55AA };
+        static constexpr unsigned long long black_squares   { 0xAA55AA55AA55AA55 };
 
-        static constexpr u64 file_a          { 0x0101010101010101 };
-        static constexpr u64 file_b          { 0x0202020202020202 };
-        static constexpr u64 file_c          { 0x0404040404040404 };
-        static constexpr u64 file_d          { 0x0808080808080808 };
-        static constexpr u64 file_e          { 0x1010101010101010 };
-        static constexpr u64 file_f          { 0x2020202020202020 };
-        static constexpr u64 file_g          { 0x4040404040404040 };
-        static constexpr u64 file_h          { 0x8080808080808080 };
+        static constexpr unsigned long long file_a          { 0x0101010101010101 };
+        static constexpr unsigned long long file_b          { 0x0202020202020202 };
+        static constexpr unsigned long long file_c          { 0x0404040404040404 };
+        static constexpr unsigned long long file_d          { 0x0808080808080808 };
+        static constexpr unsigned long long file_e          { 0x1010101010101010 };
+        static constexpr unsigned long long file_f          { 0x2020202020202020 };
+        static constexpr unsigned long long file_g          { 0x4040404040404040 };
+        static constexpr unsigned long long file_h          { 0x8080808080808080 };
 
-        static constexpr u64 rank_1          { 0x00000000000000FF };
-        static constexpr u64 rank_2          { 0x000000000000FF00 };
-        static constexpr u64 rank_3          { 0x0000000000FF0000 };
-        static constexpr u64 rank_4          { 0x00000000FF000000 };
-        static constexpr u64 rank_5          { 0x000000FF00000000 };
-        static constexpr u64 rank_6          { 0x0000FF0000000000 };
-        static constexpr u64 rank_7          { 0x00FF000000000000 };
-        static constexpr u64 rank_8          { 0xFF00000000000000 };
+        static constexpr unsigned long long rank_1          { 0x00000000000000FF };
+        static constexpr unsigned long long rank_2          { 0x000000000000FF00 };
+        static constexpr unsigned long long rank_3          { 0x0000000000FF0000 };
+        static constexpr unsigned long long rank_4          { 0x00000000FF000000 };
+        static constexpr unsigned long long rank_5          { 0x000000FF00000000 };
+        static constexpr unsigned long long rank_6          { 0x0000FF0000000000 };
+        static constexpr unsigned long long rank_7          { 0x00FF000000000000 };
+        static constexpr unsigned long long rank_8          { 0xFF00000000000000 };
 
-        static constexpr u64 shift_sw         { ~rank_8 & ~file_h };
-        static constexpr u64 shift_s          { ~rank_8           };
-        static constexpr u64 shift_se         { ~rank_8 & ~file_a };
-        static constexpr u64 shift_w          {           ~file_h };
-        static constexpr u64 shift_e          {           ~file_a };
-        static constexpr u64 shift_nw         { ~rank_1 & ~file_h };
-        static constexpr u64 shift_n          { ~rank_1           };
-        static constexpr u64 shift_ne         { ~rank_1 & ~file_a };
+        static constexpr unsigned long long shift_sw         { ~rank_8 & ~file_h };
+        static constexpr unsigned long long shift_s          { ~rank_8           };
+        static constexpr unsigned long long shift_se         { ~rank_8 & ~file_a };
+        static constexpr unsigned long long shift_w          {           ~file_h };
+        static constexpr unsigned long long shift_e          {           ~file_a };
+        static constexpr unsigned long long shift_nw         { ~rank_1 & ~file_h };
+        static constexpr unsigned long long shift_n          { ~rank_1           };
+        static constexpr unsigned long long shift_ne         { ~rank_1 & ~file_a };
 
-        static constexpr u64 knight_shift_ssw { ~rank_8 & ~rank_7 & ~file_h           };
-        static constexpr u64 knight_shift_sse { ~rank_8 & ~rank_7 & ~file_a           };
-        static constexpr u64 knight_shift_sww { ~rank_8 &           ~file_h & ~file_g };
-        static constexpr u64 knight_shift_see { ~rank_8 &           ~file_a & ~file_b };
-        static constexpr u64 knight_shift_nww { ~rank_1 &           ~file_h & ~file_g };
-        static constexpr u64 knight_shift_nee { ~rank_1 &           ~file_a & ~file_b };
-        static constexpr u64 knight_shift_nnw { ~rank_1 & ~rank_2 & ~file_h           };
-        static constexpr u64 knight_shift_nne { ~rank_1 & ~rank_2 & ~file_a           };
+        static constexpr unsigned long long knight_shift_ssw { ~rank_8 & ~rank_7 & ~file_h           };
+        static constexpr unsigned long long knight_shift_sse { ~rank_8 & ~rank_7 & ~file_a           };
+        static constexpr unsigned long long knight_shift_sww { ~rank_8 &           ~file_h & ~file_g };
+        static constexpr unsigned long long knight_shift_see { ~rank_8 &           ~file_a & ~file_b };
+        static constexpr unsigned long long knight_shift_nww { ~rank_1 &           ~file_h & ~file_g };
+        static constexpr unsigned long long knight_shift_nee { ~rank_1 &           ~file_a & ~file_b };
+        static constexpr unsigned long long knight_shift_nnw { ~rank_1 & ~rank_2 & ~file_h           };
+        static constexpr unsigned long long knight_shift_nne { ~rank_1 & ~rank_2 & ~file_a           };
     };
 
 
@@ -650,26 +647,26 @@ private:
     /* ATTRIBUTES */
 
     /* The contents of the bitboard */
-    u64 bits;
+    unsigned long long bits;
 
 
 
     /* SHIFT CONSTEXPRS */
 
     /* Shift amounts */
-    static constexpr std::array<int, 8> shift_vals { -9, -8, -7, -1, 1, 7, 8, 9 };
+    static constexpr int shift_vals [] = { -9, -8, -7, -1, 1, 7, 8, 9 };
 
     /* Knight shift amounts */
-    static constexpr std::array<int, 8> knight_shift_vals { -17, -15, -10, -6, 6, 10, 15, 17 };
+    static constexpr int knight_shift_vals [] = { -17, -15, -10, -6, 6, 10, 15, 17 };
 
     /* Masks for shifts */
-    static constexpr std::array<u64, 65> shift_masks
+    static constexpr unsigned long long shift_masks [] =
     {
         masks::shift_sw, masks::shift_s, masks::shift_se, masks::shift_w, masks::shift_e, masks::shift_nw, masks::shift_n, masks::shift_ne
     };
 
     /* Masks for knight shifts */
-    static constexpr std::array<u64, 65> knight_shift_masks
+    static constexpr unsigned long long knight_shift_masks [] =
     {
         masks::knight_shift_ssw, masks::knight_shift_sse, masks::knight_shift_sww, masks::knight_shift_see, masks::knight_shift_nww, masks::knight_shift_nee, masks::knight_shift_nnw, masks::knight_shift_nne
     };
@@ -679,7 +676,7 @@ private:
     /* KING AND KNIGHT LOOKUP ATTACKS */
 
     /* King lookup attacks (extra zero allows for ctz on an empty bitboard to be used as a position) */
-    static constexpr std::array<u64, 65> king_attack_lookups
+    static constexpr unsigned long long king_attack_lookups [] =
     {
         0x0000000000000302, 0x0000000000000705, 0x0000000000000e0a, 0x0000000000001c14, 0x0000000000003828, 0x0000000000007050, 0x000000000000e0a0, 0x000000000000c040,
         0x0000000000030203, 0x0000000000070507, 0x00000000000e0a0e, 0x00000000001c141c, 0x0000000000382838, 0x0000000000705070, 0x0000000000e0a0e0, 0x0000000000c040c0,
@@ -688,12 +685,11 @@ private:
         0x0000030203000000, 0x0000070507000000, 0x00000e0a0e000000, 0x00001c141c000000, 0x0000382838000000, 0x0000705070000000, 0x0000e0a0e0000000, 0x0000c040c0000000,
         0x0003020300000000, 0x0007050700000000, 0x000e0a0e00000000, 0x001c141c00000000, 0x0038283800000000, 0x0070507000000000, 0x00e0a0e000000000, 0x00c040c000000000,
         0x0302030000000000, 0x0705070000000000, 0x0e0a0e0000000000, 0x1c141c0000000000, 0x3828380000000000, 0x7050700000000000, 0xe0a0e00000000000, 0xc040c00000000000,
-        0x0203000000000000, 0x0507000000000000, 0x0a0e000000000000, 0x141c000000000000, 0x2838000000000000, 0x5070000000000000, 0xa0e0000000000000, 0x40c0000000000000,
-        0x0000000000000000
+        0x0203000000000000, 0x0507000000000000, 0x0a0e000000000000, 0x141c000000000000, 0x2838000000000000, 0x5070000000000000, 0xa0e0000000000000, 0x40c0000000000000
     };
 
     /* Knight lookup attacks (extra zero allows for ctz on an empty bitboard to be used as a position) */
-    static constexpr std::array<u64, 65> knight_attack_lookups
+    static constexpr unsigned long long knight_attack_lookups [] =
     {
         0x0000000000020400, 0x0000000000050800, 0x00000000000a1100, 0x0000000000142200, 0x0000000000284400, 0x0000000000508800, 0x0000000000a01000, 0x0000000000402000,
         0x0000000002040004, 0x0000000005080008, 0x000000000a110011, 0x0000000014220022, 0x0000000028440044, 0x0000000050880088, 0x00000000a0100010, 0x0000000040200020,
@@ -702,8 +698,7 @@ private:
         0x0002040004020000, 0x0005080008050000, 0x000a1100110a0000, 0x0014220022140000, 0x0028440044280000, 0x0050880088500000, 0x00a0100010a00000, 0x0040200020400000,
         0x0204000402000000, 0x0508000805000000, 0x0a1100110a000000, 0x1422002214000000, 0x2844004428000000, 0x5088008850000000, 0xa0100010a0000000, 0x4020002040000000,
         0x0400040200000000, 0x0800080500000000, 0x1100110a00000000, 0x2200221400000000, 0x4400442800000000, 0x8800885000000000, 0x100010a000000000, 0x2000204000000000,
-        0x0004020000000000, 0x0008050000000000, 0x00110a0000000000, 0x0022140000000000, 0x0044280000000000, 0x0088500000000000, 0x0010a00000000000, 0x0020400000000000,
-        0x0000000000000000
+        0x0004020000000000, 0x0008050000000000, 0x00110a0000000000, 0x0022140000000000, 0x0044280000000000, 0x0088500000000000, 0x0010a00000000000, 0x0020400000000000
     };
 
 
@@ -742,8 +737,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return 64-bit integer
      */
-    static constexpr u64 singleton_bitset ( unsigned pos ) noexcept { return 1ull << pos; }
-    static constexpr u64 singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 1ull << ( rank * 8 + file ); }
+    static constexpr unsigned long long singleton_bitset ( unsigned pos ) noexcept { return 1ull << pos; }
+    static constexpr unsigned long long singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 1ull << ( rank * 8 + file ); }
 
     /** @name  singleton_bitboard
      *
