@@ -58,20 +58,15 @@ namespace chess
     enum straight_compass { s  = 1, w  = 3, e  = 4, n  = 6 };
     enum diagonal_compass { sw = 0, se = 2, nw = 5, ne = 7 };
 
-    /* Typedefs for clarity and consistency */
-    typedef compass king_compass;
-    typedef compass queen_compass;
-    typedef straight_compass rook_compass;
-    typedef diagonal_compass bishop_compass;
-    typedef diagonal_compass pawn_atk_compass;
-
-    /** @name  compass_start, knight_compass_start
+    /** @name  compass_start, knight/straight/diagonal_compass_start
      * 
      * @brief  Gives the first direction in a compass (useful for iterating over a compass)
      * @return A compass
      */
     constexpr compass compass_start () noexcept;
     constexpr knight_compass knight_compass_start () noexcept;
+    constexpr straight_compass straight_compass_start () noexcept;
+    constexpr diagonal_compass diagonal_compass_start () noexcept;
 
     /** @name  compass_next
      * 
@@ -81,6 +76,8 @@ namespace chess
      */
     constexpr compass compass_next ( compass dir ) noexcept;
     constexpr knight_compass compass_next ( knight_compass dir ) noexcept;
+    constexpr straight_compass compass_next ( straight_compass dir ) noexcept;
+    constexpr diagonal_compass compass_next ( diagonal_compass dir ) noexcept;
 
 
 
@@ -438,7 +435,7 @@ public:
      * @param  p: Propagator set: set bits are opposing pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_attack ( pawn_atk_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( toc ( dir ) ) & p; }
+    constexpr bitboard pawn_attack ( diagonal_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( toc ( dir ) ) & p; }
 
     /** @name  pawn_any_attack_n/s
      * 
@@ -465,11 +462,29 @@ public:
     /* ROOK, BISHOP AND QUEEN MOVES */
 
     /** @name  rook/bishop/queen_attack
-     *  @brief See span ()
+     * 
+     * @brief  Gives the possible movement of sliding pieces (not including the initial position), taking into account occluders and attackable pieces
+     * @param  dir: The direction to fill
+     * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
+     * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
+     *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
+     * @return A new bitboard
      */
-    constexpr bitboard rook_attack   ( rook_compass dir,   bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
-    constexpr bitboard bishop_attack ( bishop_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
-    constexpr bitboard queen_attack  ( queen_compass dir,  bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
+    constexpr bitboard rook_attack   ( straight_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
+    constexpr bitboard bishop_attack ( diagonal_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( toc ( dir ), pp, sp ); }
+    constexpr bitboard queen_attack  ( compass dir,          bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span (       dir,   pp, sp ); }
+
+    /** @name  rook/bishop/queen_any_attack
+     * 
+     * @brief  Gives the intersection of attacks in all directions
+     * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
+     * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
+     *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
+     * @return A new bitboard
+     */
+    constexpr bitboard rook_all_attack   ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
+    constexpr bitboard bishop_all_attack ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
+    constexpr bitboard queen_all_attack  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
 
 
 
@@ -509,7 +524,7 @@ public:
     /** @name  king_attack
      * @brief  See shift ()
      */
-    constexpr bitboard king_attack ( king_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( toc ( dir ) ) & p; }
+    constexpr bitboard king_attack ( compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
 
     /** @name  king_any_attack
      * 
@@ -708,7 +723,6 @@ private:
      * @param  dir: The compass to convert
      * @return compass
      */
-    static constexpr compass toc ( compass dir )          noexcept { return                      ( dir ); }
     static constexpr compass toc ( straight_compass dir ) noexcept { return static_cast<compass> ( dir ); }
     static constexpr compass toc ( diagonal_compass dir ) noexcept { return static_cast<compass> ( dir ); }
 

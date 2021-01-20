@@ -27,13 +27,15 @@
 
 
 
-/** @name  compass_start, knight_compass_start
+/** @name  compass_start, knight/straight/diagonal_compass_start
  *
  * @brief  Gives the first direction in a compass (useful for iterating over a compass)
  * @return A compass
  */
-inline constexpr chess::compass chess::compass_start () noexcept { return static_cast<compass> ( 0 ); }
-inline constexpr chess::knight_compass chess::knight_compass_start () noexcept { return static_cast<knight_compass> ( 0 ); }
+inline constexpr chess::compass chess::compass_start () noexcept { return compass::sw; }
+inline constexpr chess::knight_compass chess::knight_compass_start () noexcept { return knight_compass::ssw; }
+inline constexpr chess::straight_compass chess::straight_compass_start () noexcept { return straight_compass::s; }
+inline constexpr chess::diagonal_compass chess::diagonal_compass_start () noexcept { return diagonal_compass::sw; }
 
 /** @name  compass_next
  *
@@ -43,6 +45,17 @@ inline constexpr chess::knight_compass chess::knight_compass_start () noexcept {
  */
 inline constexpr chess::compass chess::compass_next ( compass dir ) noexcept { return static_cast<compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
 inline constexpr chess::knight_compass chess::compass_next ( knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
+inline constexpr chess::straight_compass chess::compass_next ( straight_compass dir ) noexcept 
+{ 
+    bool add_one = ( static_cast<int> ( dir ) == 3 );
+    return static_cast<straight_compass> ( ( static_cast<int> ( dir ) + 2 - add_one ) & 7 );
+}
+inline constexpr chess::diagonal_compass chess::compass_next ( diagonal_compass dir ) noexcept 
+{ 
+    bool add_one = ( static_cast<int> ( dir ) == 7 );
+    bool add_three = ( static_cast<int> ( dir ) == 2 );
+    return static_cast<diagonal_compass> ( ( static_cast<int> ( dir ) + 2 - add_one + add_three ) & 7 );
+}
 
 
 
@@ -276,6 +289,55 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) con
 
 
 
+/* ROOK BISHOP AND QUEEN MOVES */
+
+/** @name  rook/bishop/queen_any_attack
+ * 
+ * @brief  Gives the intersection of attacks in all directions
+ * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture, universe by default
+ * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow or capture, empty by default.
+ *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( bitboard pp, bitboard sp ) const noexcept
+{
+    bitboard x;
+    straight_compass dir = straight_compass_start ();
+    #pragma GCC unroll 4
+    for ( int i = 0; i < 4; ++i )
+    {
+        x |= rook_attack ( dir, pp, sp );
+        dir = compass_next ( dir );
+    }
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard pp, bitboard sp ) const noexcept
+{
+    bitboard x;
+    diagonal_compass dir = diagonal_compass_start ();
+    #pragma GCC unroll 4
+    for ( int i = 0; i < 4; ++i )
+    {
+        x |= bishop_attack ( dir, pp, sp );
+        dir = compass_next ( dir );
+    }
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( bitboard pp, bitboard sp ) const noexcept
+{
+    bitboard x;
+    compass dir = compass_start ();
+    #pragma GCC unroll 8
+    for ( int i = 0; i < 8; ++i )
+    {
+        x |= queen_attack ( dir, pp, sp );
+        dir = compass_next ( dir );
+    }
+    return x;
+}
+
+
+
 /* KNIGHT MOVES */
 
 
@@ -345,7 +407,6 @@ inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, 
         return x & p;                                          // Check with the propagator and return x.
     }
 }
-
 
 
 
