@@ -39,5 +39,5 @@ clean:
 # test
 #
 # compile the test source
-test: test.o src/chess/bitboard.o
-	$(CPP) $(CPPFLAGS) test.o src/chess/bitboard.o -o test.out
+test: test.o src/chess/bitboard.o src/chess/chessboard.o
+	$(CPP) $(CPPFLAGS) test.o src/chess/bitboard.o src/chess/chessboard.o -o test.out
