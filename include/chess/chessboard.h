@@ -94,28 +94,6 @@ public:
 
 
 
-    /* BITBOARD ACCESS */
-
-    /** @name  get
-     * 
-     * @brief  Gets a bitboard based on a single piece type
-     * @param  pt: One of piece_type
-     * @return The bitboard for pt 
-     */
-    bitboard& get ( piece_type pt ) { return boards.at ( ptoi ( pt ) ); } 
-    const bitboard& get ( piece_type pt ) const { return boards.at ( ptoi ( pt ) ); }
-
-    /** @name  get_comp
-     * 
-     * @brief  Gets a composite bitboard from the intersection of two bitboards
-     * @param  pt0: One of piece_type 
-     * @param  pt1: One of piece_type
-     * @return The bitboard for pt 
-     */
-    bitboard get ( piece_type pt0, const piece_type pt1 ) const { return boards.at ( ptoi ( pt0 ) ) & boards.at ( ptoi ( pt0 ) ); }
-
-
-
 private:
 
     /* ATTRIBUTES */
@@ -125,15 +103,25 @@ private:
 
 
 
-    /* INTERNAL METHODS */
+    /* BITBOARD ACCESS */
 
-    /** @name  ptoi
+    /** @name  get_bb
      * 
-     * @brief  Converts a piece_type enum to an int
-     * @param  pt: The piece_type to convert
-     * @return integer
+     * @brief  Gets a bitboard based on a single piece type
+     * @param  pt: One of piece_type
+     * @return The bitboard for pt 
      */
-    constexpr int ptoi ( piece_type pt ) const noexcept { return static_cast<int> ( pt ); }
+    bitboard& get_bb ( piece_type pt ) noexcept { return boards [ static_cast<int> ( pt ) ]; } 
+    const bitboard& get_bb ( piece_type pt ) const noexcept { return boards [ static_cast<int> ( pt ) ]; }
+
+    /** @name  get_bb 
+     * 
+     * @brief  Gets a composite bitboard from the intersection of two bitboards
+     * @param  pt0: One of piece_type 
+     * @param  pt1: One of piece_type
+     * @return The bitboard for pt 
+     */
+    bitboard get_bb ( piece_type pt0, piece_type pt1 ) const noexcept { return boards [ static_cast<int> ( pt0 ) ] & boards [ static_cast<int> ( pt0 ) ]; }
 
 };
 
