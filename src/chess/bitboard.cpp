@@ -36,7 +36,7 @@ std::string chess::bitboard::format_board ( const char zero, const char one ) co
     for ( unsigned i = 0; i < 64; ++i ) 
     { 
         out [ i * 2 ] = ( test ( i ^ 56 ) ? one : zero );
-        if ( ( i & 7 ) == 7 ) out [ i * 2 ] = '\n';
+        if ( ( i & 7 ) == 7 ) out [ i * 2 + 1 ] = '\n';
     };
 
     /* Return the formatted board */
