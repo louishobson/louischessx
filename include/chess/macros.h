@@ -4,17 +4,31 @@
  * Distributed under MIT licence as a part of the Chess C++ library.
  * For details, see: https://github.com/louishobson/Chess/blob/master/LICENSE
  * 
- * include/chess/builtin_macros.h
+ * include/chess/macros.h
  * 
- * Checks for builtin or intrinsic functions and aliases them with macros
+ * Macro definitions and checks for builtin or intrinsic functions
  * 
  */
 
 
 
 /* HEADER GUARD */
-#ifndef CHESS_BUILTIN_MACROS_H_INCLUDED
-#define CHESS_BUILTIN_MACROS_H_INCLUDED
+#ifndef CHESS_MACROS_H_INCLUDED
+#define CHESS_MACROS_H_INCLUDED
+
+
+
+/* chess_inline
+ *
+ * Force the method to be inlined
+ */
+#define chess_inline [[ gnu::always_inline ]]
+
+/* chess_inline_constexpr
+ *
+ * Force the method to be inlined and constexpr
+ */
+#define chess_inline_constexpr [[ gnu::always_inline ]] constexpr
 
 
 
@@ -56,4 +70,4 @@
 
 
 /* HEADER GUARD */
-#endif /* #ifndef CHESS_BUILTIN_MACROS_H_INCLUDED */
+#endif /* #ifndef CHESS_MACROS_H_INCLUDED */
