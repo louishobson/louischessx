@@ -21,7 +21,7 @@
 /* INCLUDES */
 #include <bit>
 #include <cassert>
-#include <chess/builtin_macros.h>
+#include <chess/macros.h>
 #include <string>
 
 
@@ -358,8 +358,8 @@ public:
      * @param  dir: The direction to shift
      * @return A new bitboard
      */
-    constexpr bitboard shift ( compass dir )          const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
-    constexpr bitboard shift ( knight_compass dir )   const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
+    constexpr bitboard shift ( compass dir )        const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
+    constexpr bitboard shift ( knight_compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
 
 
 
