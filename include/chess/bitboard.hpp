@@ -385,11 +385,11 @@ inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard p
     /* x will store the output, dir iterates over the directions of the compass */
     bitboard x;
     diagonal_compass dir = diagonal_compass_start ();
-    #pragma GCC unroll 4
 
     /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
+    #pragma GCC unroll 4
     for ( int i = 0; i < 4; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
