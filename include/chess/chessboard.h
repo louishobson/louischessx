@@ -37,15 +37,41 @@
 
 namespace chess
 {
-    /* enum piece_type
+    /* enum bbtype
      *
      * Enum values for the different bitboards
      */
-    enum class piece_type
+    enum class bbtype
     {
         white,
         black,
         pawn,
+        king,
+        queen,
+        bishop,
+        knight,
+        rook,
+        no_piece
+    };
+
+    /* enum pcolor
+     *
+     * Enum values for different colors of piece (not types)
+     */
+    enum class pcolor
+    {
+        white,
+        black,
+        no_piece = 8,
+    };
+
+    /* enum ptype
+     *
+     * Enum values for different types of piece (not colors)
+     */
+    enum class ptype
+    {
+        pawn = 2,
         king,
         queen,
         bishop,
@@ -105,7 +131,7 @@ public:
 
 
 
-private:
+//private:
 
     /* ATTRIBUTES */
 
@@ -119,35 +145,53 @@ private:
     /** @name  get_bb
      * 
      * @brief  Gets a bitboard, by reference, based on a single piece type
-     * @param  pt: One of piece_type
+     * @param  pt: One of bbtype, pcolor or ptype. Undefined behaviour if is no_piece.
      * @return The bitboard for pt 
      */
-    bitboard& get_bb ( piece_type pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
-    const bitboard& get_bb ( piece_type pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard& get_bb ( bbtype pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
+    bitboard& get_bb (  ptype pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
+    bitboard& get_bb ( pcolor pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
+    const bitboard& get_bb ( bbtype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    const bitboard& get_bb (  ptype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    const bitboard& get_bb ( pcolor pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
 
     /** @name  bb
      * 
      * @brief  Gets a bitboard, by copy, based on a single piece type
-     * @param  pt: One of piece_type
+     * @param  pt: One of bbtype, pcolor or ptype. Undefined behaviour if is no_piece.
      * @return The bitboard for pt
      */
-    bitboard bb ( piece_type pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard bb ( bbtype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard bb (  ptype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard bb ( pcolor pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
 
-    /** @name  composite_bb 
+    /** @name  white_bb, black_bb 
      * 
-     * @brief  Gets a composite bitboard from the intersection of two bitboards
-     * @param  pt0: One of piece_type 
-     * @param  pt1: One of piece_type
+     * @brief  Gets a bitboard from the intersection of a colour and another bitboard
+     * @param  pt: One of ptype. Undefined behaviour if is no_piece.
      * @return A new bitboard
      */
-    bitboard composite_bb ( piece_type pt0, piece_type pt1 ) const noexcept { return bbs [ static_cast<int> ( pt0 ) ] & bbs [ static_cast<int> ( pt0 ) ]; }
+    bitboard white_bb ( ptype pt ) const noexcept { return bbs [ static_cast<int> ( bbtype::white ) ] & bbs [ static_cast<int> ( pt ) ]; }
+    bitboard black_bb ( ptype pt ) const noexcept { return bbs [ static_cast<int> ( bbtype::black ) ] & bbs [ static_cast<int> ( pt ) ]; }
 
     /** @name  occupied_bb
      * 
      * @brief  Gets the union of white and black pieces
      * @return A new bitboard
      */
-    bitboard occupied_bb () const noexcept { return get_bb ( piece_type::white ) | get_bb ( piece_type::black ); }
+    bitboard occupied_bb () const noexcept { return bb ( bbtype::white ) | bb ( bbtype::black ); }
+
+
+
+    /* FURTHER BITBOARD MANIPULATION */
+
+    /** @name  pawn_interspan_bb
+     * 
+     * @brief  Get the interspan of the pawns
+     * @return A new bitboard
+     */
+    [[ gnu::flatten ]]
+    bitboard pawn_interspan_bb () const noexcept { return white_bb ( ptype::pawn ).span ( compass::n ) & black_bb ( ptype::pawn ).span ( compass::s ); }
 
 
 
@@ -158,18 +202,18 @@ private:
      * @brief  Determines the color of piece at a board position.
      *         Note: an out of range position leads to undefined behavior.
      * @param  pos: Board position
-     * @return One of the colours in piece_type or no_piece
+     * @return One of pcolor
      */
-    piece_type find_color ( unsigned pos ) const noexcept;
+    pcolor find_color ( unsigned pos ) const noexcept;
 
     /** @name  find_type
      * 
      * @brief  Determines the type of piece at a board position.
      *         Note: an out of range position leads to undefined behavior.
      * @param  pos: Board position
-     * @return One of the types in piece_type or no_piece
+     * @return One of ptype
      */
-    piece_type find_type ( unsigned pos ) const noexcept;
+    ptype find_type ( unsigned pos ) const noexcept;
 
 };
 

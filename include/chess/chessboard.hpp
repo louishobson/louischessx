@@ -32,14 +32,14 @@
  * @brief  Determines the color of piece at a board position.
  *         Note: an out of range position leads to undefined behavior.
  * @param  pos: Board position
- * @return piece_type::white or piece_type::black
+ * @return One of pcolor
  */
-inline chess::piece_type chess::chessboard::find_color ( unsigned pos ) const noexcept
+inline chess::pcolor chess::chessboard::find_color ( unsigned pos ) const noexcept
 {
     bitboard mask { 1ull << pos };
-    if ( bb ( piece_type::white ) & mask ) return piece_type::white; else
-    if ( bb ( piece_type::black ) & mask ) return piece_type::black; else
-    return piece_type::no_piece;
+    if ( bb ( bbtype::white ) & mask ) return pcolor::white; else
+    if ( bb ( bbtype::black ) & mask ) return pcolor::black; else
+    return pcolor::no_piece;
 }
 
 /** @name  find_type
@@ -47,18 +47,18 @@ inline chess::piece_type chess::chessboard::find_color ( unsigned pos ) const no
  * @brief  Determines the type of piece at a board position.
  *         Note: an out of range position leads to undefined behavior.
  * @param  pos: Board position
- * @return One of the types in piece_type
+ * @return One of ptype
  */
-inline chess::piece_type chess::chessboard::find_type ( unsigned pos ) const noexcept
+inline chess::ptype chess::chessboard::find_type ( unsigned pos ) const noexcept
 {
     bitboard mask { 1ull << pos };
-    if ( bb ( piece_type::pawn   ) & mask ) return piece_type::pawn;   else
-    if ( bb ( piece_type::king   ) & mask ) return piece_type::king;   else
-    if ( bb ( piece_type::queen  ) & mask ) return piece_type::queen;  else
-    if ( bb ( piece_type::bishop ) & mask ) return piece_type::bishop; else
-    if ( bb ( piece_type::knight ) & mask ) return piece_type::knight; else
-    if ( bb ( piece_type::rook   ) & mask ) return piece_type::rook;   else
-    return piece_type::no_piece;
+    if ( bb ( bbtype::pawn   ) & mask ) return ptype::pawn;   else
+    if ( bb ( bbtype::king   ) & mask ) return ptype::king;   else
+    if ( bb ( bbtype::queen  ) & mask ) return ptype::queen;  else
+    if ( bb ( bbtype::bishop ) & mask ) return ptype::bishop; else
+    if ( bb ( bbtype::knight ) & mask ) return ptype::knight; else
+    if ( bb ( bbtype::rook   ) & mask ) return ptype::rook;   else
+    return ptype::no_piece;
 }
 
 
