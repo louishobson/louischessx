@@ -79,11 +79,11 @@ public:
      * 
      * @brief  Sets up an opening chess board
      */
-    constexpr chessboard () : boards
+    constexpr chessboard () : bbs
     {
-        bitboard { 0x000000000000FFFF },
-        bitboard { 0xFFFF000000000000 },
-        bitboard { 0x00FF00000000FF00 },
+        bitboard { 0x000000000000ffff },
+        bitboard { 0xffff000000000000 },
+        bitboard { 0x00ff00000000ff00 },
         bitboard { 0x0800000000000010 },
         bitboard { 0x1000000000000008 },
         bitboard { 0x2400000000000024 },
@@ -110,7 +110,7 @@ private:
     /* ATTRIBUTES */
 
     /* Array of bitboards for the board */
-    std::array<bitboard, 8> boards;
+    std::array<bitboard, 8> bbs;
 
 
 
@@ -122,8 +122,8 @@ private:
      * @param  pt: One of piece_type
      * @return The bitboard for pt 
      */
-    bitboard& get_bb ( piece_type pt ) noexcept { return boards [ static_cast<int> ( pt ) ]; } 
-    const bitboard& get_bb ( piece_type pt ) const noexcept { return boards [ static_cast<int> ( pt ) ]; }
+    bitboard& get_bb ( piece_type pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
+    const bitboard& get_bb ( piece_type pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
 
     /** @name  bb
      * 
@@ -131,16 +131,16 @@ private:
      * @param  pt: One of piece_type
      * @return The bitboard for pt
      */
-    bitboard bb ( piece_type pt ) const noexcept { return boards [ static_cast<int> ( pt ) ]; }
+    bitboard bb ( piece_type pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
 
-    /** @name  comp_bb 
+    /** @name  composite_bb 
      * 
      * @brief  Gets a composite bitboard from the intersection of two bitboards
      * @param  pt0: One of piece_type 
      * @param  pt1: One of piece_type
      * @return A new bitboard
      */
-    bitboard comp_bb ( piece_type pt0, piece_type pt1 ) const noexcept { return boards [ static_cast<int> ( pt0 ) ] & boards [ static_cast<int> ( pt0 ) ]; }
+    bitboard composite_bb ( piece_type pt0, piece_type pt1 ) const noexcept { return bbs [ static_cast<int> ( pt0 ) ] & bbs [ static_cast<int> ( pt0 ) ]; }
 
     /** @name  occupied_bb
      * 

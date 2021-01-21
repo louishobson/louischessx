@@ -98,7 +98,7 @@ inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcep
 #ifdef CHESS_BUILTIN_BSWAP64
     return bitboard { CHESS_BUILTIN_BSWAP64 ( bits ) };
 #else
-    constexpr bitboard k1 { 0x00FF00FF00FF00FF }, k2 { 0x0000FFFF0000FFFF };
+    constexpr bitboard k1 { 0x00ff00ff00ff00ff }, k2 { 0x0000ffff0000ffff };
     bitboard x { bits };
     x = ( ( x >>  8 ) & k1 ) | ( ( x & k1 ) <<  8 );
     x = ( ( x >> 16 ) & k2 ) | ( ( x & k2 ) << 16 );
@@ -115,7 +115,7 @@ inline constexpr chess::bitboard chess::bitboard::vertical_flip () const noexcep
  */
 inline constexpr chess::bitboard chess::bitboard::horizontal_flip () const noexcept
 {
-    constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0F0F0F0F0F0F0F0F };
+    constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0f0f0f0f0f0f0f0f };
     bitboard x { bits };
     x ^= k4 & ( x ^ x.bit_rotl ( 8 ) );
     x ^= k2 & ( x ^ x.bit_rotl ( 4 ) );
@@ -131,7 +131,7 @@ inline constexpr chess::bitboard chess::bitboard::horizontal_flip () const noexc
  */
 inline constexpr chess::bitboard chess::bitboard::pos_diag_flip () const noexcept
 {
-    constexpr bitboard k1 { 0x5500550055005500 }, k2 { 0x3333000033330000 }, k4 { 0x0F0F0F0F00000000 };
+    constexpr bitboard k1 { 0x5500550055005500 }, k2 { 0x3333000033330000 }, k4 { 0x0f0f0f0f00000000 };
     bitboard x { bits }, t;
     t  = k4 & ( x ^ ( x << 28 ) );
     x ^=      ( t ^ ( t >> 28 ) );
@@ -150,7 +150,7 @@ inline constexpr chess::bitboard chess::bitboard::pos_diag_flip () const noexcep
  */
 inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcept
 {
-    constexpr bitboard k1 { 0xAA00AA00AA00AA00 }, k2 { 0xCCCC0000CCCC0000 }, k4 { 0xF0F0F0F00F0F0F0F };
+    constexpr bitboard k1 { 0xaa00aa00aa00aa00 }, k2 { 0xcccc0000cccc0000 }, k4 { 0xf0f0f0f00f0f0f0f };
     bitboard x { bits }, t;
     t  =      ( x ^ ( x << 36 ) );
     x ^= k4 & ( t ^ ( x >> 36 ) );
@@ -169,7 +169,7 @@ inline constexpr chess::bitboard chess::bitboard::neg_diag_flip () const noexcep
  */
 inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () const noexcept
 {
-    constexpr bitboard k1 { 0xAAAAAAAAAAAAAAAA }, k2 { 0xCCCCCCCCCCCCCCCC }, k4 { 0xF0F0F0F0F0F0F0F0 };
+    constexpr bitboard k1 { 0xaaaaaaaaaaaaaaaa }, k2 { 0xcccccccccccccccc }, k4 { 0xf0f0f0f0f0f0f0f0 };
     bitboard x { bits };
     x ^= k1 & ( x ^ x.bit_rotr (  8 ) );
     x ^= k2 & ( x ^ x.bit_rotr ( 16 ) );
@@ -185,7 +185,7 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_clock () cons
  */
 inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () const noexcept
 {
-    constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0F0F0F0F0F0F0F0F };
+    constexpr bitboard k1 { 0x5555555555555555 }, k2 { 0x3333333333333333 }, k4 { 0x0f0f0f0f0f0f0f0f };
     bitboard x { bits };
     x ^= k1 & ( x ^ x.bit_rotr (  8 ) );
     x ^= k2 & ( x ^ x.bit_rotr ( 16 ) );

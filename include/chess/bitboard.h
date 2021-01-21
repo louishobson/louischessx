@@ -8,12 +8,6 @@
  * 
  * Header file for managing a chess bitboard
  * 
- * TO ADD:
- * 
- * PAWN AND KNIGHT ATTACKS BY LOOKUP
- * KNIGHT FORKS?
- * GENERALISED COMPASS DIRECTIONS
- * 
  */
 
 
@@ -600,9 +594,9 @@ private:
     struct masks
     {
         static constexpr unsigned long long empty           { 0x0000000000000000 };
-        static constexpr unsigned long long universe        { 0xFFFFFFFFFFFFFFFF };
-        static constexpr unsigned long long white_squares   { 0x55AA55AA55AA55AA };
-        static constexpr unsigned long long black_squares   { 0xAA55AA55AA55AA55 };
+        static constexpr unsigned long long universe        { 0xffffffffffffffff };
+        static constexpr unsigned long long white_squares   { 0x55aa55aa55aa55aa };
+        static constexpr unsigned long long black_squares   { 0xaa55aa55aa55aa55 };
 
         static constexpr unsigned long long file_a          { 0x0101010101010101 };
         static constexpr unsigned long long file_b          { 0x0202020202020202 };
@@ -613,14 +607,14 @@ private:
         static constexpr unsigned long long file_g          { 0x4040404040404040 };
         static constexpr unsigned long long file_h          { 0x8080808080808080 };
 
-        static constexpr unsigned long long rank_1          { 0x00000000000000FF };
-        static constexpr unsigned long long rank_2          { 0x000000000000FF00 };
-        static constexpr unsigned long long rank_3          { 0x0000000000FF0000 };
-        static constexpr unsigned long long rank_4          { 0x00000000FF000000 };
-        static constexpr unsigned long long rank_5          { 0x000000FF00000000 };
-        static constexpr unsigned long long rank_6          { 0x0000FF0000000000 };
-        static constexpr unsigned long long rank_7          { 0x00FF000000000000 };
-        static constexpr unsigned long long rank_8          { 0xFF00000000000000 };
+        static constexpr unsigned long long rank_1          { 0x00000000000000ff };
+        static constexpr unsigned long long rank_2          { 0x000000000000ff00 };
+        static constexpr unsigned long long rank_3          { 0x0000000000ff0000 };
+        static constexpr unsigned long long rank_4          { 0x00000000ff000000 };
+        static constexpr unsigned long long rank_5          { 0x000000ff00000000 };
+        static constexpr unsigned long long rank_6          { 0x0000ff0000000000 };
+        static constexpr unsigned long long rank_7          { 0x00ff000000000000 };
+        static constexpr unsigned long long rank_8          { 0xff00000000000000 };
 
         static constexpr unsigned long long shift_sw         { ~rank_8 & ~file_h };
         static constexpr unsigned long long shift_s          { ~rank_8           };
