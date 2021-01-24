@@ -58,28 +58,20 @@ inline constexpr chess::pcolor chess::other_color ( pcolor pc ) noexcept { retur
 inline chess::bitboard chess::chessboard::pawn_safe_squares_bb ( pcolor pc ) const noexcept
 {
     /* Get all attcks, white and black, east and west */
-    std::array<bitboard, 4> pawn_attacks
-    {
-        bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ),
-        bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw ),
-        bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se ),
-        bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw )
-    };
+    bitboard w_e_attack = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne );
+    bitboard w_w_attack = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw );
+    bitboard b_e_attack = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se );
+    bitboard b_w_attack = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw );
 
-    /* Get the piece color as a bool */
-    bool pc_bool = bool_color ( pc );
-
-    /* Return bitboard */
-    bitboard x;
-    /* Any double attacks should be set */
-    x |= ( pawn_attacks [ 2 * pc_bool ] & pawn_attacks [ 2 * pc_bool + 1 ] );
-    /* Any cells opponent is not attacking should be set */
-    x |= ~( pawn_attacks [ 2 * !pc_bool ] | pawn_attacks [ 2 * !pc_bool + 1 ] );
-    /* Any cells that friendly is attacking once, and opponent is not double attacking should be set */
-    x |= ( ( pawn_attacks [ 2 * pc_bool ] ^ pawn_attacks [ 2 * pc_bool + 1 ] ) & ~( pawn_attacks [ 2 * !pc_bool ] & pawn_attacks [ 2 * !pc_bool + 1 ] ) );
-
-    /* Return x */
-    return x;    
+    /* Switch depending on pc.
+     * Any cell defeanded twice is safe.
+     * Any cells opponent is not attacking are safe.
+     * Any cells that friendly is attacking once, and opponent is not double attacking are safe.
+     */
+    if ( pc == pcolor::white )
+        return ( w_e_attack & w_w_attack ) | ~( b_e_attack | b_w_attack ) | ( ( w_e_attack ^ w_w_attack ) & ~( b_e_attack & b_w_attack ) );
+    else
+        return ( b_e_attack & b_w_attack ) | ~( w_e_attack | w_w_attack ) | ( ( b_e_attack ^ b_w_attack ) & ~( w_e_attack & w_w_attack ) );
 }
 
 
