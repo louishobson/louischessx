@@ -80,6 +80,24 @@ namespace chess
         no_piece
     };
 
+    /** @name  bool_color
+     * 
+     * @brief  cast a piece color to a bool
+     * @param  pc: The piece color to cast. Undefined behavior if is no_piece.
+     * @return bool
+     */
+    constexpr bool bool_color ( pcolor pc ) noexcept;
+
+    /** @name  other_color
+     * 
+     * @brief  Take a piece color and give the other color
+     * @param  pc: The piece color to switch. Undefined behavior if is no_piece.
+     * @return The other color of piece
+     */
+    constexpr pcolor other_color ( pcolor pc ) noexcept;
+
+
+
     /* class chessboard 
      *
      * Store and manipulate a bitboard-based chess board
@@ -145,34 +163,38 @@ public:
     /** @name  get_bb
      * 
      * @brief  Gets a bitboard, by reference, based on a single piece type
-     * @param  pt: One of bbtype, pcolor or ptype. Undefined behaviour if is no_piece.
+     * @param  bt: One of bbtype. Undefined behavior if is no_piece.
+     * @param  pt: One of ptype. Undefined behavior if is no_piece.
+     * @param  pc: One of pcolor. Undefined behavior if is no_piece.
      * @return The bitboard for pt 
      */
-    bitboard& get_bb ( bbtype pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
+    bitboard& get_bb ( bbtype bt ) noexcept { return bbs [ static_cast<int> ( bt ) ]; } 
     bitboard& get_bb (  ptype pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
-    bitboard& get_bb ( pcolor pt ) noexcept { return bbs [ static_cast<int> ( pt ) ]; } 
-    const bitboard& get_bb ( bbtype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard& get_bb ( pcolor pc ) noexcept { return bbs [ static_cast<int> ( pc ) ]; } 
+    const bitboard& get_bb ( bbtype bt ) const noexcept { return bbs [ static_cast<int> ( bt ) ]; }
     const bitboard& get_bb (  ptype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
-    const bitboard& get_bb ( pcolor pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    const bitboard& get_bb ( pcolor pc ) const noexcept { return bbs [ static_cast<int> ( pc ) ]; }
 
     /** @name  bb
      * 
      * @brief  Gets a bitboard, by copy, based on a single piece type
-     * @param  pt: One of bbtype, pcolor or ptype. Undefined behaviour if is no_piece.
+     * @param  bt: One of bbtype. Undefined behavior if is no_piece.
+     * @param  pt: One of ptype. Undefined behavior if is no_piece.
+     * @param  pc: One of pcolor. Undefined behavior if is no_piece.
      * @return The bitboard for pt
      */
-    bitboard bb ( bbtype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard bb ( bbtype bt ) const noexcept { return bbs [ static_cast<int> ( bt ) ]; }
     bitboard bb (  ptype pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
-    bitboard bb ( pcolor pt ) const noexcept { return bbs [ static_cast<int> ( pt ) ]; }
+    bitboard bb ( pcolor pc ) const noexcept { return bbs [ static_cast<int> ( pc ) ]; }
 
-    /** @name  white_bb, black_bb 
+    /** @name  bb, specific color overload
      * 
      * @brief  Gets a bitboard from the intersection of a colour and another bitboard
-     * @param  pt: One of ptype. Undefined behaviour if is no_piece.
+     * @param  pc: One of pcolor. Undefined behavior if is no_piece.
+     * @param  pt: One of ptype. Undefined behavior if is no_piece.
      * @return A new bitboard
      */
-    bitboard white_bb ( ptype pt ) const noexcept { return bbs [ static_cast<int> ( bbtype::white ) ] & bbs [ static_cast<int> ( pt ) ]; }
-    bitboard black_bb ( ptype pt ) const noexcept { return bbs [ static_cast<int> ( bbtype::black ) ] & bbs [ static_cast<int> ( pt ) ]; }
+    bitboard bb ( pcolor pc, ptype pt ) const noexcept { return bbs [ static_cast<int> ( pc ) ] & bbs [ static_cast<int> ( pt ) ]; }
 
     /** @name  occupied_bb
      * 
@@ -191,7 +213,16 @@ public:
      * @return A new bitboard
      */
     [[ gnu::flatten ]]
-    bitboard pawn_interspan_bb () const noexcept { return white_bb ( ptype::pawn ).span ( compass::n ) & black_bb ( ptype::pawn ).span ( compass::s ); }
+    bitboard pawn_interspan_bb () const noexcept { return bb ( pcolor::white, ptype::pawn ).span ( compass::n ) & bb ( pcolor::black, ptype::pawn ).span ( compass::s ); }
+
+    /** @name  pawn_safe_squares_bb
+     * 
+     * @brief  Get the squares, with reference to a color, such that friendly pawns defending >= opposing opposing pawns attacking
+     * @param  pc: The color which is considered defeanding
+     * @return A new bitboard
+     */
+    [[ gnu::flatten ]]
+    bitboard pawn_safe_squares_bb ( pcolor pc ) const noexcept;
 
 
 
@@ -216,6 +247,11 @@ public:
     ptype find_type ( unsigned pos ) const noexcept;
 
 };
+
+
+
+/* INCLUDE INLINE IMPLEMENTATION */
+#include <chess/chessboard.hpp>
 
 
 

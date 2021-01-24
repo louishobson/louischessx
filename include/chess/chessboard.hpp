@@ -23,6 +23,68 @@
 
 
 
+/* PIECE ENUMS */
+
+
+
+/** @name  bool_color
+ * 
+ * @brief  cast a piece color to a bool
+ * @param  pc: The piece color to cast. Undefined behavior if is no_piece.
+ * @return bool
+ */
+inline constexpr bool chess::bool_color ( pcolor pc ) noexcept { return static_cast<bool> ( pc ); }
+
+/** @name  other_color
+ * 
+ * @brief  Take a piece color and give the other color
+ * @param  pc: The piece color to switch. Undefined behavior if is no_piece.
+ * @return The other color of piece
+ */
+inline constexpr chess::pcolor chess::other_color ( pcolor pc ) noexcept { return static_cast<pcolor> ( !static_cast<bool> ( pc ) ); }
+
+
+
+/* FURTHER BITBOARD MANIPULATION */
+
+
+
+/** @name  pawn_safe_squares_bb
+ * 
+ * @brief  Get the squares, with reference to a color, such that friendly pawns defending >= opposing opposing pawns attacking
+ * @param  pc: The color which is considered defeanding
+ * @return A new bitboard
+ */
+inline chess::bitboard chess::chessboard::pawn_safe_squares_bb ( pcolor pc ) const noexcept
+{
+    /* Get all attcks, white and black, east and west */
+    std::array<bitboard, 4> pawn_attacks
+    {
+        bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ),
+        bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw ),
+        bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se ),
+        bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw )
+    };
+
+    /* Get the piece color as a bool */
+    bool pc_bool = bool_color ( pc );
+
+    /* Return bitboard */
+    bitboard x;
+    /* Any double attacks should be set */
+    x |= ( pawn_attacks [ 2 * pc_bool ] & pawn_attacks [ 2 * pc_bool + 1 ] );
+    /* Any cells opponent is not attacking should be set */
+    x |= ~( pawn_attacks [ 2 * !pc_bool ] | pawn_attacks [ 2 * !pc_bool + 1 ] );
+    /* Any cells that friendly is attacking once, and opponent is not double attacking should be set */
+    x |= ( ( pawn_attacks [ 2 * pc_bool ] ^ pawn_attacks [ 2 * pc_bool + 1 ] ) & ~( pawn_attacks [ 2 * !pc_bool ] & pawn_attacks [ 2 * !pc_bool + 1 ] ) );
+
+    /* Return x */
+    return x;    
+}
+
+
+
+
 /* BOARD LOOKUP */
 
 
