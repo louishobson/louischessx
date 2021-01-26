@@ -218,11 +218,46 @@ public:
     /** @name  pawn_safe_squares_bb
      * 
      * @brief  Get the squares, with reference to a color, such that friendly pawns defending >= opposing opposing pawns attacking
-     * @param  pc: The color which is considered defeanding
+     * @param  pc: The color which is considered friendly
      * @return A new bitboard
      */
     [[ gnu::flatten ]]
     bitboard pawn_safe_squares_bb ( pcolor pc ) const noexcept;
+
+    /** @name  pawn_rams_bb
+     * 
+     * @brief  Get a color's pawns which are acting as rams to opposing pawns
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard pawn_rams_bb ( pcolor pc ) const noexcept;
+
+    /** @name  pawn_levers_e/w_bb
+     * 
+     * @brief  Get a color's pawns which are participating in a east/west lever
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard pawn_levers_e_bb ( pcolor pc ) const noexcept;
+    bitboard pawn_levers_w_bb ( pcolor pc ) const noexcept;
+
+    /** @name  pawn_any_levers_bb
+     * 
+     * @brief  Get a color's pawns which are participating in any lever
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard pawn_any_levers_bb ( pcolor pc ) const noexcept { return pawn_levers_e_bb ( pc ) | pawn_levers_w_bb ( pc ); }
+
+    /** @name  pawn_inner/outer/center_levers_bb
+     * 
+     * @brief  Get a color's pawns which are participating in inner/outer/center levers
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard pawn_inner_levers_bb  ( pcolor pc ) const noexcept;
+    bitboard pawn_outer_levers_bb  ( pcolor pc ) const noexcept;
+    bitboard pawn_center_levers_bb ( pcolor pc ) const noexcept;
 
 
 

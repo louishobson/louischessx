@@ -58,10 +58,10 @@ inline constexpr chess::pcolor chess::other_color ( pcolor pc ) noexcept { retur
 inline chess::bitboard chess::chessboard::pawn_safe_squares_bb ( pcolor pc ) const noexcept
 {
     /* Get all attcks, white and black, east and west */
-    bitboard w_e_attack = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne );
-    bitboard w_w_attack = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw );
-    bitboard b_e_attack = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se );
-    bitboard b_w_attack = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw );
+    bitboard w_east_attack = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne );
+    bitboard w_west_attack = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw );
+    bitboard b_east_attack = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se );
+    bitboard b_west_attack = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw );
 
     /* Switch depending on pc.
      * Any cell defeanded twice is safe.
@@ -69,9 +69,81 @@ inline chess::bitboard chess::chessboard::pawn_safe_squares_bb ( pcolor pc ) con
      * Any cells that friendly is attacking once, and opponent is not double attacking are safe.
      */
     if ( pc == pcolor::white )
-        return ( w_e_attack & w_w_attack ) | ~( b_e_attack | b_w_attack ) | ( ( w_e_attack ^ w_w_attack ) & ~( b_e_attack & b_w_attack ) );
+        return ( w_east_attack & w_west_attack ) | ~( b_east_attack | b_west_attack ) | ( ( w_east_attack ^ w_west_attack ) & ~( b_east_attack & b_west_attack ) );
     else
-        return ( b_e_attack & b_w_attack ) | ~( w_e_attack | w_w_attack ) | ( ( b_e_attack ^ b_w_attack ) & ~( w_e_attack & w_w_attack ) );
+        return ( b_east_attack & b_west_attack ) | ~( w_east_attack | w_west_attack ) | ( ( b_east_attack ^ b_west_attack ) & ~( w_east_attack & w_west_attack ) );
+}
+
+/** @name  pawn_rams_bb
+ * 
+ * @brief  Get a color's pawns which are acting as rams to opposing pawns
+ * @param  pc: The color which is considered to be blocking
+ * @return A new bitboard
+ */
+inline chess::bitboard chess::chessboard::pawn_rams_bb ( pcolor pc ) const noexcept
+{
+    /* Switch depending on pc */
+    if ( pc == pcolor::white )
+        return bb ( pcolor::white, ptype::pawn ) & bb ( pcolor::black, ptype::pawn ).shift ( compass::s );
+    else
+        return bb ( pcolor::black, ptype::pawn ) & bb ( pcolor::white, ptype::pawn ).shift ( compass::n );
+}
+
+/** @name  pawn_levers_e/w_bb
+ * 
+ * @brief  Get a color's pawns which are participating in a east/west lever
+ * @param  pc: The color which is considered friendly
+ * @return A new bitboard
+ */
+inline chess::bitboard chess::chessboard::pawn_levers_e_bb ( pcolor pc ) const noexcept
+{
+    /* Switch depending on pc */
+    if ( pc == pcolor::white )
+        return bb ( pcolor::white, ptype::pawn ) & bb ( pcolor::black, ptype::pawn ).shift ( compass::sw );
+    else
+        return bb ( pcolor::black, ptype::pawn ) & bb ( pcolor::white, ptype::pawn ).shift ( compass::nw );
+}
+inline chess::bitboard chess::chessboard::pawn_levers_w_bb ( pcolor pc ) const noexcept
+{
+    /* Switch depending on pc */
+    if ( pc == pcolor::white )
+        return bb ( pcolor::white, ptype::pawn ) & bb ( pcolor::black, ptype::pawn ).shift ( compass::se );
+    else
+        return bb ( pcolor::black, ptype::pawn ) & bb ( pcolor::white, ptype::pawn ).shift ( compass::ne );
+}
+
+/** @name  pawn_inner/outer/center_levers_bb
+ * 
+ * @brief  Get a color's pawns which are participating in inner/outer/center levers
+ * @param  pc: The color which is considered friendly
+ * @return A new bitboard
+ */
+inline chess::bitboard chess::chessboard::pawn_inner_levers_bb ( pcolor pc ) const noexcept
+{
+    /* Masks for detecting position of levers */
+    constexpr bitboard abc_files { bitboard::masks::file_a | bitboard::masks::file_b | bitboard::masks::file_c }; 
+    constexpr bitboard fgh_files { bitboard::masks::file_f | bitboard::masks::file_g | bitboard::masks::file_h }; 
+
+    /* Return the levers */
+    return ( pawn_levers_e_bb ( pc ) & abc_files ) | ( pawn_levers_w_bb ( pc ) & fgh_files );
+}
+inline chess::bitboard chess::chessboard::pawn_outer_levers_bb ( pcolor pc ) const noexcept
+{
+    /* Masks for detecting position of levers */
+    constexpr bitboard bcd_files { bitboard::masks::file_b | bitboard::masks::file_c | bitboard::masks::file_d }; 
+    constexpr bitboard efg_files { bitboard::masks::file_e | bitboard::masks::file_f | bitboard::masks::file_g }; 
+
+    /* Return the levers */
+    return ( pawn_levers_e_bb ( pc ) & efg_files ) | ( pawn_levers_w_bb ( pc ) & bcd_files );
+}
+inline chess::bitboard chess::chessboard::pawn_center_levers_bb ( pcolor pc ) const noexcept
+{
+    /* Masks for detecting position of levers */
+    constexpr bitboard d_file { bitboard::masks::file_d }; 
+    constexpr bitboard e_file { bitboard::masks::file_g }; 
+
+    /* Return the levers */
+    return ( pawn_levers_e_bb ( pc ) & d_file ) | ( pawn_levers_w_bb ( pc ) & e_file );
 }
 
 
