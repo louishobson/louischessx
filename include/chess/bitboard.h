@@ -83,6 +83,13 @@ namespace chess
      * Bitboards are little-endian rank-file bijective mappings stored in 64-bit integers.
      */
     class bitboard;
+
+    /* class chessboard 
+     *
+     * Store and manipulate a bitboard-based chess board.
+     * Forward reference to bitboard can friend it.
+     */
+    class chessboard;
 }
 
 
@@ -96,6 +103,10 @@ namespace chess
  */
 class chess::bitboard
 {
+
+    /* Friend chessboard */
+    friend chessboard;
+
 public:
 
     /* CONSTRUCTORS */
@@ -246,14 +257,14 @@ public:
      * 
      * @return integer
      */
-    constexpr unsigned popcount () const noexcept { return std::popcount ( bits ); }
+    constexpr unsigned popcount () const noexcept;
 
     /** @name  hamming_dist
      * 
      * @param  other: Another bitboard
      * @return The number of different bits comparing this and other
      */
-    constexpr unsigned hamming_dist ( bitboard other ) const noexcept { return std::popcount ( bits ^ other.bits ); }
+    constexpr unsigned hamming_dist ( bitboard other ) const noexcept;
 
     /** @name  leading/trailing_zeros
      * 

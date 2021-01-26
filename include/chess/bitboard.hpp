@@ -63,6 +63,35 @@ inline constexpr chess::diagonal_compass chess::compass_next ( diagonal_compass 
 
 
 
+/** @name  popcount
+ * 
+ * @return integer
+ */
+inline constexpr unsigned chess::bitboard::popcount () const noexcept 
+{
+    /* STL function adds a branch testing for x = 0, which is likely to be undesirable */
+#ifdef CHESS_BUILTIN_POPCOUNT64 
+    return CHESS_BUILTIN_POPCOUNT64 ( bits ); 
+#else
+    return std::popcount ( bits );
+#endif
+}
+
+/** @name  hamming_dist
+ * 
+ * @param  other: Another bitboard
+ * @return The number of different bits comparing this and other
+ */
+inline constexpr unsigned chess::bitboard::hamming_dist ( bitboard other ) const noexcept 
+{ 
+    /* STL function adds a branch testing for x = 0, which is likely to be undesirable */
+#ifdef CHESS_BUILTIN_POPCOUNT64 
+    return CHESS_BUILTIN_POPCOUNT64 ( bits ^ other.bits ); 
+#else
+    return std::popcount ( bits ^ other.bits );
+#endif
+}
+
 /** @name  leading/trailing_zeros_nocheck
  * 
  * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
