@@ -8,7 +8,7 @@ CFLAGS=-std=c++20 -Iinclude -g -O2 -march=native -flto
 
 # g++ setup
 CPP=g++
-CPPFLAGS=-std=c++20 -Iinclude -g -O2 -march=native -flto
+CPPFLAGS=-std=c++20 -Iinclude -g -O2 -march=native -flto -pedantic
 
 # ar setup
 AR=ar
@@ -40,4 +40,6 @@ clean:
 #
 # compile the test source
 test: test.o src/chess/bitboard.o src/chess/chessboard.o
-	$(CPP) $(CPPFLAGS) test.o src/chess/bitboard.o src/chess/chessboard.o -o test.out
+	$(CPP) $(CPPFLAGS) test.o src/chess/bitboard.o src/chess/chessboard.o -o test.out 
+	objdump -d  test.out > test.dump
+	objdump -dS test.out > test.s.dump
