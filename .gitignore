@@ -33,3 +33,6 @@
 
 # VSCode files
 *.vscode/
+
+# Dumps
+*.dump
