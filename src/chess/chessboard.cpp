@@ -32,7 +32,7 @@ std::string chess::chessboard::simple_format_board () const
      * Multiplying by 2 skips the spaces inbetween cells.
      */
     std::string out ( 128, ' ' );
-    for ( int i = 0; i < 64; ++i ) 
+    for ( unsigned i = 0; i < 64; ++i ) 
     { 
         bitboard mask { 1ull << ( i ^ 56 ) };
         if ( occupied_bb () & mask )
