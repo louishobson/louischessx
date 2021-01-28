@@ -115,6 +115,21 @@ inline constexpr unsigned chess::bitboard::trailing_zeros_nocheck () const noexc
 #endif
 }
 
+/** @name  is_singleton
+ * 
+ * @brief  Tests if the bitboard contains a single set bit
+ * @return boolean
+ */
+inline constexpr bool chess::bitboard::is_singleton () const noexcept 
+{
+    /* STL function adds a branch testing for x = 0, which is likely to be undesirable */
+#ifdef CHESS_BUILTIN_POPCOUNT64
+    return CHESS_BUILTIN_POPCOUNT64 ( bits ) == 1;
+#else
+    return std::has_single_bit ( bits ); 
+#endif
+}
+
 /** @name  vertical_flip
  *
  * @brief  Flip the board vertically
@@ -360,7 +375,7 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) con
 inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, bool single ) const noexcept
 {
     /* If was declared as a singleton set, simply look up and return the attacks of the king */
-    if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ); else
+    if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ) & p; else
     {
         /* x will store the output, t will help form the output.
          * Set the east and west shifts to x, then union them back to t.
@@ -399,7 +414,7 @@ inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( bitboard p
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( unsigned i = 0; i < 4; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
         x |= rook_attack ( dir, pp, sp );
@@ -419,7 +434,7 @@ inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard p
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( unsigned i = 0; i < 4; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
         x |= bishop_attack ( dir, pp, sp );
@@ -439,7 +454,7 @@ inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( bitboard p
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
     #pragma GCC unroll 8
-    for ( int i = 0; i < 8; ++i )
+    for ( unsigned i = 0; i < 8; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
         x |= queen_attack ( dir, pp, sp );
@@ -474,7 +489,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
         /* The position of the next set bit in temp is given by the number of trailing zeros.
          * Lookup the knight attacks at pos and union them with x, then reset the bit in temp.
          */
-        int pos = temp.trailing_zeros_nocheck (); 
+        unsigned pos = temp.trailing_zeros_nocheck (); 
         x |= knight_attack_lookup ( pos );        
         temp.reset ( pos );                       
     }
@@ -501,7 +516,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard 
          * Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
          * Union the attacked cells with once then reset the bit in temp.
          */
-        int pos = temp.trailing_zeros_nocheck ();   
+        unsigned pos = temp.trailing_zeros_nocheck ();   
         mult |= knight_attack_lookup ( pos ) & once;
         once |= knight_attack_lookup ( pos );       
         temp.reset ( pos );                         
