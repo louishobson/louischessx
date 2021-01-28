@@ -8,12 +8,12 @@
  * 
  * Header file for managing a chess bitboard
  * 
- * TO ADD:
+ * NOT IMPLEMENTED 
  * 
- * https://www.chessprogramming.org/Pawn_Attacks_(Bitboards)#Attack_Maps
- * https://www.chessprogramming.org/Pawn_Spans#Interspans
- * https://www.chessprogramming.org/Pawn_Rams_(Bitboards)
- * https://www.chessprogramming.org/Pawn_Levers_(Bitboards)
+ * https://www.chessprogramming.org/Defended_Pawns_(Bitboards)
+ * Rest of pawns
+ * 
+ * 
  * 
  */
 
@@ -29,6 +29,7 @@
 #include <array>
 #include <cctype>
 #include <chess/bitboard.h>
+#include <iostream>
 #include <string>
 
 
@@ -123,17 +124,7 @@ public:
      * 
      * @brief  Sets up an opening chess board
      */
-    constexpr chessboard () : bbs
-    {
-        bitboard { 0x000000000000ffff },
-        bitboard { 0xffff000000000000 },
-        bitboard { 0x00ff00000000ff00 },
-        bitboard { 0x0800000000000010 },
-        bitboard { 0x1000000000000008 },
-        bitboard { 0x2400000000000024 },
-        bitboard { 0x4200000000000042 },
-        bitboard { 0x8100000000000081 }
-    } {}
+    constexpr chessboard () = default;
 
 
 
@@ -151,10 +142,49 @@ public:
 
 //private:
 
+    /* TYPES */
+
+    /* Struct for castling rights */
+    struct castling_rights_t
+    {
+        bool kingside;
+        bool queenside;
+    };
+
+    /* Check info */
+    struct check_info_t
+    {
+        bitboard checking;
+        bitboard blocking;
+        bitboard vectors;
+    };
+
+
+
     /* ATTRIBUTES */
 
     /* Array of bitboards for the board */
-    std::array<bitboard, 8> bbs;
+    std::array<bitboard, 8> bbs
+    {
+        bitboard { 0x000000000000ffff },
+        bitboard { 0xffff000000000000 },
+        bitboard { 0x00ff00000000ff00 },
+        bitboard { 0x0800000000000010 },
+        bitboard { 0x1000000000000008 },
+        bitboard { 0x2400000000000024 },
+        bitboard { 0x4200000000000042 },
+        bitboard { 0x8100000000000081 }
+    };
+
+    /* Whether white and black has castling rights.
+     * Only records whether the king or rooks have been moved, not whether castling is at this time possible.
+     * Indexes of the array accessed using pcolor cast to an integer.
+     */
+    std::array<castling_rights_t, 2> castling_rights
+    {
+        castling_rights_t { true, true }, castling_rights_t { true, true }
+    };
+    
 
 
 
@@ -201,11 +231,11 @@ public:
      * @brief  Gets the union of white and black pieces
      * @return A new bitboard
      */
-    bitboard occupied_bb () const noexcept { return bb ( bbtype::white ) | bb ( bbtype::black ); }
+    bitboard occupied_bb () const noexcept { return bb ( pcolor::white ) | bb ( pcolor::black ); }
 
 
 
-    /* FURTHER BITBOARD MANIPULATION */
+    /* PAWN CALCULATIONS */
 
     /** @name  pawn_interspan_bb
      * 
@@ -258,6 +288,52 @@ public:
     bitboard pawn_inner_levers_bb  ( pcolor pc ) const noexcept;
     bitboard pawn_outer_levers_bb  ( pcolor pc ) const noexcept;
     bitboard pawn_center_levers_bb ( pcolor pc ) const noexcept;
+
+    /** @name  pawn_doubled_in_front_bb
+     * 
+     * @brief  Get a color's pawns which are directly behind a friendly pawn
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard pawn_doubled_in_front_bb ( pcolor pc ) const noexcept;
+
+    /** @name  isolanis_bb
+     * 
+     * @brief  Get the isolated pawns
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard isolanis_bb ( pcolor pc ) const noexcept { return bb ( pc, ptype::pawn ) & ~bb ( pc, ptype::pawn ).pawn_any_attack_fill (); }
+
+    /** @name  half_isolanis_bb
+     * 
+     * @brief  Get the half isolated pawns
+     * @param  pc: The color which is considered friendly
+     * @return A new bitboard
+     */
+    bitboard half_isolanis_bb ( pcolor pc ) const noexcept;
+
+
+
+    /* BOARD EVALUATION */
+
+    /** @name  get_check_info
+     * 
+     * @brief  Get information about the check state of a color's king
+     * @param  pc: The color who's king we will look at
+     * @return check_info_t
+     */
+    [[ gnu::flatten, gnu::noinline ]]
+    check_info_t get_check_info ( pcolor pc ) const noexcept; 
+
+    /** @name  evaluate
+     * 
+     * @brief  Symmetrically evaluate the board state
+     * @param  pc: The color who's move it is next. This is soley used to check that the previous player did not leave themselves in check.
+     * @return Decimal value
+     */
+    [[ gnu::flatten ]]
+    float evaluate ( pcolor pc ) const noexcept;
 
 
 
