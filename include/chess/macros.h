@@ -18,6 +18,18 @@
 
 
 
+/** @name  CHESS_GCC_VERSION
+ * 
+ * @brief  Evaluates to if GCC is greater or equal to the version specified
+ * @param  x: Major version
+ * @param  y: Minor version
+ * @param  z: Patch level
+ * @return boolean
+ */
+#define CHESS_GCC_VERSION( x, y, z ) ( ( __GNUC__ > x ) || ( ( __GNUC__ == x ) && ( __GNUC_MINOR__ > y ) ) || ( ( __GNUC__ == x ) && ( __GNUC_MINOR__ == y ) && ( __GNUC_PATCHLEVEL__ >= z ) ) )
+
+
+
 /* chess_inline
  *
  * Force the method to be inlined
@@ -38,7 +50,7 @@
  * @param  x: The integer
  * @return The number of set zeros
  */
-#if ( __GNUC__ > 3 ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ > 4 ) ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ == 4 ) && ( __GNUC_PATCHLEVEL__ >= 6 ) )
+#if CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_POPCOUNT64( x ) __builtin_popcountll ( x )
 #endif
 
@@ -50,7 +62,7 @@
  * @param  x: The integer
  * @return The number of leading/trailing zeros
  */
-#if ( __GNUC__ > 3 ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ > 4 ) ) || ( ( __GNUC__ == 3 ) && ( __GNUC_MINOR__ == 4 ) && ( __GNUC_PATCHLEVEL__ >= 6 ) )
+#if CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_CLZ64( x ) __builtin_clzll ( x )
     #define CHESS_BUILTIN_CTZ64( x ) __builtin_ctzll ( x )
 #endif
@@ -63,9 +75,9 @@
  * @param  x: The integer
  * @return The swapped integer
  */
-#if ( __GNUC__ > 4 ) || ( ( __GNUC__ == 4 ) && ( __GNUC_MINOR__ > 3 ) ) || ( ( __GNUC__ == 4 ) && ( __GNUC_MINOR__ == 3 ) && ( __GNUC_PATCHLEVEL__ >= 6 ) )
+#if CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_BSWAP64( x ) __builtin_bswap64 ( x )
-#endif 
+#endif
 
 
 
