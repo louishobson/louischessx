@@ -282,6 +282,8 @@ int chess::chessboard::evaluate ( pcolor pc ) const
      * A capture is obviously a legal attack that lands on an enemy piece.
      */
 
+
+
     /* CONSTANTS */
 
     /* Material values */
