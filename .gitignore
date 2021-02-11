@@ -36,3 +36,6 @@
 
 # Dumps
 *.dump
+
+# Locks
+*.~lock.*
