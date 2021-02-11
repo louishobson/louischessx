@@ -43,3 +43,4 @@ test: test.o src/chess/bitboard.o src/chess/chessboard.o
 	$(CPP) $(CPPFLAGS) test.o src/chess/bitboard.o src/chess/chessboard.o -o test.out 
 	objdump -d  test.out 2> /dev/null 1> test.dump
 	objdump -dS test.out 2> /dev/null 1> test.s.dump
+	objdump -d --visualize-jumps test.out 2> /dev/null 1> test.v.dump
