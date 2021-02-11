@@ -701,12 +701,12 @@ private:
         static constexpr unsigned long long rank_8          { 0xff00000000000000 };
 
         static constexpr unsigned long long shift_sw         { ~rank_8 & ~file_h };
-        static constexpr unsigned long long shift_s          { ~rank_8           };
+        static constexpr unsigned long long shift_s          {                   };
         static constexpr unsigned long long shift_se         { ~rank_8 & ~file_a };
         static constexpr unsigned long long shift_w          {           ~file_h };
         static constexpr unsigned long long shift_e          {           ~file_a };
         static constexpr unsigned long long shift_nw         { ~rank_1 & ~file_h };
-        static constexpr unsigned long long shift_n          { ~rank_1           };
+        static constexpr unsigned long long shift_n          {                   };
         static constexpr unsigned long long shift_ne         { ~rank_1 & ~file_a };
 
         static constexpr unsigned long long knight_shift_ssw { ~rank_8 & ~rank_7 & ~file_h           };

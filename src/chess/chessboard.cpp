@@ -312,6 +312,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     constexpr int DOUBLED_PAWNS                    {  -5 }; // Tripled pawns counts as -10 etc.
     constexpr int PAWN_GENERAL_ATTACKS_ADJ_OP_KING {  20 }; // For every generally attacked cell
     constexpr int PHALANGA                         {  20 }; // Pawn trip counts as 40 etc.
+    constexpr int BLOCKED_PASSED_PAWNS             { -15 }; // For each blocked passed pawn
 
     /* Sliding pieces */
     constexpr int STRAIGHT_PIECES_ON_7TH_RANK                    { 30 };
@@ -404,10 +405,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     const bitboard black_semiopen_files = ~black_pawn_file_fill & white_pawn_file_fill;
 
     /* Get the cells behind passed pawns. 
-     * This is the span between the front and any rear pawns of the same color, where there are no opposing pawns in that file.
-     * Using fill instead of span means that the actual passed pawn is included, and the passed pawns can hence be determined */
-    const bitboard white_behind_passed_pawns = white_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & white_pawn_rear_span ).fill ( compass::s ) & black_semiopen_files;
-    const bitboard black_behind_passed_pawns = black_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & black_pawn_rear_span ).fill ( compass::n ) & white_semiopen_files;
+     * This is the span between the front and any rear pawns of the same color, including the rear pawn, where there are no opposing pawns in that file.
+     */
+    const bitboard white_behind_passed_pawns = white_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & white_pawn_rear_span ).span ( compass::s ) & black_semiopen_files;
+    const bitboard black_behind_passed_pawns = black_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & black_pawn_rear_span ).span ( compass::n ) & white_semiopen_files;
     
 
 
@@ -847,6 +848,13 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             const bitboard white_phalanga = bb ( pcolor::white, ptype::pawn ) & bb ( pcolor::white, ptype::pawn ).shift ( compass::e );
             const bitboard black_phalanga = bb ( pcolor::black, ptype::pawn ) & bb ( pcolor::black, ptype::pawn ).shift ( compass::e );
             value += PHALANGA * ( white_phalanga.popcount () - black_phalanga.popcount () );
+        }
+
+        /* Incorporate blocked passed pawns into value */
+        {
+            const bitboard white_blocked_passed_pawns = white_behind_passed_pawns.shift ( compass::n ).shift ( compass::n ) & ~bb ( pcolor::white, ptype::pawn ) & bb ();
+            const bitboard black_blocked_passed_pawns = black_behind_passed_pawns.shift ( compass::s ).shift ( compass::s ) & ~bb ( pcolor::black, ptype::pawn ) & bb ();
+            value += BLOCKED_PASSED_PAWNS * ( white_blocked_passed_pawns.popcount () - black_blocked_passed_pawns.popcount () );
         }
     }
 
