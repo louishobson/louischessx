@@ -43,14 +43,14 @@ inline constexpr chess::diagonal_compass chess::diagonal_compass_start () noexce
  * @param  dir: The compass direction to advance.
  * @return A compass
  */
-inline constexpr chess::compass chess::compass_next ( compass dir ) noexcept { return static_cast<compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
-inline constexpr chess::knight_compass chess::compass_next ( knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
-inline constexpr chess::straight_compass chess::compass_next ( straight_compass dir ) noexcept 
+inline constexpr chess::compass chess::compass_next ( const compass dir ) noexcept { return static_cast<compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
+inline constexpr chess::knight_compass chess::compass_next ( const knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
+inline constexpr chess::straight_compass chess::compass_next ( const straight_compass dir ) noexcept 
 { 
     bool add_one = ( static_cast<int> ( dir ) == 3 );
     return static_cast<straight_compass> ( ( static_cast<int> ( dir ) + 2 - add_one ) & 7 );
 }
-inline constexpr chess::diagonal_compass chess::compass_next ( diagonal_compass dir ) noexcept 
+inline constexpr chess::diagonal_compass chess::compass_next ( const diagonal_compass dir ) noexcept 
 { 
     bool add_one = ( static_cast<int> ( dir ) == 7 );
     bool add_three = ( static_cast<int> ( dir ) == 2 );
@@ -67,7 +67,7 @@ inline constexpr chess::diagonal_compass chess::compass_next ( diagonal_compass 
  * 
  * @return integer
  */
-inline constexpr unsigned chess::bitboard::popcount () const noexcept 
+inline constexpr int chess::bitboard::popcount () const noexcept 
 {
     /* STL function adds a branch testing for x = 0, which is likely to be undesirable */
 #ifdef CHESS_BUILTIN_POPCOUNT64 
@@ -82,7 +82,7 @@ inline constexpr unsigned chess::bitboard::popcount () const noexcept
  * @param  other: Another bitboard
  * @return The number of different bits comparing this and other
  */
-inline constexpr unsigned chess::bitboard::hamming_dist ( bitboard other ) const noexcept 
+inline constexpr int chess::bitboard::hamming_dist ( const bitboard other ) const noexcept 
 { 
     /* STL function adds a branch testing for x = 0, which is likely to be undesirable */
 #ifdef CHESS_BUILTIN_POPCOUNT64 
@@ -96,7 +96,7 @@ inline constexpr unsigned chess::bitboard::hamming_dist ( bitboard other ) const
  * 
  * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
  */
-inline constexpr unsigned chess::bitboard::leading_zeros_nocheck  () const noexcept
+inline constexpr int chess::bitboard::leading_zeros_nocheck  () const noexcept
 {
     /* Use builtin if availible, otherwise use the checking method */
 #ifdef CHESS_BUILTIN_CLZ64
@@ -105,7 +105,7 @@ inline constexpr unsigned chess::bitboard::leading_zeros_nocheck  () const noexc
     return leading_zeros ();
 #endif
 }
-inline constexpr unsigned chess::bitboard::trailing_zeros_nocheck () const noexcept
+inline constexpr int chess::bitboard::trailing_zeros_nocheck () const noexcept
 {
     /* Use builtin if availible, otherwise use the checking method */
 #ifdef CHESS_BUILTIN_CTZ64
@@ -251,7 +251,7 @@ inline constexpr chess::bitboard chess::bitboard::pseudo_rotate_45_aclock () con
  * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::fill ( const compass dir, bitboard p ) const noexcept
 {
     bitboard x { bits }; int r = shift_val ( dir );
     p &=     shift_mask ( dir );
@@ -271,7 +271,7 @@ inline constexpr chess::bitboard chess::bitboard::fill ( compass dir, bitboard p
  *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::flood_fill ( const bitboard p ) const noexcept
 {
     /* x will store the output, prev will remember the result of the previous iteration */
     bitboard x { bits }, prev; 
@@ -287,7 +287,7 @@ inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) cons
         x &= p;
     } while ( x != prev );
 
-    /* return the flood */
+    /* Return the flood */
     return x;
 }
 
@@ -300,7 +300,7 @@ inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) cons
  * @param  t: Target set: if all set bits can be reached then true is returned, false otherwise
  * @return boolean
  */
-inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) const noexcept
+inline constexpr bool chess::bitboard::is_connected ( const bitboard p, const bitboard t ) const noexcept
 {
     /* x will store the output, prev will remember the result of the previous iteration */
     bitboard x { bits }, prev;
@@ -318,7 +318,7 @@ inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) c
         if ( x.contains ( t ) ) return true;
     } while ( x != prev );
 
-    /* not all targets found so return false */           
+    /* Not all targets found so return false */           
     return false;                            
 }
 
@@ -335,7 +335,7 @@ inline constexpr bool chess::bitboard::is_connected ( bitboard p, bitboard t ) c
  * @param  p: Propagator set: set bits are empty cells, universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( const bitboard p ) const noexcept
 {
     /* A legal double south push will leave a pawn in rank 5.
      * For the first push, shift the board north one, check with propagator and store in x.
@@ -345,7 +345,7 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_n ( bitboard p ) con
     bitboard x { shift ( compass::n ) & p };            
     return { x | ( x.shift ( compass::n ) & p & k1 ) }; 
 }
-inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( const bitboard p ) const noexcept
 {
     /* A legal double south push will leave a pawn in rank 5.
      * For the first push, shift the board south one, check with propagator and store in x.
@@ -372,7 +372,7 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( bitboard p ) con
  *         Note: setting to true using an empty bitboard will cause undefined behavior.
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, bool single ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::king_any_attack ( const bitboard p, const bool single ) const noexcept
 {
     /* If was declared as a singleton set, simply look up and return the attacks of the king */
     if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ) & p; else
@@ -404,7 +404,7 @@ inline constexpr chess::bitboard chess::bitboard::king_any_attack ( bitboard p, 
  *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( bitboard pp, bitboard sp ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( const bitboard pp, const bitboard sp ) const noexcept
 {
     /* x will store the output, dir iterates over the directions of the compass */
     bitboard x;
@@ -424,7 +424,7 @@ inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( bitboard p
     /* Return the union of all attacks */
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard pp, bitboard sp ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( const bitboard pp, const bitboard sp ) const noexcept
 {
     /* x will store the output, dir iterates over the directions of the compass */
     bitboard x;
@@ -444,7 +444,7 @@ inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( bitboard p
     /* Return the union of all attacks */
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( bitboard pp, bitboard sp ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( const bitboard pp, const bitboard sp ) const noexcept
 {
     /* x will store the output, dir iterates over the directions of the compass */
     bitboard x;
@@ -478,7 +478,7 @@ inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( bitboard p
  * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( const bitboard p ) const noexcept
 {
     /* x will store the output, temp allows for the iteration through the set bits of this */
     bitboard x, temp { bits }; 
@@ -489,7 +489,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
         /* The position of the next set bit in temp is given by the number of trailing zeros.
          * Lookup the knight attacks at pos and union them with x, then reset the bit in temp.
          */
-        unsigned pos = temp.trailing_zeros_nocheck (); 
+        const unsigned pos = temp.trailing_zeros_nocheck (); 
         x |= knight_attack_lookup ( pos );        
         temp.reset ( pos );                       
     }
@@ -504,7 +504,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( bitboard p
  * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( const bitboard p ) const noexcept
 {
     /* once and mult will remember if a cell is attacked once or multiple times, temp allows for the iteration through the set bits of this */
     bitboard once, mult, temp { bits };
@@ -516,7 +516,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( bitboard 
          * Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
          * Union the attacked cells with once then reset the bit in temp.
          */
-        unsigned pos = temp.trailing_zeros_nocheck ();   
+        const unsigned pos = temp.trailing_zeros_nocheck ();   
         mult |= knight_attack_lookup ( pos ) & once;
         once |= knight_attack_lookup ( pos );       
         temp.reset ( pos );                         

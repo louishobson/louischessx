@@ -221,11 +221,19 @@ public:
 
     /** @name  only_if
      * 
-     * @brief  If the condition is true, the bitboard unchanged, else returns an empty bitboard
+     * @brief  If the condition is true, returns the bitboard unchanged, else returns an empty bitboard
      * @param  cond: The condition described above
      * @return A new bitboard
      */
     constexpr bitboard only_if ( bool cond ) const noexcept { return bitboard { cond * bits }; }
+
+    /** @name  all_if
+     * 
+     * @brief  If the condition is true, returns a full bitboard, else returns the bitboard unchanged
+     * @param  cond: The condition described above
+     * @return A new bitboard
+     */
+    constexpr bitboard all_if ( bool cond ) const noexcept { return bitboard { bits | ( cond * ~0ull ) }; }
 
     /** @name  contains
      * 
@@ -272,28 +280,28 @@ public:
      * 
      * @return integer
      */
-    constexpr unsigned popcount () const noexcept;
+    constexpr int popcount () const noexcept;
 
     /** @name  hamming_dist
      * 
      * @param  other: Another bitboard
      * @return The number of different bits comparing this and other
      */
-    constexpr unsigned hamming_dist ( bitboard other ) const noexcept;
+    constexpr int hamming_dist ( bitboard other ) const noexcept;
 
     /** @name  leading/trailing_zeros
      * 
      * @return The number of leading/trailing zeros, 64 if the bitboard is empty
      */
-    constexpr unsigned leading_zeros  () const noexcept { return std::countl_zero ( bits ); }
-    constexpr unsigned trailing_zeros () const noexcept { return std::countr_zero ( bits ); }
+    constexpr int leading_zeros  () const noexcept { return std::countl_zero ( bits ); }
+    constexpr int trailing_zeros () const noexcept { return std::countr_zero ( bits ); }
 
     /** @name  leading/trailing_zeros_nocheck
      * 
      * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
      */
-    constexpr unsigned leading_zeros_nocheck  () const noexcept;
-    constexpr unsigned trailing_zeros_nocheck () const noexcept;
+    constexpr int leading_zeros_nocheck  () const noexcept;
+    constexpr int trailing_zeros_nocheck () const noexcept;
 
     /** @name  bit_rotl/r
      * 
@@ -609,6 +617,22 @@ public:
     constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~singleton_bitset ( rank, file ); }
     constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  singleton_bitset ( rank, file ); }
 
+    /** @name  set_if, reset_if, toggle_if
+     * 
+     * @brief  Inline set, unset or toggle a bit based on a condition
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @param  cond: The condition under which the change should be made
+     * @return void
+     */
+    constexpr void set_if    ( unsigned pos, bool cond ) noexcept { bits |=    singleton_bitset ( pos ) * cond;   }
+    constexpr void reset_if  ( unsigned pos, bool cond ) noexcept { bits &= ~( singleton_bitset ( pos ) * cond ); }
+    constexpr void toggle_if ( unsigned pos, bool cond ) noexcept { bits ^=    singleton_bitset ( pos ) * cond;   }
+    constexpr void set_if    ( unsigned rank, unsigned file, bool cond ) noexcept { bits |=    singleton_bitset ( rank, file ) * cond;   }
+    constexpr void reset_if  ( unsigned rank, unsigned file, bool cond ) noexcept { bits &= ~( singleton_bitset ( rank, file ) * cond ); }
+    constexpr void toggle_if ( unsigned rank, unsigned file, bool cond ) noexcept { bits ^=    singleton_bitset ( rank, file ) * cond;   }
+
     /** @name  test
      * 
      * @brief  Finds if a bit is set
@@ -619,6 +643,13 @@ public:
      */
     constexpr bool test ( unsigned pos ) const noexcept { return bits & singleton_bitset ( pos ); }
     constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return bits & singleton_bitset ( rank, file ); }
+
+    /** @name  empty
+     * 
+     * @brief  Empties the bitboard
+     * @return void
+     */
+    constexpr void empty () noexcept { bits = 0; }
 
 
 
@@ -649,6 +680,7 @@ private:
         static constexpr unsigned long long universe        { 0xffffffffffffffff };
         static constexpr unsigned long long white_squares   { 0x55aa55aa55aa55aa };
         static constexpr unsigned long long black_squares   { 0xaa55aa55aa55aa55 };
+        static constexpr unsigned long long center_squares  { 0x0000001818000000 };
 
         static constexpr unsigned long long file_a          { 0x0101010101010101 };
         static constexpr unsigned long long file_b          { 0x0202020202020202 };
@@ -776,6 +808,19 @@ private:
         0x0002040810204080, 0x0005081020408000, 0x000a112040800000, 0x0014224180000000, 0x0028448201000000, 0x0050880402010000, 0x00a0100804020100, 0x0040201008040201
     };
 
+    /* Queen lookup attacks */
+    static constexpr unsigned long long queen_attack_lookups [ 64 ] = 
+    {
+        0x81412111090503fe, 0x02824222120a07fd, 0x0404844424150efb, 0x08080888492a1cf7, 0x10101011925438ef, 0x2020212224a870df, 0x404142444850e0bf, 0x8182848890a0c07f,
+        0x412111090503fe03, 0x824222120a07fd07, 0x04844424150efb0e, 0x080888492a1cf71c, 0x101011925438ef38, 0x20212224a870df70, 0x4142444850e0bfe0, 0x82848890a0c07fc0,
+        0x2111090503fe0305, 0x4222120a07fd070a, 0x844424150efb0e15, 0x0888492a1cf71c2a, 0x1011925438ef3854, 0x212224a870df70a8, 0x42444850e0bfe050, 0x848890a0c07fc0a0,
+        0x11090503fe030509, 0x22120a07fd070a12, 0x4424150efb0e1524, 0x88492a1cf71c2a49, 0x11925438ef385492, 0x2224a870df70a824, 0x444850e0bfe05048, 0x8890a0c07fc0a090,
+        0x090503fe03050911, 0x120a07fd070a1222, 0x24150efb0e152444, 0x492a1cf71c2a4988, 0x925438ef38549211, 0x24a870df70a82422, 0x4850e0bfe0504844, 0x90a0c07fc0a09088,
+        0x0503fe0305091121, 0x0a07fd070a122242, 0x150efb0e15244484, 0x2a1cf71c2a498808, 0x5438ef3854921110, 0xa870df70a8242221, 0x50e0bfe050484442, 0xa0c07fc0a0908884,
+        0x03fe030509112141, 0x07fd070a12224282, 0x0efb0e1524448404, 0x1cf71c2a49880808, 0x38ef385492111010, 0x70df70a824222120, 0xe0bfe05048444241, 0xc07fc0a090888482,
+        0xfe03050911214181, 0xfd070a1222428202, 0xfb0e152444840404, 0xf71c2a4988080808, 0xef38549211101010, 0xdf70a82422212020, 0xbfe0504844424140, 0x7fc0a09088848281
+    };
+
     /* Omni-directional lookup attacks */
     static constexpr unsigned long long omnidir_attack_lookups [ 8 ] [ 64 ] =
     {
@@ -889,7 +934,7 @@ private:
     static constexpr bitboard king_attack_lookup   ( unsigned rank, unsigned file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
     static constexpr bitboard knight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
 
-    /** @name  straight_attack_lookup, diagonal_attack_lookup
+    /** @name  straight_attack_lookup, diagonal_attack_lookup, queen_attack_lookup
      * 
      * @brief  Lookup the possible moves of single sliding piece
      * @param  pos:  The absolute position [0,63]
@@ -899,8 +944,10 @@ private:
      */
     static constexpr bitboard straight_attack_lookup ( unsigned pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
     static constexpr bitboard diagonal_attack_lookup ( unsigned pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
+    static constexpr bitboard queen_attack_lookup    ( unsigned pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
     static constexpr bitboard straight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
     static constexpr bitboard diagonal_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard queen_attack_lookup    ( unsigned rank, unsigned file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
 
     /** @name  omnidir_attack_lookup
      * 
