@@ -311,16 +311,18 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     constexpr int ISOLATED_PAWNS_ON_SEMIOPEN_FILES { -10 };
     constexpr int DOUBLED_PAWNS                    {  -5 }; // Tripled pawns counts as -10 etc.
     constexpr int PAWN_GENERAL_ATTACKS_ADJ_OP_KING {  20 }; // For every generally attacked cell
+    constexpr int PHALANGA                         {  20 }; // Pawn trip counts as 40 etc.
 
     /* Sliding pieces */
-    constexpr int STRAIGHT_PIECES_ON_7TH_RANK                    {  30 };
-    constexpr int DOUBLE_BISHOP                                  {  20 };
-    constexpr int STRAIGHT_PIECES_ON_OPEN_FILE                   {  35 };
-    constexpr int STRAIGHT_PIECES_ON_SEMIOPEN_FILE               {  25 };
-    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES     {  10 }; // For every legal attack
-    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES {   5 }; // For every legal attack
-    constexpr int DIAGONAL_PIECE_GENERAL_ATTACKS_ON_PIECES       {  15 }; // For every attack
-    constexpr int DIAGONAL_PIECE_LEGAL_CAPTURES                  {  15 }; // For every capture
+    constexpr int STRAIGHT_PIECES_ON_7TH_RANK                    { 30 };
+    constexpr int DOUBLE_BISHOP                                  { 20 };
+    constexpr int STRAIGHT_PIECES_ON_OPEN_FILE                   { 35 };
+    constexpr int STRAIGHT_PIECES_ON_SEMIOPEN_FILE               { 25 };
+    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES     { 10 }; // For every legal attack
+    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES {  5 }; // For every legal attack
+    constexpr int STRAIGHT_PIECES_BEHIND_PASSED_PAWNS            { 20 }; // For every piece
+    constexpr int DIAGONAL_PIECE_GENERAL_ATTACKS_ON_PIECES       { 15 }; // For every attack
+    constexpr int DIAGONAL_PIECE_LEGAL_CAPTURES                  { 15 }; // For every capture
 
     /* Knights */
     constexpr int CENTER_KNIGHTS { 20 };
@@ -332,6 +334,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     /* Mobility and king queen mobility, for every move */
     constexpr int MOBILITY            {  1 };
     constexpr int KING_QUEEN_MOBILITY { -2 };
+
+    /* Casling */
+    constexpr int CASTLE_MADE        {  30 };
+    constexpr int CASTLE_LOST { -60 };
 
     /* Other values */
     constexpr int KNIGHT_AND_QUEEN_EXIST     { 10 };
@@ -358,8 +364,12 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     if ( ( pc == pcolor::white ? black_check_count : white_check_count ) != 0 ) [[ unlikely ]] throw std::runtime_error { "Opposing color in check in evaluate ()." };
     
     /* Get king positions */
-    const unsigned white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros_nocheck  ();
+    const unsigned white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros_nocheck ();
     const unsigned black_king_pos = bb ( pcolor::black, ptype::king ).trailing_zeros_nocheck ();
+
+    /* Get the king spans */
+    const bitboard white_king_span = bitboard::king_attack_lookup ( white_king_pos );
+    const bitboard black_king_span = bitboard::king_attack_lookup ( black_king_pos );
 
     /* Straight and diagonal block vectors */
     const bitboard white_straight_block_vectors = white_block_vectors & bitboard::straight_attack_lookup ( white_king_pos );
@@ -380,15 +390,25 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     /* Set the primary propagator such that all empty cells are set */
     const bitboard pp = ~( bb ( pcolor::white ) | bb ( pcolor::black ) );
 
-    /* Get the pawn file fills */
-    const bitboard white_pawn_file_fill = bb ( pcolor::white, ptype::pawn ).file_fill ();
-    const bitboard black_pawn_file_fill = bb ( pcolor::black, ptype::pawn ).file_fill ();
+    /* Get the white pawn rear span */
+    const bitboard white_pawn_rear_span = bb ( pcolor::white, ptype::pawn ).span ( compass::s );
+    const bitboard black_pawn_rear_span = bb ( pcolor::black, ptype::pawn ).span ( compass::n );
 
-    /* Get the open and semiopen files (which are used to evaluate in various places) */
+    /* Get the pawn file fills (from the rear span and forwards fill) */
+    const bitboard white_pawn_file_fill = white_pawn_rear_span | bb ( pcolor::white, ptype::pawn ).fill ( compass::n );
+    const bitboard black_pawn_file_fill = black_pawn_rear_span | bb ( pcolor::black, ptype::pawn ).fill ( compass::s );
+
+    /* Get the open and semiopen files. White semiopen files contain no white pawns. */
     const bitboard open_files = ~( white_pawn_file_fill | black_pawn_file_fill );
-    const bitboard white_semiopen_files = white_pawn_file_fill & ~black_pawn_file_fill;
-    const bitboard black_semiopen_files = black_pawn_file_fill & ~white_pawn_file_fill;
+    const bitboard white_semiopen_files = ~white_pawn_file_fill & black_pawn_file_fill;
+    const bitboard black_semiopen_files = ~black_pawn_file_fill & white_pawn_file_fill;
 
+    /* Get the cells behind passed pawns. 
+     * This is the span between the front and any rear pawns of the same color, where there are no opposing pawns in that file.
+     * Using fill instead of span means that the actual passed pawn is included, and the passed pawns can hence be determined */
+    const bitboard white_behind_passed_pawns = white_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & white_pawn_rear_span ).fill ( compass::s ) & black_semiopen_files;
+    const bitboard black_behind_passed_pawns = black_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & black_pawn_rear_span ).fill ( compass::n ) & white_semiopen_files;
+    
 
 
     /* ACCUMULATORS */
@@ -630,6 +650,9 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         value += STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES     * straight_attacks_open_diff;
         value += STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES * straight_attacks_semiopen_diff;
 
+        /* Incorporate straight pieces behind passed pawns into value */
+        value += STRAIGHT_PIECES_BEHIND_PASSED_PAWNS * ( ( white_straight_pieces & white_behind_passed_pawns ).popcount () - ( black_straight_pieces & black_behind_passed_pawns ).popcount () );
+
         /* Incorporate diagonal attacks on pieces into value */
         value += DIAGONAL_PIECE_GENERAL_ATTACKS_ON_PIECES * diagonal_attacks_on_pieces_diff;
 
@@ -807,16 +830,23 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
         /* Incorporate the number of doubled pawns into value */
         {
-            const bitboard white_doubled_pawns = bb ( pcolor::white, ptype::pawn ) & bb ( pcolor::white, ptype::pawn ).span ( compass::s );
-            const bitboard black_doubled_pawns = bb ( pcolor::black, ptype::pawn ) & bb ( pcolor::black, ptype::pawn ).span ( compass::n );
+            const bitboard white_doubled_pawns = bb ( pcolor::white, ptype::pawn ) & white_pawn_rear_span;
+            const bitboard black_doubled_pawns = bb ( pcolor::black, ptype::pawn ) & black_pawn_rear_span;
             value += DOUBLED_PAWNS * ( white_doubled_pawns.popcount () - black_doubled_pawns.popcount () );
         }
 
         /* Incorporate the number of cells adjacent to enemy king, which are generally attacked by pawns, into value */
         {
-            const bitboard white_pawn_defence_adj_op_king = white_pawn_attacks & bitboard::king_attack_lookup ( black_king_pos );
-            const bitboard black_pawn_defence_adj_op_king = black_pawn_attacks & bitboard::king_attack_lookup ( white_king_pos );
+            const bitboard white_pawn_defence_adj_op_king = white_pawn_attacks & black_king_span;
+            const bitboard black_pawn_defence_adj_op_king = black_pawn_attacks & white_king_span;
             value += PAWN_GENERAL_ATTACKS_ADJ_OP_KING * ( white_pawn_defence_adj_op_king.popcount () - black_pawn_defence_adj_op_king.popcount () );
+        }
+
+        /* Incorporate phalanga into value */
+        {
+            const bitboard white_phalanga = bb ( pcolor::white, ptype::pawn ) & bb ( pcolor::white, ptype::pawn ).shift ( compass::e );
+            const bitboard black_phalanga = bb ( pcolor::black, ptype::pawn ) & bb ( pcolor::black, ptype::pawn ).shift ( compass::e );
+            value += PHALANGA * ( white_phalanga.popcount () - black_phalanga.popcount () );
         }
     }
 
@@ -835,8 +865,8 @@ int chess::chessboard::evaluate ( pcolor pc ) const
          * The empty space must not be protected by the opponent, and the kings must not be left adjacent.
          * Note that some illegal attacks may be included here, if there are any opposing blocking sliding pieces.
          */
-        bitboard white_king_attacks = bitboard::king_attack_lookup ( white_king_pos ) & ~bitboard::king_attack_lookup ( black_king_pos ) & ~bb ( pcolor::white ) & ~black_partial_defence_union;
-        bitboard black_king_attacks = bitboard::king_attack_lookup ( black_king_pos ) & ~bitboard::king_attack_lookup ( white_king_pos ) & ~bb ( pcolor::black ) & ~white_partial_defence_union;
+        bitboard white_king_attacks = white_king_span & ~black_king_span & ~bb ( pcolor::white ) & ~black_partial_defence_union;
+        bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union;
 
         /* If there are any possible white king attacks, detect if black defence union is incomplete */
         if ( white_king_attacks.is_nonempty () & black_has_blocking_sliding_pieces ) 
@@ -913,6 +943,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         const bool black_knight_and_queen_exist = bb ( pcolor::black, ptype::knight ).is_nonempty () & bb ( pcolor::black, ptype::queen ).is_nonempty ();
         value += KNIGHT_AND_QUEEN_EXIST * ( white_knight_and_queen_exist - black_knight_and_queen_exist );
     }
+
+    /* Castling */
+    value += CASTLE_MADE * ( castle_made ( pcolor::white ) - castle_made ( pcolor::black ) );
+    value += CASTLE_LOST * ( castle_lost ( pcolor::white ) - castle_lost ( pcolor::black ) );
 
 
 

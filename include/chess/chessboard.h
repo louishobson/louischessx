@@ -131,8 +131,9 @@ public:
     /* Struct for castling rights */
     struct castling_rights_t
     {
-        bool kingside;
-        bool queenside;
+        bool can_castle = true;
+        bool castle_made = false;
+        bool kingside_lost = false, queenside_lost = false;
     };
 
     /* Check info */
@@ -168,10 +169,7 @@ public:
      * Only records whether the king or rooks have been moved, not whether castling is at this time possible.
      * Indexes of the array accessed using pcolor cast to an integer.
      */
-    std::array<castling_rights_t, 2> castling_rights
-    {
-        castling_rights_t { true, true }, castling_rights_t { true, true }
-    };
+    std::array<castling_rights_t, 2> castling_rights;
     
 
 
@@ -202,6 +200,19 @@ public:
     bitboard bb ( pcolor pc, ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
     bitboard bb ( ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::white ) ] | type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::black ) ]; }
     
+
+    /** @name  can_castle, castle_made, castle_lost
+     * 
+     * @brief  Gets information about castling for each color.
+     *         castle_lost gives whether both kingside and castling rights have been lost.
+     * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
+     * @return boolean
+     */
+    bool can_castle  ( pcolor pc ) const noexcept { return castling_rights [ static_cast<int> ( pc ) ].can_castle;  }
+    bool castle_made ( pcolor pc ) const noexcept { return castling_rights [ static_cast<int> ( pc ) ].castle_made; }
+    bool castle_lost ( pcolor pc ) const noexcept { return castling_rights [ static_cast<int> ( pc ) ].kingside_lost & castling_rights [ static_cast<int> ( pc ) ].queenside_lost; }
+
+
 
 
     /* PAWN CALCULATIONS */
