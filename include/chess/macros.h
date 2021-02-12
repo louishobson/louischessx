@@ -42,6 +42,12 @@
  */
 #define chess_inline_constexpr [[ gnu::always_inline ]] constexpr
 
+/* chess_hot
+ *
+ * Force a function to be flattened, marked as hot and no-inlined
+ */
+#define chess_hot [[ using gnu : flatten, hot, noinline ]]
+
 
 
 /** @name  CHESS_BUILTIN_POPCOUNT64
