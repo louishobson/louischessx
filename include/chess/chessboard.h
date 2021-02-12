@@ -214,87 +214,6 @@ public:
 
 
 
-
-    /* PAWN CALCULATIONS */
-
-    /** @name  pawn_interspan_bb
-     * 
-     * @brief  Get the interspan of the pawns
-     * @return A new bitboard
-     */
-    [[ gnu::flatten ]]
-    bitboard pawn_interspan_bb () const noexcept { return bb ( pcolor::white, ptype::pawn ).span ( compass::n ) & bb ( pcolor::black, ptype::pawn ).span ( compass::s ); }
-
-    /** @name  pawn_safe_squares_bb
-     * 
-     * @brief  Get the squares, with reference to a color, such that friendly pawns defending >= opposing opposing pawns attacking
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    [[ gnu::flatten ]]
-    bitboard pawn_safe_squares_bb ( pcolor pc ) const noexcept;
-
-    /** @name  pawn_rams_bb
-     * 
-     * @brief  Get a color's pawns which are acting as rams to opposing pawns
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard pawn_rams_bb ( pcolor pc ) const noexcept;
-
-    /** @name  pawn_levers_e/w_bb
-     * 
-     * @brief  Get a color's pawns which are participating in a east/west lever
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard pawn_levers_e_bb ( pcolor pc ) const noexcept;
-    bitboard pawn_levers_w_bb ( pcolor pc ) const noexcept;
-
-    /** @name  pawn_any_levers_bb
-     * 
-     * @brief  Get a color's pawns which are participating in any lever
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard pawn_any_levers_bb ( pcolor pc ) const noexcept { return pawn_levers_e_bb ( pc ) | pawn_levers_w_bb ( pc ); }
-
-    /** @name  pawn_inner/outer/center_levers_bb
-     * 
-     * @brief  Get a color's pawns which are participating in inner/outer/center levers
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard pawn_inner_levers_bb  ( pcolor pc ) const noexcept;
-    bitboard pawn_outer_levers_bb  ( pcolor pc ) const noexcept;
-    bitboard pawn_center_levers_bb ( pcolor pc ) const noexcept;
-
-    /** @name  pawn_doubled_in_front_bb
-     * 
-     * @brief  Get a color's pawns which are directly behind a friendly pawn
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard pawn_doubled_in_front_bb ( pcolor pc ) const noexcept;
-
-    /** @name  isolanis_bb
-     * 
-     * @brief  Get the isolated pawns
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard isolanis_bb ( pcolor pc ) const noexcept { return bb ( pc, ptype::pawn ) & ~bb ( pc, ptype::pawn ).pawn_any_attack_fill (); }
-
-    /** @name  half_isolanis_bb
-     * 
-     * @brief  Get the half isolated pawns
-     * @param  pc: The color which is considered friendly
-     * @return A new bitboard
-     */
-    bitboard half_isolanis_bb ( pcolor pc ) const noexcept;
-
-
-
     /* BOARD EVALUATION */
 
     /** @name  get_check_info
@@ -303,8 +222,7 @@ public:
      * @param  pc: The color who's king we will look at
      * @return check_info_t
      */
-    [[ using gnu : flatten, noinline, hot ]]
-    check_info_t get_check_info ( pcolor pc ) const;
+    chess_hot check_info_t get_check_info ( pcolor pc ) const;
 
     /** @name  is_protected
      * 
@@ -314,8 +232,7 @@ public:
      * @param  pos: The position of the cell to check the defence of.
      * @return boolean
      */
-    [[ using gnu : flatten, noinline, hot ]]
-    bool is_protected ( pcolor pc, unsigned pos ) const noexcept;  
+    chess_hot bool is_protected ( pcolor pc, unsigned pos ) const noexcept;  
 
     /** @name  is_in_check
      * 
@@ -332,8 +249,7 @@ public:
      *         This must be the piece who's move it is next, in order to detect moves that are in check.
      * @return Integer value
      */
-    [[ using gnu : flatten, noinline, hot ]]
-    int evaluate ( pcolor pc ) const;
+    chess_hot int evaluate ( pcolor pc ) const;
 
 
 
