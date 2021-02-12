@@ -119,12 +119,13 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
             /* Span the king in the current direction */
             const bitboard king_span = king.rook_attack ( straight_dir, pp, sp );
 
-            /* Get the blocking pieces */
+            /* Get the checking and blocking pieces */
+            const bitboard checking = king_span & op_straight;
             const bitboard blocking = king_span & friendly;
 
             /* Add check info */
-            check_info.check_vectors |= king_span.only_if ( blocking.is_empty () );
-            check_info.block_vectors |= king_span.only_if ( blocking.is_singleton () );
+            check_info.check_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_empty () );
+            check_info.block_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_singleton () );
         }
 
         /* Increment compass */
@@ -143,14 +144,15 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
             /* Span the king in the current direction */
             const bitboard king_span = king.bishop_attack ( diagonal_dir, pp, sp );
 
-            /* Get the blocking pieces */
+            /* Get the checking and blocking pieces */
+            const bitboard checking = king_span & op_diagonal;
             const bitboard blocking = king_span & friendly;
 
             /* Add check info */
-            check_info.check_vectors |= king_span.only_if ( blocking.is_empty () );
-            check_info.block_vectors |= king_span.only_if ( blocking.is_singleton () );
+            check_info.check_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_empty () );
+            check_info.block_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_singleton () );
         }
-
+        
         /* Increment compass */
         diagonal_dir = compass_next ( diagonal_dir );
     }
