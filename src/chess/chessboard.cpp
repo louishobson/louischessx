@@ -89,7 +89,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
     const unsigned king_pos = king.trailing_zeros_nocheck ();
 
     /* Get the positions of the opposing straight and diagonal pieces */
-    const bitboard op_straight = bb ( npc, ptype::queen ) | bb ( npc, ptype::rook );
+    const bitboard op_straight = bb ( npc, ptype::queen ) | bb ( npc, ptype::rook   );
     const bitboard op_diagonal = bb ( npc, ptype::queen ) | bb ( npc, ptype::bishop );
 
     /* Get the primary propagator.
@@ -118,13 +118,12 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
             /* Span the king in the current direction */
             const bitboard king_span = king.rook_attack ( straight_dir, pp, sp );
 
-            /* Get the checking and blocking pieces */
-            const bitboard checking = king_span & op_straight;
+            /* Get the blocking pieces */
             const bitboard blocking = king_span & friendly;
 
             /* Add check info */
-            check_info.check_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_empty () );
-            check_info.block_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_singleton () );
+            check_info.check_vectors |= king_span.only_if ( blocking.is_empty () );
+            check_info.block_vectors |= king_span.only_if ( blocking.is_singleton () );
         }
 
         /* Increment compass */
@@ -142,13 +141,12 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
             /* Span the king in the current direction */
             const bitboard king_span = king.bishop_attack ( diagonal_dir, pp, sp );
 
-            /* Get the checking and blocking pieces */
-            const bitboard checking = king_span & op_diagonal;
+            /* Get the blocking pieces */
             const bitboard blocking = king_span & friendly;
 
             /* Add check info */
-            check_info.check_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_empty () );
-            check_info.block_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_singleton () );
+            check_info.check_vectors |= king_span.only_if ( blocking.is_empty () );
+            check_info.block_vectors |= king_span.only_if ( blocking.is_singleton () );
         }
 
         /* Increment compass */
@@ -159,10 +157,10 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
 
     /* KING, KNIGHTS AND PAWNS */
 
-    /* Throw if king is causing check */
+    /* Throw if kings are adjacent (this should never occur) */
     if ( bitboard::king_attack_lookup ( king_pos ) & bb ( npc, ptype::king ) ) [[ unlikely ]] throw std::runtime_error { "Adjacent king found in check_info ()." };
 
-    /* Simply add checking knights */
+    /* Add checking knights */
     check_info.check_vectors |= bitboard::knight_attack_lookup ( king_pos ) & bb ( npc, ptype::knight );
 
     /* Switch depending on pc and add checking pawns */
@@ -202,17 +200,17 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
      * Primary propagator of not non-occupied will mean the span will stop at the first piece.
      * The secondary propagator of friendly pieces means the span will include a friendly piece if found.
      */
-    const bitboard pp = ~( bb ( pc ) | bb ( other_color ( pc ) ) );
+    const bitboard pp = ~bb ();
     const bitboard sp = bb ( pc );
 
 
 
     /* KING, KNIGHTS AND PAWNS */
 
-    /* Simply look for an adjacent king */
+    /* Look for an adjacent king */
     if ( bitboard::king_attack_lookup ( pos ) & bb ( pc, ptype::king ) ) return true;
 
-    /* Simply look for defending knights */
+    /* Look for defending knights */
     if ( bitboard::knight_attack_lookup ( pos ) & bb ( pc, ptype::knight ) ) return true;
 
     /* Switch depending on pc and look for defening pawns */
@@ -274,17 +272,19 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 {
     /* TERMINOLOGY */
 
-    /* It's important to note the difference between general attacks, legal attacks, and captures.
+    /* Here, a piece refers to any chessman, including pawns and kings.
+     * Restricted pieces, or restrictives, do not include pawns or kings. 
+     *
+     * It's important to note the difference between general attacks and legal attacks.
      *
      * An attack is any position a piece could end up in and potentially capture, regardless of if A) it leaves the king in check, or B) if a friendly piece is in the attack set.
      * Legal attacks must be currently possible moves, including A) not leaving the king in check, and B) not attacking friendly pieces, and C) pawns not attacking empty cells.
      * Note that a pawn push is not an attack, since a pawn cannot capture by pushing.
-     * A capture is obviously a legal attack that lands on an enemy piece.
      * 
-     * Also note that general pawn attacks are much more useful than legal pawn attacks, hence general pawn attacks are used for all evaluation except for mobility.
-     * Hence we define an attack of interest to be the union of all legal attacks and pawn general attacks, but excluding king attacks.
+     * A capture is a legal attack on an enemy piece.
+     * A restricted capture is a legal attack on a restricted enemy piece.
      * 
-     * Mobility is the number of distinct strictly legal moves. If a mobility is zero, that means that color is in checkmate.
+     * Mobility is the number of distinct strictly legal moves. If a mobility is zero, that means that color is in checkmate.W
      */
 
 
@@ -305,47 +305,47 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
     /* Pawns */
     constexpr int PAWN_GENERAL_ATTACKS             {   1 }; // For every generally attacked cell
-    constexpr int CENTER_PAWNS                     {  20 };
+    constexpr int CENTER_PAWNS                     {  20 }; // For every pawn
     constexpr int PAWN_CENTER_GENERAL_ATTACKS      {  10 }; // For every generally attacked cell (in the center)
-    constexpr int ISOLATED_PAWNS                   { -10 };
-    constexpr int ISOLATED_PAWNS_ON_SEMIOPEN_FILES { -10 };
+    constexpr int ISOLATED_PAWNS                   { -10 }; // For every pawn
+    constexpr int ISOLATED_PAWNS_ON_SEMIOPEN_FILES { -10 }; // For every pawn
     constexpr int DOUBLED_PAWNS                    {  -5 }; // Tripled pawns counts as -10 etc.
     constexpr int PAWN_GENERAL_ATTACKS_ADJ_OP_KING {  20 }; // For every generally attacked cell
-    constexpr int PHALANGA                         {  20 }; // Pawn trip counts as 40 etc.
+    constexpr int PHALANGA                         {  20 }; // Tripple pawn counts as 40 etc.
     constexpr int BLOCKED_PASSED_PAWNS             { -15 }; // For each blocked passed pawn
 
     /* Sliding pieces */
-    constexpr int STRAIGHT_PIECES_ON_7TH_RANK                    { 30 };
-    constexpr int DOUBLE_BISHOP                                  { 20 };
-    constexpr int STRAIGHT_PIECES_ON_OPEN_FILE                   { 35 };
-    constexpr int STRAIGHT_PIECES_ON_SEMIOPEN_FILE               { 25 };
-    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES     { 10 }; // For every legal attack
-    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES {  5 }; // For every legal attack
-    constexpr int STRAIGHT_PIECES_BEHIND_PASSED_PAWNS            { 20 }; // For every piece
-    constexpr int DIAGONAL_PIECE_GENERAL_ATTACKS_ON_PIECES       { 15 }; // For every attack
-    constexpr int DIAGONAL_PIECE_LEGAL_CAPTURES                  { 15 }; // For every capture
+    constexpr int STRAIGHT_PIECES_ON_7TH_RANK                      { 30 }; // For each piece
+    constexpr int DOUBLE_BISHOP                                    { 20 }; // If true
+    constexpr int STRAIGHT_PIECES_ON_OPEN_FILE                     { 35 }; // For each piece
+    constexpr int STRAIGHT_PIECES_ON_SEMIOPEN_FILE                 { 25 }; // For each piece
+    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES       { 10 }; // For every legal attack
+    constexpr int STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES   {  5 }; // For every legal attack
+    constexpr int STRAIGHT_PIECES_BEHIND_PASSED_PAWNS              { 20 }; // For every piece
+    constexpr int DIAGONAL_PIECE_RESTRICTED_CAPTURES               { 15 }; // For every restricted capture on enemy pieces (not including pawns or kings)
+    constexpr int RESTRICTIVES_LEGALLY_ATTACKED_BY_DIAGONAL_PIECES { 15 }; // For every restrictive, white and black (pieces not including pawns or kings)
 
     /* Knights */
-    constexpr int CENTER_KNIGHTS { 20 };
+    constexpr int CENTER_KNIGHTS { 20 }; // For every knight
 
     /* Bishops and knights */
-    constexpr int BISHOP_OR_KNIGHT_INITIAL_CELL                       { -15 };
-    constexpr int DIAGONAL_OR_KNIGHT_CAPTURE_ON_ENEMY_STRAIGHT_PIECES {  10 };
+    constexpr int BISHOP_OR_KNIGHT_INITIAL_CELL                 { -15 }; // For every bishop/knight
+    constexpr int DIAGONAL_OR_KNIGHT_CAPTURE_ON_STRAIGHT_PIECES {  10 }; // For every capture
 
     /* Mobility and king queen mobility, for every move */
-    constexpr int MOBILITY            {  1 };
-    constexpr int KING_QUEEN_MOBILITY { -2 };
+    constexpr int MOBILITY            {  1 }; // For every legal move
+    constexpr int KING_QUEEN_MOBILITY { -2 }; // For every non-capture attack, pretending the king is a queen
 
     /* Casling */
-    constexpr int CASTLE_MADE        {  30 };
-    constexpr int CASTLE_LOST { -60 };
+    constexpr int CASTLE_MADE {  30 }; // If true
+    constexpr int CASTLE_LOST { -60 }; // If true
 
     /* Other values */
-    constexpr int KNIGHT_AND_QUEEN_EXIST     { 10 };
-    constexpr int CENTER_ATTACKS_OF_INTEREST { 10 };
+    constexpr int KNIGHT_AND_QUEEN_EXIST               { 10 }; // If true
+    constexpr int CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES { 10 }; // For every attack (not including pawns or kings)
 
     /* Checkmate */
-    constexpr int CHECKMATE { 500 };
+    constexpr int CHECKMATE { std::numeric_limits<int16_t>::max () }; // If true
 
 
     
@@ -388,6 +388,11 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     const bitboard white_check_vectors_dep_check_count = white_check_vectors.all_if ( white_check_count == 0 ).only_if ( white_check_count < 2 );
     const bitboard black_check_vectors_dep_check_count = black_check_vectors.all_if ( black_check_count == 0 ).only_if ( black_check_count < 2 );
 
+    /* Get the restrictives */
+    const bitboard white_restrictives = bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::rook ) | bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::knight );
+    const bitboard black_restrictives = bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::rook ) | bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::knight );
+    const bitboard restrictives = white_restrictives | black_restrictives;
+
     /* Set the primary propagator such that all empty cells are set */
     const bitboard pp = ~( bb ( pcolor::white ) | bb ( pcolor::black ) );
 
@@ -405,10 +410,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     const bitboard black_semiopen_files = ~black_pawn_file_fill & white_pawn_file_fill;
 
     /* Get the cells behind passed pawns. 
-     * This is the span between the front and any rear pawns of the same color, including the rear pawn, where there are no opposing pawns in that file.
-     */
-    const bitboard white_behind_passed_pawns = white_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & white_pawn_rear_span ).span ( compass::s ) & black_semiopen_files;
-    const bitboard black_behind_passed_pawns = black_pawn_rear_span & ~( bb ( pcolor::white, ptype::pawn ) & black_pawn_rear_span ).span ( compass::n ) & white_semiopen_files;
+     * This is the span between the passed pawns and the next piece back, including that piece.
+     */ 
+    const bitboard white_behind_passed_pawns = ( bb ( pcolor::white, ptype::pawn ) & ~white_pawn_rear_span ).span ( compass::s, pp, ~bitboard {} ) & black_semiopen_files;
+    const bitboard black_behind_passed_pawns = ( bb ( pcolor::black, ptype::pawn ) & ~black_pawn_rear_span ).span ( compass::n, pp, ~bitboard {} ) & white_semiopen_files;
     
 
 
@@ -427,17 +432,17 @@ int chess::chessboard::evaluate ( pcolor pc ) const
      */
     bitboard white_partial_defence_union, black_partial_defence_union;
 
-    /* Accumulate the difference between white and black's straight piece attacks of interest on open and semiopen files */
-    int straight_attacks_open_diff = 0, straight_attacks_semiopen_diff = 0;
+    /* Accumulate the difference between white and black's straight piece legal attacks on open and semiopen files */
+    int straight_legal_attacks_open_diff = 0, straight_legal_attacks_semiopen_diff = 0;
 
-    /* Accumulate the difference between white and black's attacks of interest on the center */
-    int attacks_on_center_diff = 0;
+    /* Accumulate the difference between white and black's attacks the center by restrictives */
+    int center_legal_attacks_by_restrictives_diff = 0;
 
-    /* Accumulate the difference between white and black's number of legal captures by diagonal pieces */
-    int diagonal_captures_diff = 0;
+    /* Accumulate the difference between white and black's number of restricted captures by diagonal pieces */
+    int diagonal_restricted_captures_diff = 0;
 
-    /* Accumulate the difference between white and black's number of general attacks on pieces by diagonal pieces */
-    int diagonal_attacks_on_pieces_diff = 0;
+    /* Accumulate the restricted pieces attacked by diagonal pieces */
+    bitboard restrictives_legally_attacked_by_white_diagonal_pieces, restrictives_legally_attacked_by_black_diagonal_pieces;
 
     /* Accumulate bishop or knight captures on enemy straight pieces */
     int diagonal_or_knight_captures_on_straight_diff = 0;
@@ -483,10 +488,6 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             white_partial_defence_union |= white_straight_attacks | white_diagonal_attacks;
             black_partial_defence_union |= black_straight_attacks | black_diagonal_attacks;
 
-            /* Sum diagonal attacks on pieces */
-            diagonal_attacks_on_pieces_diff += ( white_diagonal_attacks & bb () ).popcount ();
-            diagonal_attacks_on_pieces_diff -= ( black_diagonal_attacks & bb () ).popcount ();
-
             /* Remove attacks on friendly pieces and ensure movements protected the king to get the legal attacks */
             white_straight_attacks &= ~bb ( pcolor::white ) & white_check_vectors_dep_check_count; 
             white_diagonal_attacks &= ~bb ( pcolor::white ) & white_check_vectors_dep_check_count;
@@ -498,20 +499,24 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             black_mobility += black_straight_attacks.popcount () + black_diagonal_attacks.popcount ();
 
             /* Sum rook attacks on open files */
-            straight_attacks_open_diff += ( white_straight_attacks & open_files ).popcount ();
-            straight_attacks_open_diff -= ( black_straight_attacks & open_files ).popcount ();
+            straight_legal_attacks_open_diff += ( white_straight_attacks & open_files ).popcount ();
+            straight_legal_attacks_open_diff -= ( black_straight_attacks & open_files ).popcount ();
 
             /* Sum rook attacks on semiopen files */
-            straight_attacks_semiopen_diff += ( white_straight_attacks & white_semiopen_files ).popcount ();
-            straight_attacks_semiopen_diff -= ( black_straight_attacks & black_semiopen_files ).popcount ();
+            straight_legal_attacks_semiopen_diff += ( white_straight_attacks & white_semiopen_files ).popcount ();
+            straight_legal_attacks_semiopen_diff -= ( black_straight_attacks & black_semiopen_files ).popcount ();
 
             /* Sum attacks on the center */
-            attacks_on_center_diff += ( white_straight_attacks & white_center ).popcount () + ( white_diagonal_attacks & white_center ).popcount ();
-            attacks_on_center_diff -= ( black_straight_attacks & black_center ).popcount () - ( black_diagonal_attacks & black_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff += ( white_straight_attacks & white_center ).popcount () + ( white_diagonal_attacks & white_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff -= ( black_straight_attacks & black_center ).popcount () - ( black_diagonal_attacks & black_center ).popcount ();
 
-            /* Sum the legal captures by diagonal pieces */
-            diagonal_captures_diff += ( white_diagonal_attacks & bb ( pcolor::black ) ).popcount ();
-            diagonal_captures_diff -= ( black_diagonal_attacks & bb ( pcolor::white ) ).popcount ();
+            /* Union restrictives attacked by diagonal pieces */
+            restrictives_legally_attacked_by_white_diagonal_pieces |= restrictives & white_diagonal_attacks;
+            restrictives_legally_attacked_by_black_diagonal_pieces |= restrictives & black_diagonal_attacks;
+
+            /* Sum the restricted captures by diagonal pieces */
+            diagonal_restricted_captures_diff += ( white_diagonal_attacks & black_restrictives ).popcount ();
+            diagonal_restricted_captures_diff -= ( black_diagonal_attacks & white_restrictives ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by diagonal pieces */
             diagonal_or_knight_captures_on_straight_diff += ( white_diagonal_attacks & ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) ) ).popcount ();
@@ -549,16 +554,17 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             blocking_attacks = blocking_attacks.flood_fill ( white_block_vectors );
 
             /* Sum rook attacks on open and semiopen files */
-            straight_attacks_open_diff += ( blocking_attacks & white_straight_block_vectors & open_files ).popcount ();
-            straight_attacks_semiopen_diff += ( blocking_attacks & white_straight_block_vectors & white_semiopen_files ).popcount ();
+            straight_legal_attacks_open_diff += ( blocking_attacks & white_straight_block_vectors & open_files ).popcount ();
+            straight_legal_attacks_semiopen_diff += ( blocking_attacks & white_straight_block_vectors & white_semiopen_files ).popcount ();
 
             /* Sum attacks on the center */
-            attacks_on_center_diff += ( blocking_attacks & white_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff += ( blocking_attacks & white_center ).popcount ();
 
-            /* Get the number of diagonal captures, then use this to determine the number of attacks on pieces */
-            const int diagonal_captures_count = ( blocking_attacks & white_diagonal_block_vectors & bb ( pcolor::black ) ).popcount ();
-            diagonal_attacks_on_pieces_diff += diagonal_captures_count * 2;
-            diagonal_captures_diff += diagonal_captures_count;
+            /* Union restrictives attacked by diagonal pieces */
+            restrictives_legally_attacked_by_white_diagonal_pieces |= restrictives & blocking_attacks;
+
+            /* Get the number of diagonal restricted captures */
+            diagonal_restricted_captures_diff += ( blocking_attacks & white_diagonal_block_vectors & black_restrictives ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by diagonal pieces */
             diagonal_or_knight_captures_on_straight_diff += ( blocking_attacks & white_diagonal_block_vectors & ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) ) ).popcount ();
@@ -589,16 +595,17 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             blocking_attacks = blocking_attacks.flood_fill ( black_block_vectors );
 
             /* Sum rook attacks on open and semiopen files */
-            straight_attacks_open_diff -= ( blocking_attacks & black_straight_block_vectors & open_files ).popcount ();
-            straight_attacks_semiopen_diff -= ( blocking_attacks & black_straight_block_vectors & black_semiopen_files ).popcount ();
+            straight_legal_attacks_open_diff -= ( blocking_attacks & black_straight_block_vectors & open_files ).popcount ();
+            straight_legal_attacks_semiopen_diff -= ( blocking_attacks & black_straight_block_vectors & black_semiopen_files ).popcount ();
 
             /* Sum attacks on the center */
-            attacks_on_center_diff -= ( blocking_attacks & black_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff -= ( blocking_attacks & black_center ).popcount ();
 
-            /* Get the number of diagonal captures, then use this to determine the number of attacks on pieces */
-            const int diagonal_captures_count = ( blocking_attacks & black_diagonal_block_vectors & bb ( pcolor::white ) ).popcount ();
-            diagonal_attacks_on_pieces_diff -= diagonal_captures_count * 2;
-            diagonal_captures_diff -= diagonal_captures_count;
+            /* Union restrictives attacked by diagonal pieces */
+            restrictives_legally_attacked_by_black_diagonal_pieces |= restrictives & blocking_attacks;
+
+            /* Get the number of diagonal restricted captures */
+            diagonal_restricted_captures_diff -= ( blocking_attacks & black_diagonal_block_vectors & white_restrictives ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by diagonal pieces */
             diagonal_or_knight_captures_on_straight_diff -= ( blocking_attacks & black_diagonal_block_vectors & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
@@ -648,17 +655,17 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         /* Incorporate straight pieces and attacks on open/semiopen files into value */
         value += STRAIGHT_PIECES_ON_OPEN_FILE     * ( ( white_straight_pieces & open_files ).popcount () - ( black_straight_pieces & open_files ).popcount () );
         value += STRAIGHT_PIECES_ON_SEMIOPEN_FILE * ( ( white_straight_pieces & white_semiopen_files ).popcount () - ( black_straight_pieces & black_semiopen_files ).popcount () );
-        value += STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES     * straight_attacks_open_diff;
-        value += STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES * straight_attacks_semiopen_diff;
+        value += STRAIGHT_PIECE_LEGAL_ATTACKS_ON_OPEN_FILES     * straight_legal_attacks_open_diff;
+        value += STRAIGHT_PIECE_LEGAL_ATTACKS_ON_SEMIOPEN_FILES * straight_legal_attacks_semiopen_diff;
 
         /* Incorporate straight pieces behind passed pawns into value */
         value += STRAIGHT_PIECES_BEHIND_PASSED_PAWNS * ( ( white_straight_pieces & white_behind_passed_pawns ).popcount () - ( black_straight_pieces & black_behind_passed_pawns ).popcount () );
 
-        /* Incorporate diagonal attacks on pieces into value */
-        value += DIAGONAL_PIECE_GENERAL_ATTACKS_ON_PIECES * diagonal_attacks_on_pieces_diff;
+        /* Incorporate restrictives attacked by diagonal pieces */
+        value += RESTRICTIVES_LEGALLY_ATTACKED_BY_DIAGONAL_PIECES * ( restrictives_legally_attacked_by_white_diagonal_pieces.popcount () - restrictives_legally_attacked_by_black_diagonal_pieces.popcount () );
 
-        /* Incorporate diagonal pieces legal caprures into value */
-        value += DIAGONAL_PIECE_LEGAL_CAPTURES * diagonal_captures_diff;
+        /* Incorporate diagonal pieces restricted captures into value */
+        value += DIAGONAL_PIECE_RESTRICTED_CAPTURES * diagonal_restricted_captures_diff;
     }
 
 
@@ -692,7 +699,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             white_mobility += knight_attacks.popcount ();
 
             /* Sum attacks on the center */
-            attacks_on_center_diff += ( knight_attacks & white_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff += ( knight_attacks & white_center ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by knights */
             diagonal_or_knight_captures_on_straight_diff += ( knight_attacks & ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) ) ).popcount ();
@@ -718,7 +725,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             black_mobility += knight_attacks.popcount ();
 
             /* Sum attacks on the center */
-            attacks_on_center_diff -= ( knight_attacks & black_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff -= ( knight_attacks & black_center ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by knights */
             diagonal_or_knight_captures_on_straight_diff += ( knight_attacks & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
@@ -796,10 +803,6 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         /* Sum mobility */
         white_mobility += white_pawn_pushes.popcount () + white_pawn_captures_e.popcount () + white_pawn_captures_w.popcount ();
         black_mobility += black_pawn_pushes.popcount () + black_pawn_captures_e.popcount () + black_pawn_captures_w.popcount ();
-
-        /* Sum attacks on the center */
-        attacks_on_center_diff += ( white_pawn_attacks & white_center ).popcount ();
-        attacks_on_center_diff -= ( black_pawn_attacks & black_center ).popcount ();
 
         /* Incorporate the number of pawns into value */
         value += PAWN * ( bb ( pcolor::white, ptype::pawn ).popcount () - bb ( pcolor::black, ptype::pawn ).popcount () );
@@ -916,8 +919,6 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         white_mobility += white_king_attacks.popcount ();
         black_mobility += black_king_attacks.popcount ();
 
-        /* Note that king attacks are not attacks of interest, hence don't sum to attacks_on_center_diff */
-
         /* Incorporate the king queen mobility into value */
         value += KING_QUEEN_MOBILITY * ( white_king_queen_span.popcount () - black_king_queen_span.popcount () );
     }
@@ -939,11 +940,11 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     /* Mobility */
     value += MOBILITY * ( white_mobility - black_mobility );
 
-    /* Attacks of interest on center */
-    value += CENTER_ATTACKS_OF_INTEREST * attacks_on_center_diff;
+    /* Attacks by restrictives on center */
+    value += CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES * center_legal_attacks_by_restrictives_diff;
 
     /* Captures on straight pieces by diagonal pieces and knights */
-    value += DIAGONAL_OR_KNIGHT_CAPTURE_ON_ENEMY_STRAIGHT_PIECES * diagonal_or_knight_captures_on_straight_diff;
+    value += DIAGONAL_OR_KNIGHT_CAPTURE_ON_STRAIGHT_PIECES * diagonal_or_knight_captures_on_straight_diff;
 
     /* Knight and queen exist */
     {
