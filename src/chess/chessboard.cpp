@@ -109,6 +109,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
 
     /* Iterate through the straight compass to see if those sliding pieces could be attacking */
     if ( bitboard::straight_attack_lookup ( king_pos ) & op_straight )
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
@@ -132,6 +133,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
 
     /* Iterate through the diagonal compass to see if those sliding pieces could be attacking */
     if ( bitboard::diagonal_attack_lookup ( king_pos ) & op_diagonal )
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
@@ -229,6 +231,7 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
 
     /* Iterate through the straight compass to see if those sliding pieces could be defending */
     if ( bitboard::straight_attack_lookup ( pos ) & fr_straight )
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
@@ -242,6 +245,7 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
 
     /* Iterate through the diagonal compass to see if those sliding pieces could be defending */
     if ( bitboard::diagonal_attack_lookup ( pos ) & fr_diagonal )
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
@@ -473,6 +477,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         diagonal_compass diagonal_dir = diagonal_compass_start ();
 
         /* Iterate through the compass to get all queen, rook and bishop attacks */
+        #pragma clang loop unroll ( full )
         #pragma GCC unroll 4
         for ( unsigned i = 0; i < 4; ++i )
         {

@@ -30,6 +30,19 @@
 
 
 
+/* chess_has_builtin
+ * 
+ * Will check if a builtin is availible (GCC or CLANG)
+ */
+#ifdef __has_builtin
+    #define chess_has_builtin( b ) __has_builtin ( __builtin_ ## b )
+#else
+    #define chess_has_builtin( b ) 0
+#endif
+
+
+
+
 /* chess_inline
  *
  * Force the method to be inlined
@@ -56,7 +69,7 @@
  * @param  x: The integer
  * @return The number of set zeros
  */
-#if CHESS_GCC_VERSION ( 3, 4, 6 )
+#if chess_has_builtin ( popcountll ) // CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_POPCOUNT64( x ) __builtin_popcountll ( x )
 #endif
 
@@ -68,8 +81,10 @@
  * @param  x: The integer
  * @return The number of leading/trailing zeros
  */
-#if CHESS_GCC_VERSION ( 3, 4, 6 )
+#if chess_has_builtin ( clzll )  //CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_CLZ64( x ) __builtin_clzll ( x )
+#endif
+#if chess_has_builtin ( ctzll )
     #define CHESS_BUILTIN_CTZ64( x ) __builtin_ctzll ( x )
 #endif
 
@@ -81,9 +96,41 @@
  * @param  x: The integer
  * @return The swapped integer
  */
-#if CHESS_GCC_VERSION ( 3, 4, 6 )
+#if chess_has_builtin ( bswap64 ) // CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_BSWAP64( x ) __builtin_bswap64 ( x )
 #endif
+
+
+
+/** @name  CHESS_BUILTIN_ROL64/ROR64
+ * 
+ * @brief  Rotate the bits of a 64-bit integer left or right respectively
+ * @param  x: The integer
+ * @param  o: The offset to rotate by
+ * @return The swapped integer
+ */
+/*
+#if chess_has_builtin ( rotateleft64 )
+    #define CHESS_BUILTIN_ROL64( x, o ) __builtin_rotateleft64 ( x, o )
+#endif
+#if chess_has_builtin ( rotateright64 )
+    #define CHESS_BUILTIN_ROR64( x, o ) __builtin_rotateright64 ( x, o )
+#endif
+*/
+
+
+
+/** @name  CHESS_BUILTIN_REVERSE64
+ *
+ * @brief  Reverses the order of bits in a 64-bit integer
+ * @param  x: The integer
+ * @return The reversed integer
+ */
+/*
+#if chess_has_builtin ( bitreverse64 ) // CHESS_GCC_VERSION ( 3, 4, 6 )
+    #define CHESS_BUILTIN_REVERSE64( x ) __builtin_bitreverse64 ( x )
+#endif
+*/
 
 
 

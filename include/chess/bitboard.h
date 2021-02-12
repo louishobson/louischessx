@@ -309,8 +309,8 @@ public:
      * @param  offset: The amount to shift by
      * @return A new bitboard
      */
-    constexpr bitboard bit_rotl ( int offset ) const noexcept { return bitboard { std::rotl ( bits, offset ) }; }
-    constexpr bitboard bit_rotr ( int offset ) const noexcept { return bitboard { std::rotr ( bits, offset ) }; }
+    constexpr bitboard bit_rotl ( int offset ) const noexcept;
+    constexpr bitboard bit_rotr ( int offset ) const noexcept;
 
     /** @name  bitshift
      * 

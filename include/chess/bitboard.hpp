@@ -115,6 +115,31 @@ inline constexpr int chess::bitboard::trailing_zeros_nocheck () const noexcept
 #endif
 }
 
+/** @name  bit_rotl/r
+ * 
+ * @brief  Applied a wrapping binary shift
+ * @param  offset: The amount to shift by
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::bit_rotl ( int offset ) const noexcept 
+{
+    /* Use builtin if availible */
+#ifdef CHESS_BUILTIN_ROL64
+    return bitboard { offset >= 0 ? CHESS_BUILTIN_ROL64 ( bits, offset ) : CHESS_BUILTIN_ROR64 ( bits, -offset ) };
+#else
+    return bitboard { std::rotl ( bits, offset ) }; 
+#endif
+}
+inline constexpr chess::bitboard chess::bitboard::bit_rotr ( int offset ) const noexcept 
+{
+    /* Use builtin if availible */
+#ifdef CHESS_BUILTIN_ROR64
+    return bitboard { offset >= 0 ? CHESS_BUILTIN_ROR64 ( bits, offset ) : CHESS_BUILTIN_ROL64 ( bits, -offset ) };
+#else
+    return bitboard { std::rotr ( bits, offset ) }; 
+#endif
+}
+
 /** @name  is_singleton
  * 
  * @brief  Tests if the bitboard contains a single set bit
@@ -413,6 +438,7 @@ inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( const bitb
     /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
@@ -433,6 +459,7 @@ inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( const bitb
     /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
@@ -453,6 +480,7 @@ inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( const bitb
     /* Iterate over the 8 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
+    #pragma clang loop unroll ( full )
     #pragma GCC unroll 8
     for ( unsigned i = 0; i < 8; ++i )
     {

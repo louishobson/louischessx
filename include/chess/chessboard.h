@@ -108,7 +108,7 @@ public:
      * 
      * @brief  Sets up an opening chess board
      */
-    constexpr chessboard () = default;
+    chessboard () = default;
 
 
 
