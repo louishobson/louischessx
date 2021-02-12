@@ -41,6 +41,6 @@ clean:
 # compile the test source
 test: test.o src/chess/bitboard.o src/chess/chessboard.o
 	$(CPP) $(CPPFLAGS) test.o src/chess/bitboard.o src/chess/chessboard.o -o test.out 
-	objdump -d  test.out 2> /dev/null 1> test.dump
-	objdump -dS test.out 2> /dev/null 1> test.s.dump
-	objdump -d --visualize-jumps test.out 2> /dev/null 1> test.v.dump
+	objdump -d  --no-show-raw-insn test.out 2> /dev/null 1> test.dump
+	objdump -dS --no-show-raw-insn test.out 2> /dev/null 1> test.s.dump
+	objdump -d  --no-show-raw-insn --visualize-jumps test.out 2> /dev/null 1> test.v.dump
