@@ -44,3 +44,4 @@ test: test.o src/chess/bitboard.o src/chess/chessboard.o
 	objdump -d  --no-show-raw-insn test.out 2> /dev/null 1> test.dump
 	objdump -dS --no-show-raw-insn test.out 2> /dev/null 1> test.s.dump
 	objdump -d  --no-show-raw-insn --visualize-jumps test.out 2> /dev/null 1> test.v.dump
+	objdump -dS --no-show-raw-insn --visualize-jumps test.out 2> /dev/null 1> test.vs.dump
