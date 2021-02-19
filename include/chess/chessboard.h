@@ -26,10 +26,12 @@
 
 
 /* INCLUDES */
-#include <array>
-#include <cctype>
+#include <algorithm>
 #include <chess/bitboard.h>
+#include <functional>
 #include <iostream>
+#include <unordered_map>
+#include <utility>
 #include <string>
 
 
@@ -38,6 +40,8 @@
 
 namespace chess
 {
+
+    /* PIECE ENUMS */
 
     /* enum pcolor
      *
@@ -56,12 +60,12 @@ namespace chess
      */
     enum class ptype
     {
-        pawn,
-        king,
         queen,
+        rook,
         bishop,
         knight,
-        rook,
+        pawn,
+        king,
         no_piece
     };
 
@@ -143,6 +147,28 @@ public:
         bitboard block_vectors;
     };
 
+    /* Alpha beta return */
+    struct alpha_beta_t;
+
+
+
+    /* HASHING STRUCT */
+
+    /* struct hash
+     *
+     * Creates a hash for the chessboard
+     */
+    struct hash
+    {
+        /** @name  operator ()
+         * 
+         * @brief  Creates a hash for a chessboard
+         * @param  cb: The chessboard to hash
+         * @return The hash
+         */
+        std::size_t operator () ( const chessboard& cb ) const noexcept;
+    };
+
 
 
     /* ATTRIBUTES */
@@ -157,12 +183,12 @@ public:
     /* 2D array of type and color bitboards */
     bitboard type_bbs [ 6 ] [ 2 ] =
     { 
-        { bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 } },
         { bitboard { 0x0000000000000010 }, bitboard { 0x0800000000000000 } },
-        { bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 } },
+        { bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 } },
         { bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 } },
         { bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 } },
-        { bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 } }  
+        { bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 } },
+        { bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 } }
     };
 
     /* Whether white and black has castling rights.
@@ -200,7 +226,6 @@ public:
     bitboard bb ( pcolor pc, ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
     bitboard bb ( ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::white ) ] | type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::black ) ]; }
     
-
     /** @name  can_castle, castle_made, castle_lost
      * 
      * @brief  Gets information about castling for each color.
@@ -244,12 +269,24 @@ public:
 
     /** @name  evaluate
      * 
-     * @brief  Symmetrically evaluate the board state
-     * @param  pc: The color who's move it is next.
-     *         This must be the piece who's move it is next, in order to detect moves that are in check.
-     * @return Integer value
+     * @brief  Symmetrically evaluate the board state.
+     *         Note that although is non-const, a call to this function will leave the board unmodified.
+     * @param  pc: The color who's move it is next
+     * @return Integer value, positive for pc, negative for not pc
      */
-    chess_hot int evaluate ( pcolor pc ) const;
+    chess_hot int evaluate ( pcolor pc );
+
+    /** @name  alpha_beta_search
+     * 
+     * @brief  Apply an alpha-beta search to a given depth.
+     *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
+     * @param  pc: The color who's move it is next
+     * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+     * @param  alpha: The maximum value pc has discovered, defaults to -10000.
+     * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
+     * @return alpha_beta_t
+     */
+    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, int alpha = -10000, int beta = 10000 );
 
 
 
@@ -268,10 +305,25 @@ public:
      * 
      * @brief  Determines the type of piece at a board position.
      *         Note: an out of range position leads to undefined behavior.
+     * @param  pc:  The known piece color
      * @param  pos: Board position
      * @return One of ptype
      */
-    ptype find_type ( unsigned pos ) const noexcept;
+    ptype find_type ( pcolor pc, unsigned pos ) const noexcept;
+
+
+
+
+    /* ATTACK LOOKUPS */
+
+    /** @name  any_attack_lookup
+     * 
+     * @brief  lookup an attack set based on a type
+     * @param  pt: The type of the piece
+     * @param  pos: The position of the piece
+     * @return A bitboard for the attack set
+     */
+    constexpr bitboard any_attack_lookup ( ptype pt, unsigned pos ) const noexcept;
 
 };
 

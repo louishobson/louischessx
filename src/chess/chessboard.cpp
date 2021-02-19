@@ -34,7 +34,7 @@ std::string chess::chessboard::simple_format_board () const
     std::string out ( 128, ' ' );
     for ( unsigned i = 0; i < 64; ++i ) 
     { 
-        const bitboard mask { 1ull << ( i ^ 56 ) };
+        const bitboard mask = singleton_bitboard ( i ^ 56 );
         if ( bb () & mask )
         {
             if ( bb ( pcolor::white, ptype::pawn   ) & mask ) out [ i * 2 ] = 'P'; else
@@ -194,7 +194,7 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
     /* SETUP */
 
     /* Get a bitboard from pos */
-    const bitboard pos_bb ( 1ull << pos );
+    const bitboard pos_bb = singleton_bitboard ( pos );
 
     /* Get the positions of the friendly straight and diagonal pieces */
     const bitboard fr_straight = bb ( pc, ptype::queen ) | bb ( pc, ptype::rook );
@@ -269,12 +269,12 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
 
 /** @name  evaluate
  * 
- * @brief  Symmetrically evaluate the board state
- * @param  pc: The color who's move it is next.
- *         This must be the piece who's move it is next, in order to detect moves that are in check.
- * @return Integer value
+ * @brief  Symmetrically evaluate the board state.
+ *         Note that although is non-const, a call to this function will leave the board unmodified.
+ * @param  pc: The color who's move it is next
+ * @return Integer value, positive for pc, negative for not pc
  */
-int chess::chessboard::evaluate ( pcolor pc ) const
+int chess::chessboard::evaluate ( pcolor pc )
 {
     /* TERMINOLOGY */
 
@@ -290,8 +290,18 @@ int chess::chessboard::evaluate ( pcolor pc ) const
      * A capture is a legal attack on an enemy piece.
      * A restricted capture is a legal attack on a restricted enemy piece.
      * 
-     * Mobility is the number of distinct strictly legal moves. If a mobility is zero, that means that color is in checkmate.W
+     * Mobility is the number of distinct strictly legal moves. If a mobility is zero, that means that color is in checkmate.
      */
+
+
+
+    /* COUNTER */
+
+    /* Initiate counter */
+    static int counter = 0;
+
+    /* Print every millionth call */
+    if ( ++counter % 1000000 == 0 ) std::cout << counter / 1000000 << "\n";
 
 
 
@@ -351,7 +361,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     constexpr int CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES { 10 }; // For every attack (not including pawns or kings)
 
     /* Checkmate */
-    constexpr int CHECKMATE { std::numeric_limits<int16_t>::max () }; // If true
+    constexpr int CHECKMATE { 10000 }; // If true
 
 
     
@@ -368,7 +378,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     const unsigned black_check_count = ( black_check_vectors & bb ( pcolor::white ) ).popcount ();
 
     /* Throw if opposing color is in check */
-    if ( ( pc == pcolor::white ? black_check_count : white_check_count ) != 0 ) [[ unlikely ]] throw std::runtime_error { "Opposing color in check in evaluate ()." };
+    if ( ( pc == pcolor::white ? black_check_count : white_check_count ) != 0 ) [[ unlikely ]] throw std::runtime_error { "Opposing color is in check in evaluate ()." };
     
     /* Get king positions */
     const unsigned white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros_nocheck ();
@@ -393,6 +403,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
      */
     const bitboard white_check_vectors_dep_check_count = white_check_vectors.all_if ( white_check_count == 0 ).only_if ( white_check_count < 2 );
     const bitboard black_check_vectors_dep_check_count = black_check_vectors.all_if ( black_check_count == 0 ).only_if ( black_check_count < 2 );
+    
+    /* Set legalize_attacks. This is the intersection of not friendly pieces, not the enemy king, and check_vectors_dep_check_count. */
+    const bitboard white_legalize_attacks = ~bb ( pcolor::white ) & ~bb ( pcolor::black, ptype::king ) & white_check_vectors_dep_check_count;
+    const bitboard black_legalize_attacks = ~bb ( pcolor::black ) & ~bb ( pcolor::white, ptype::king ) & black_check_vectors_dep_check_count;
 
     /* Get the restrictives */
     const bitboard white_restrictives = bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::rook ) | bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::knight );
@@ -400,7 +414,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     const bitboard restrictives = white_restrictives | black_restrictives;
 
     /* Set the primary propagator such that all empty cells are set */
-    const bitboard pp = ~( bb ( pcolor::white ) | bb ( pcolor::black ) );
+    const bitboard pp = ~bb ();
 
     /* Get the white pawn rear span */
     const bitboard white_pawn_rear_span = bb ( pcolor::white, ptype::pawn ).span ( compass::s );
@@ -495,11 +509,11 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             white_partial_defence_union |= white_straight_attacks | white_diagonal_attacks;
             black_partial_defence_union |= black_straight_attacks | black_diagonal_attacks;
 
-            /* Remove attacks on friendly pieces and ensure movements protected the king to get the legal attacks */
-            white_straight_attacks &= ~bb ( pcolor::white ) & white_check_vectors_dep_check_count; 
-            white_diagonal_attacks &= ~bb ( pcolor::white ) & white_check_vectors_dep_check_count;
-            black_straight_attacks &= ~bb ( pcolor::black ) & black_check_vectors_dep_check_count;
-            black_diagonal_attacks &= ~bb ( pcolor::black ) & black_check_vectors_dep_check_count;
+            /* Legalize the attacks */
+            white_straight_attacks &= white_legalize_attacks;
+            white_diagonal_attacks &= white_legalize_attacks;
+            black_straight_attacks &= black_legalize_attacks;
+            black_diagonal_attacks &= black_legalize_attacks;
 
             /* Sum mobility */
             white_mobility += white_straight_attacks.popcount () + white_diagonal_attacks.popcount ();
@@ -515,7 +529,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
             /* Sum attacks on the center */
             center_legal_attacks_by_restrictives_diff += ( white_straight_attacks & white_center ).popcount () + ( white_diagonal_attacks & white_center ).popcount ();
-            center_legal_attacks_by_restrictives_diff -= ( black_straight_attacks & black_center ).popcount () - ( black_diagonal_attacks & black_center ).popcount ();
+            center_legal_attacks_by_restrictives_diff -= ( black_straight_attacks & black_center ).popcount () + ( black_diagonal_attacks & black_center ).popcount ();
 
             /* Union restrictives attacked by diagonal pieces */
             restrictives_legally_attacked_by_white_diagonal_pieces |= restrictives & white_diagonal_attacks;
@@ -541,40 +555,46 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
     /* Blocking pieces are handelled separately for each color.
      * Only if that color is not in check will they be considered.
+     * The flood spans must be calculated separately for straight and diagonal, since otherwise the flood could spill onto adjacent block vectors.
      */
 
     /* White blocking pieces */
     if ( white_check_count == 0 )
     {
-        /* Get the blocking pieces which can move */
-        bitboard blocking_attacks =
-            ( ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook   ) ) & white_straight_block_vectors ) |
-            ( ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::bishop ) ) & white_diagonal_block_vectors );
+        /* Get the straight and diagonal blocking pieces which can move.
+         * Hence the straight blocking pieces are all on straight block vectors, and diagonal blocking pieces are all on diagonal block vectors.
+         */
+        const bitboard straight_blocking_pieces = ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook   ) ) & white_straight_block_vectors;
+        const bitboard diagonal_blocking_pieces = ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::bishop ) ) & white_diagonal_block_vectors;
 
-        /* Only continue if there were appropriate sliding pieces */
-        if ( blocking_attacks.is_nonempty () ) 
+        /* Initially set blocking attacks to empty */
+        bitboard straight_blocking_attacks, diagonal_blocking_attacks;
+
+        /* Flood span straight and diagonal (but only if there are pieces to flood) */
+        if ( straight_blocking_pieces ) { straight_blocking_attacks = straight_blocking_pieces.straight_flood_span ( white_straight_block_vectors ); white_has_blocking_sliding_pieces = true; }
+        if ( diagonal_blocking_pieces ) { diagonal_blocking_attacks = diagonal_blocking_pieces.diagonal_flood_span ( white_diagonal_block_vectors ); white_has_blocking_sliding_pieces = true; }
+
+        /* Get the union of blocking attacks */
+        const bitboard blocking_attacks = straight_blocking_attacks | diagonal_blocking_attacks;
+
+        /* Only continue if there were appropriate blocking attacks */
+        if ( blocking_attacks )
         {
-            /* Set boolean flag */
-            white_has_blocking_sliding_pieces = true;
-
-            /* Flood fill the blocking pieces along the block vectors, which will give legal attacks */
-            blocking_attacks = blocking_attacks.flood_fill ( white_block_vectors );
-
             /* Sum rook attacks on open and semiopen files */
-            straight_legal_attacks_open_diff += ( blocking_attacks & white_straight_block_vectors & open_files ).popcount ();
-            straight_legal_attacks_semiopen_diff += ( blocking_attacks & white_straight_block_vectors & white_semiopen_files ).popcount ();
+            straight_legal_attacks_open_diff += ( straight_blocking_attacks & open_files ).popcount ();
+            straight_legal_attacks_semiopen_diff += ( straight_blocking_attacks & white_semiopen_files ).popcount ();
 
             /* Sum attacks on the center */
             center_legal_attacks_by_restrictives_diff += ( blocking_attacks & white_center ).popcount ();
 
             /* Union restrictives attacked by diagonal pieces */
-            restrictives_legally_attacked_by_white_diagonal_pieces |= restrictives & blocking_attacks;
+            restrictives_legally_attacked_by_white_diagonal_pieces |= restrictives & diagonal_blocking_attacks;
 
             /* Get the number of diagonal restricted captures */
-            diagonal_restricted_captures_diff += ( blocking_attacks & white_diagonal_block_vectors & black_restrictives ).popcount ();
+            diagonal_restricted_captures_diff += ( diagonal_blocking_attacks & black_restrictives ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by diagonal pieces */
-            diagonal_or_knight_captures_on_straight_diff += ( blocking_attacks & white_diagonal_block_vectors & ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) ) ).popcount ();
+            diagonal_or_knight_captures_on_straight_diff += ( diagonal_blocking_attacks & ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) ) ).popcount ();
 
             /* Union defence (at this point the defence union becomes partial) */
             white_partial_defence_union |= blocking_attacks | bb ( pcolor::white, ptype::king );
@@ -587,35 +607,40 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     /* Black blocking pieces */
     if ( black_check_count == 0 )
     {
-        /* Get the blocking pieces which can move */
-        bitboard blocking_attacks =
-            ( ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook   ) ) & black_straight_block_vectors ) |
-            ( ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::bishop ) ) & black_diagonal_block_vectors );
+        /* Get the straight and diagonal blocking pieces which can move.
+         * Hence the straight blocking pieces are all on straight block vectors, and diagonal blocking pieces are all on diagonal block vectors.
+         */
+        const bitboard straight_blocking_pieces = ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook   ) ) & black_straight_block_vectors;
+        const bitboard diagonal_blocking_pieces = ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::bishop ) ) & black_diagonal_block_vectors;
 
-        /* Only continue if there were appropriate sliding pieces */
-        if ( blocking_attacks.is_nonempty () ) 
+        /* Initially set blocking attacks to empty */
+        bitboard straight_blocking_attacks, diagonal_blocking_attacks;
+
+        /* Flood span straight and diagonal (but only if there are pieces to flood) */
+        if ( straight_blocking_pieces ) { straight_blocking_attacks = straight_blocking_pieces.straight_flood_span ( black_straight_block_vectors ); black_has_blocking_sliding_pieces = true; }
+        if ( diagonal_blocking_pieces ) { diagonal_blocking_attacks = diagonal_blocking_pieces.diagonal_flood_span ( black_diagonal_block_vectors ); black_has_blocking_sliding_pieces = true; }
+
+        /* Get the union of blocking attacks */
+        const bitboard blocking_attacks = straight_blocking_attacks | diagonal_blocking_attacks;
+
+        /* Only continue if there were appropriate blocking attacks */
+        if ( blocking_attacks )
         {
-            /* Set boolean flag */
-            black_has_blocking_sliding_pieces = true;
-
-            /* Flood fill the blocking pieces along the block vectors, which will give legal attacks */
-            blocking_attacks = blocking_attacks.flood_fill ( black_block_vectors );
-
             /* Sum rook attacks on open and semiopen files */
-            straight_legal_attacks_open_diff -= ( blocking_attacks & black_straight_block_vectors & open_files ).popcount ();
-            straight_legal_attacks_semiopen_diff -= ( blocking_attacks & black_straight_block_vectors & black_semiopen_files ).popcount ();
+            straight_legal_attacks_open_diff -= ( straight_blocking_attacks & open_files ).popcount ();
+            straight_legal_attacks_semiopen_diff -= ( straight_blocking_attacks & black_semiopen_files ).popcount ();
 
             /* Sum attacks on the center */
             center_legal_attacks_by_restrictives_diff -= ( blocking_attacks & black_center ).popcount ();
 
             /* Union restrictives attacked by diagonal pieces */
-            restrictives_legally_attacked_by_black_diagonal_pieces |= restrictives & blocking_attacks;
+            restrictives_legally_attacked_by_black_diagonal_pieces |= restrictives & diagonal_blocking_attacks;
 
             /* Get the number of diagonal restricted captures */
-            diagonal_restricted_captures_diff -= ( blocking_attacks & black_diagonal_block_vectors & white_restrictives ).popcount ();
+            diagonal_restricted_captures_diff -= ( diagonal_blocking_attacks & white_restrictives ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by diagonal pieces */
-            diagonal_or_knight_captures_on_straight_diff -= ( blocking_attacks & black_diagonal_block_vectors & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
+            diagonal_or_knight_captures_on_straight_diff -= ( diagonal_blocking_attacks & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
 
             /* Union defence (at this point the defence union becomes partial) */
             black_partial_defence_union |= blocking_attacks | bb ( pcolor::black, ptype::king );
@@ -700,7 +725,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             white_partial_defence_union |= knight_attacks;
 
             /* Find legal knight attacks. Note that a blocking knight cannot move along its block vector, hence cannot move at all. */
-            knight_attacks = knight_attacks.only_if ( !white_check_vectors.test ( pos ) ) & ~bb ( pcolor::white ) & white_check_vectors_dep_check_count;
+            knight_attacks = knight_attacks.only_if ( !white_check_vectors.test ( pos ) ) & white_legalize_attacks;
 
             /* Sum mobility */
             white_mobility += knight_attacks.popcount ();
@@ -726,7 +751,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             black_partial_defence_union |= knight_attacks;
 
             /* Find legal knight attacks. Note that a blocking knight cannot move along its block vector, hence cannot move at all. */
-            knight_attacks = knight_attacks.only_if ( !black_check_vectors.test ( pos ) ) & ~bb ( pcolor::black ) & black_check_vectors_dep_check_count;
+            knight_attacks = knight_attacks.only_if ( !black_check_vectors.test ( pos ) ) & black_legalize_attacks;
 
             /* Sum mobility */
             black_mobility += knight_attacks.popcount ();
@@ -735,7 +760,7 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             center_legal_attacks_by_restrictives_diff -= ( knight_attacks & black_center ).popcount ();
 
             /* Sum the legal captures on enemy straight pieces by knights */
-            diagonal_or_knight_captures_on_straight_diff += ( knight_attacks & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
+            diagonal_or_knight_captures_on_straight_diff -= ( knight_attacks & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
 
             /* Unset this bit */
             black_knights.reset ( pos );
@@ -748,8 +773,8 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
         /* Incorporate knights on initial cells into value */
         {
-            const bitboard white_initial_knights = bb ( pcolor::white, ptype::bishop ) & white_knight_initial_cells;
-            const bitboard black_initial_knights = bb ( pcolor::black, ptype::bishop ) & black_knight_initial_cells;
+            const bitboard white_initial_knights = bb ( pcolor::white, ptype::knight ) & white_knight_initial_cells;
+            const bitboard black_initial_knights = bb ( pcolor::black, ptype::knight ) & black_knight_initial_cells;
             value += BISHOP_OR_KNIGHT_INITIAL_CELL * ( white_initial_knights.popcount () - black_initial_knights.popcount () );
         }
 
@@ -773,19 +798,23 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
     /* Scope the new bitboards */
     {
-        /* Get the blocking and non-blocking pawns */
-        const bitboard white_blocking_pawns     = bb ( pcolor::white, ptype::pawn ) &  white_block_vectors;
-        const bitboard black_blocking_pawns     = bb ( pcolor::black, ptype::pawn ) &  black_block_vectors;
+        /* Get the non-blocking pawns */
         const bitboard white_non_blocking_pawns = bb ( pcolor::white, ptype::pawn ) & ~white_block_vectors;
         const bitboard black_non_blocking_pawns = bb ( pcolor::black, ptype::pawn ) & ~black_block_vectors;
+        
+        /* Get the straight and diagonal blocking pawns */
+        const bitboard white_straight_blocking_pawns = bb ( pcolor::white, ptype::pawn ) & white_straight_block_vectors;
+        const bitboard white_diagonal_blocking_pawns = bb ( pcolor::white, ptype::pawn ) & white_diagonal_block_vectors;
+        const bitboard black_straight_blocking_pawns = bb ( pcolor::black, ptype::pawn ) & black_straight_block_vectors;
+        const bitboard black_diagonal_blocking_pawns = bb ( pcolor::black, ptype::pawn ) & black_diagonal_block_vectors;
 
         /* Calculations for pawn pushes.
          * Non-blocking pawns can push without restriction.
-         * Blocking pawns can push only if remaining within their block vector (which must be vertical).
+         * Blocking pawns can push only if they started and ended within a straight block vector.
          * If in check, ensure that the movements protected the king.
          */
-        const bitboard white_pawn_pushes = white_non_blocking_pawns.pawn_push_n ( pp ) | ( white_blocking_pawns.pawn_push_n ( pp ) & white_straight_block_vectors ) & white_check_vectors_dep_check_count;
-        const bitboard black_pawn_pushes = black_non_blocking_pawns.pawn_push_s ( pp ) | ( black_blocking_pawns.pawn_push_s ( pp ) & black_straight_block_vectors ) & black_check_vectors_dep_check_count;
+        const bitboard white_pawn_pushes = white_non_blocking_pawns.pawn_push_n ( pp ) | ( white_straight_blocking_pawns.pawn_push_n ( pp ) & white_straight_block_vectors ) & white_check_vectors_dep_check_count;
+        const bitboard black_pawn_pushes = black_non_blocking_pawns.pawn_push_s ( pp ) | ( black_straight_blocking_pawns.pawn_push_s ( pp ) & black_straight_block_vectors ) & black_check_vectors_dep_check_count;
 
         /* Get general pawn attacks */
         const bitboard white_pawn_attacks = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ) | bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw );
@@ -793,13 +822,13 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
         /* Get pawn captures (legal pawn attacks).
          * Non-blocking pawns can attack without restriction.
-         * Blocking pawns can attack only if remaining within their block vector (which must be diagonal).
+         * Blocking pawns can attack only if they started and ended within a diagonal block vector.
          * If in check, ensure that the movements protected the king.
          */
-        const bitboard white_pawn_captures_e = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::ne, bb ( pcolor::black ) ) | ( white_blocking_pawns.pawn_attack ( diagonal_compass::ne, bb ( pcolor::black ) ) & white_diagonal_block_vectors ) ) & white_check_vectors_dep_check_count;
-        const bitboard white_pawn_captures_w = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::nw, bb ( pcolor::black ) ) | ( white_blocking_pawns.pawn_attack ( diagonal_compass::nw, bb ( pcolor::black ) ) & white_diagonal_block_vectors ) ) & white_check_vectors_dep_check_count;
-        const bitboard black_pawn_captures_e = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::se, bb ( pcolor::white ) ) | ( black_blocking_pawns.pawn_attack ( diagonal_compass::se, bb ( pcolor::white ) ) & black_diagonal_block_vectors ) ) & black_check_vectors_dep_check_count;
-        const bitboard black_pawn_captures_w = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::sw, bb ( pcolor::white ) ) | ( black_blocking_pawns.pawn_attack ( diagonal_compass::sw, bb ( pcolor::white ) ) & black_diagonal_block_vectors ) ) & black_check_vectors_dep_check_count;
+        const bitboard white_pawn_captures_e = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::ne ) & white_diagonal_block_vectors ) ) & white_legalize_attacks;
+        const bitboard white_pawn_captures_w = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::nw ) & white_diagonal_block_vectors ) ) & white_legalize_attacks;
+        const bitboard black_pawn_captures_e = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::se ) & black_diagonal_block_vectors ) ) & black_legalize_attacks;
+        const bitboard black_pawn_captures_w = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::sw ) & black_diagonal_block_vectors ) ) & black_legalize_attacks;
 
 
 
@@ -892,6 +921,11 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             /* Create a temporary bitboard */
             bitboard white_king_attacks_temp = white_king_attacks;
 
+            /* Temporarily unset the king */
+            const bitboard white_king = bb ( pcolor::white, ptype::king );
+            get_bb ( pcolor::white )              &= ~white_king;
+            get_bb ( pcolor::white, ptype::king ) &= ~white_king;
+
             /* Loop through the white king attacks to validate they don't lead to check */
             do {
                 /* Get the position of the next king attack then use the position to determine if it is defended by the opponent */
@@ -899,6 +933,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
                 white_king_attacks.reset_if ( pos, is_protected ( pcolor::black, pos ) );
                 white_king_attacks_temp.reset ( pos );
             } while ( white_king_attacks_temp );
+
+            /* Reset the king */
+            get_bb ( pcolor::white )              |= white_king;
+            get_bb ( pcolor::white, ptype::king ) |= white_king;
         }
 
         /* If there are any possible black king attacks, detect if white defence union is incomplete */
@@ -907,6 +945,11 @@ int chess::chessboard::evaluate ( pcolor pc ) const
             /* Create a temporary bitboard */
             bitboard black_king_attacks_temp = black_king_attacks;
 
+            /* Temporarily unset the king */
+            const bitboard black_king = bb ( pcolor::black, ptype::king );
+            get_bb ( pcolor::black )              &= ~black_king;
+            get_bb ( pcolor::black, ptype::king ) &= ~black_king;
+
             /* Loop through the white king attacks to validate they don't lead to check */
             do {
                 /* Get the position of the next king attack then use the position to determine if it is defended by the opponent */
@@ -914,11 +957,17 @@ int chess::chessboard::evaluate ( pcolor pc ) const
                 black_king_attacks.reset_if ( pos, is_protected ( pcolor::white, pos ) );
                 black_king_attacks_temp.reset ( pos );
             } while ( black_king_attacks_temp );
+
+            /* Reset the king */
+            get_bb ( pcolor::black )              |= black_king;
+            get_bb ( pcolor::black, ptype::king ) |= black_king;
         }
 
-        /* Calculate king queen spans. Flood fill using pp and queen attack lookup as a propagator. */
-        const bitboard white_king_queen_span = bb ( pcolor::white, ptype::king ).flood_fill ( bitboard::queen_attack_lookup ( white_king_pos ) & pp );
-        const bitboard black_king_queen_span = bb ( pcolor::black, ptype::king ).flood_fill ( bitboard::queen_attack_lookup ( black_king_pos ) & pp );
+        /* Calculate king queen fill. Flood fill using pp and queen attack lookup as a propagator. */
+        const bitboard white_king_queen_fill = bb ( pcolor::white, ptype::king ).straight_flood_fill ( bitboard::straight_attack_lookup ( white_king_pos ) & pp )
+                                             | bb ( pcolor::white, ptype::king ).diagonal_flood_fill ( bitboard::diagonal_attack_lookup ( white_king_pos ) & pp );
+        const bitboard black_king_queen_fill = bb ( pcolor::black, ptype::king ).straight_flood_fill ( bitboard::straight_attack_lookup ( black_king_pos ) & pp )
+                                             | bb ( pcolor::black, ptype::king ).diagonal_flood_fill ( bitboard::diagonal_attack_lookup ( black_king_pos ) & pp );
 
 
 
@@ -926,8 +975,10 @@ int chess::chessboard::evaluate ( pcolor pc ) const
         white_mobility += white_king_attacks.popcount ();
         black_mobility += black_king_attacks.popcount ();
 
-        /* Incorporate the king queen mobility into value */
-        value += KING_QUEEN_MOBILITY * ( white_king_queen_span.popcount () - black_king_queen_span.popcount () );
+        /* Incorporate the king queen mobility into value.
+         * It does not matter that we are using the fills instead of spans, since the fact both the fills include their kings will cancel out.
+         */
+        value += KING_QUEEN_MOBILITY * ( white_king_queen_fill.popcount () - black_king_queen_fill.popcount () );
     }
 
 
@@ -937,8 +988,8 @@ int chess::chessboard::evaluate ( pcolor pc ) const
     /* Return maximum if one color has no mobility and the other does.
      * On a stalemate, currently continue normally.
      */
-    if ( ( white_mobility == 0 ) & ( black_mobility != 0 ) ) return -CHECKMATE;
-    if ( ( black_mobility == 0 ) & ( white_mobility != 0 ) ) return  CHECKMATE;
+    if ( ( white_mobility == 0 ) & ( black_mobility != 0 ) ) return ( pc == pcolor::white ? -CHECKMATE :  CHECKMATE );
+    if ( ( black_mobility == 0 ) & ( white_mobility != 0 ) ) return ( pc == pcolor::white ?  CHECKMATE : -CHECKMATE );
 
 
 
@@ -967,5 +1018,424 @@ int chess::chessboard::evaluate ( pcolor pc ) const
 
 
     /* Return the value */
-    return value;
+    return ( pc == pcolor::white ? value : -value );
+}
+
+
+
+/* ALPHA-BETA SEARCH */
+
+/** @name  alpha_beta_search
+ * 
+ * @brief  Apply an alpha-beta search to a given depth.
+ *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
+ * @param  pc: The color who's move it is next
+ * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  alpha: The maximum value pc has discovered, defaults to -10000.
+ * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
+ * @return int
+ */
+int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha, int beta )
+{
+   
+    /* CHECK FOR LEAF NODE */
+
+    /* If depth == 0, return a value based on the evaluation function */
+    if ( depth == 0 ) return evaluate ( pc );
+
+
+
+    /* SETUP */
+
+    /* Get the other player */
+    const pcolor npc = other_color ( pc );
+
+    /* Store the current best value */
+    int best_value = -10000;
+
+    /* Get the check info of pc */
+    const check_info_t check_info = get_check_info ( pc );
+    const bitboard check_vectors = check_info.check_vectors, block_vectors = check_info.block_vectors;
+
+    /* Throw if the opposing king is in check */
+    if ( is_in_check ( npc ) ) throw std::runtime_error { "Opposing color is in check in alpha_beta_search ()." };
+
+    /* Get king position */
+    const unsigned king_pos = bb ( pc, ptype::king ).trailing_zeros_nocheck ();
+
+    /* Get the straight and diagonal block vectors */
+    const bitboard straight_block_vectors = block_vectors & bitboard::straight_attack_lookup ( king_pos );
+    const bitboard diagonal_block_vectors = block_vectors & bitboard::diagonal_attack_lookup ( king_pos );
+
+    /* See evaluate () # Setup for more info */
+    const bitboard check_vectors_dep_check_count = check_vectors.all_if ( check_vectors.is_empty () ).only_if ( check_vectors.popcount () < 2 );
+
+    /* Get the primary and secondary propagator sets */
+    const bitboard pp = ~bb (), sp = ~bb ( pc );
+
+    /* Get the opposing concentation. True for north of board, false for south. */
+    const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
+
+    /* Create a constexpr list of sliding ptypes */
+    constexpr ptype sliding_pts [ 3 ] = { ptype::queen, ptype::rook, ptype::bishop };
+
+
+
+    /* ATTACK SET STORAGE */
+
+    /* A pair of bitboards is used to store a singleton and its attack set */
+    typedef std::pair<bitboard, bitboard> bbpair;
+
+    /* Pawn, knight and sliding pieces */
+    std::array<bbpair, 8> pawn_attacks;
+    std::array<bbpair, 2> knight_attacks;
+    std::array<bbpair, 1> queen_attacks;
+    std::array<bbpair, 2> rook_attacks;
+    std::array<bbpair, 2> bishop_attacks;
+
+    /* How full each of the above arrays are */
+    unsigned num_pawns = 0, num_knights = 0, num_queens = 0, num_rooks = 0, num_bishops = 0;
+    
+
+
+
+
+
+    /* ATTACK LOOP FUNCTOR */
+
+    /** @name  attack_loop_functor
+     * 
+     * @brief  loops through attacks (captures first) and recursively calls alpha_beta_search on each of them
+     * @param  pt: The type of the piece currently in focus
+     * @param  pos_bb: A singleton bitboard for the piece currently in focus
+     * @param  attacks: The attack set for that piece
+     * @return boolean, true for an alpha-beta cutoff, false otherwise
+     */
+    auto attack_loop_functor = [ & ] ( ptype pt, bitboard pos_bb, bitboard attacks ) -> bool
+    {
+        /* Unset pos in the board state */
+        get_bb ( pc )     &= ~pos_bb;
+        get_bb ( pc, pt ) &= ~pos_bb;
+
+
+
+        /* ATTACK LOOP */
+
+        /* Iterate through the individual */
+        while ( attacks )
+        {
+            /* Get the position and singleton bitboard of the next attack.
+             * Choose motion towards the opposing color.
+             */
+            const unsigned attack_pos = ( opposing_conc ? 63 - attacks.leading_zeros_nocheck () : attacks.trailing_zeros_nocheck () );
+            const bitboard attack_pos_bb = singleton_bitboard ( attack_pos );
+
+            /* Unset this bit in the set of attacks */
+            attacks &= ~attack_pos_bb;
+
+            /* Set the new bits for the piece move */
+            get_bb ( pc )     |= attack_pos_bb;
+            get_bb ( pc, pt ) |= attack_pos_bb; 
+
+            /* Get any enemy piece captured by the attack */
+            const ptype capture_pt = find_type ( npc, attack_pos );
+
+            /* If there is a capture, unset those bits */
+            if ( capture_pt != ptype::no_piece )
+            {
+                get_bb ( npc )             &= ~attack_pos_bb;
+                get_bb ( npc, capture_pt ) &= ~attack_pos_bb;
+            } 
+
+            /* Recursively call to get the value for this move.
+            * Switch around and negate alpha and beta, since it is the other player's turn.
+            * Since the next move is done by the other player, negate the value.
+            */
+            int new_value = -alpha_beta_search ( npc, depth - 1, -beta, -alpha );
+
+            /* Unset the bits changed for the piece move */
+            get_bb ( pc )     &= ~attack_pos_bb;
+            get_bb ( pc, pt ) &= ~attack_pos_bb; 
+
+            /* If there was a capture, reset those bits */
+            if ( capture_pt != ptype::no_piece )
+            {
+                get_bb ( npc )             |= attack_pos_bb;
+                get_bb ( npc, capture_pt ) |= attack_pos_bb;
+            }
+
+            /* If the new value is greater than the best value, then reassign the best value.
+            * Further check if the new best value is greater than alpha, if so reassign alpha.
+            * If alpha is now greater than beta, return true due to an alpha beta cutoff.
+            */
+            best_value = std::max ( best_value, new_value );
+            alpha = std::max ( alpha, best_value );
+            if ( alpha >= beta )
+            {
+                /* Reset pos in board state and return true */
+                get_bb ( pc )     |= pos_bb;
+                get_bb ( pc, pt ) |= pos_bb;
+                return true;
+            }
+        }
+
+
+
+        /* Reset pos in board state */
+        get_bb ( pc )     |= pos_bb;
+        get_bb ( pc, pt ) |= pos_bb;
+
+        /* Return false */
+        return false;
+    };
+
+
+
+
+
+    /* PAWN ATTACKS */
+    {
+        /* Get the pawns */
+        bitboard pawns = bb ( pc, ptype::pawn ); 
+
+
+
+        /* PIECE LOOP */
+
+        /* Iterate through the pawns */
+        while ( pawns )
+        {
+            /* Get the position and singleton bitboard of the next pawn */
+            const unsigned pos = pawns.trailing_zeros_nocheck ();
+            const bitboard pos_bb = singleton_bitboard ( pos );
+
+            /* Unset this bit in the set of pawns */
+            pawns &= ~pos_bb;
+
+            /* If is on a straight block vector, continue */
+            if ( pos_bb & straight_block_vectors ) continue;
+
+            /* Get the attacks, and ensure that they protected the king */
+            bitboard attacks = ( pc == pcolor::white ? pos_bb.pawn_any_attack_n ( bb ( npc ) ) : pos_bb.pawn_any_attack_s ( bb ( npc ) ) ) & check_vectors_dep_check_count;
+
+            /* If is on a diagonal block vector, ensure the captures stayed on the block vector */
+            if ( pos_bb & diagonal_block_vectors ) attacks &= diagonal_block_vectors;
+
+            /* Look for captures on non-pawns */
+            if ( attack_loop_functor ( ptype::pawn, pos_bb, attacks & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+
+            /* Store pawn attacks */
+            pawn_attacks [ num_pawns++ ] = std::make_pair ( pos_bb, attacks );
+        }
+    }
+
+    
+
+
+
+    /* KNIGHTS */
+    {
+        /* Get the knights */
+        bitboard knights = bb ( pc, ptype::knight );
+
+        /* PIECE LOOP */
+
+        /* Iterate through the knights */
+        while ( knights )
+        {
+            /* Get the position and singleton bitboard of the next knight.
+             * Favour the further away knights to encourage them to move towards the other color.
+             */
+            const unsigned pos = ( opposing_conc ? knights.trailing_zeros_nocheck () : 63 - knights.leading_zeros_nocheck () );
+            const bitboard pos_bb = singleton_bitboard ( pos );
+
+            /* Unset this bit in the set of knights */
+            knights &= ~pos_bb;
+
+            /* If the knight is blocking, continue */
+            if ( pos_bb & block_vectors ) continue;
+
+            /* Get the attacks, ensuring they protected the king */
+            bitboard attacks = bitboard::knight_attack_lookup ( pos ) & sp & check_vectors_dep_check_count;
+
+            /* Look for captures on non-pawns */
+            if ( attack_loop_functor ( ptype::knight, pos_bb, attacks & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+
+            /* Store knight attacks */
+            knight_attacks [ num_knights++ ] = std::make_pair ( pos_bb, attacks );
+        }
+    }
+
+
+
+
+
+    /* SLIDING PIECES */
+
+    /* TYPE LOOP */
+
+    /* Iterate through the different types of sliding piece */
+    for ( unsigned i = 0; i < 3; ++i )
+    {
+        /* Get the ptype */
+        const ptype pt = sliding_pts [ i ];
+
+        /* Get a temporary version of the bitboard for this type */
+        bitboard pt_bb = bb ( pc, pt );
+
+
+
+        /* PIECE LOOP */
+
+        /* Loop through each piece while there are any left */
+        while ( pt_bb )
+        {
+            /* Get the position and singleton bitboard of the next piece */
+            const unsigned pos = pt_bb.trailing_zeros_nocheck ();
+            const bitboard pos_bb = singleton_bitboard ( pos );
+
+            /* Unset this bit in the set of pieces of this type */
+            pt_bb &= ~pos_bb;
+
+            /* Get the straight and diagonal attack lookups */
+            bitboard straight_attack_lookup = bitboard::straight_attack_lookup ( pos );
+            bitboard diagonal_attack_lookup = bitboard::diagonal_attack_lookup ( pos );
+
+            /* If the piece is blocking, then it is possible the piece may be immobile.
+             * First check if it is on a straight block vector.
+            */
+            if ( pos_bb & straight_block_vectors ) [[ unlikely ]]
+            {
+                /* If in check, or is a bishop, continue */
+                if ( check_vectors.is_empty () | ( pt == ptype::bishop ) ) continue;
+
+                /* Now we know the blocking piece can move, restrict the propagators accordingly */
+                straight_attack_lookup &= straight_block_vectors;
+                diagonal_attack_lookup.empty ();
+            } else
+
+            /* Else check if is on a diagonal block vector */
+            if ( pos_bb & diagonal_block_vectors ) [[ unlikely ]]
+            {
+                /* If in check, or is a rook, continue */
+                if ( check_vectors.is_empty () | ( pt == ptype::rook ) ) continue;
+
+                /* Now we know the blocking piece can move, restrict the propagators accordingly */
+                diagonal_attack_lookup &= diagonal_block_vectors;
+                straight_attack_lookup.empty ();
+            }
+
+            /* Set attacks initially to empty */
+            bitboard attacks;
+
+            /* If is not a bishop, apply a straight flood span.
+             * If is not a rook, apply a diagonal flood span.
+             */
+            if ( pt != ptype::bishop ) attacks |= pos_bb.straight_flood_span ( pp & straight_attack_lookup, sp & straight_attack_lookup );
+            if ( pt != ptype::rook   ) attacks |= pos_bb.diagonal_flood_span ( pp & diagonal_attack_lookup, sp & diagonal_attack_lookup );
+
+            /* Ensure that attacks protected the king */
+            attacks &= check_vectors_dep_check_count;
+
+            /* Look for captures on non-pawns */
+            if ( attack_loop_functor ( pt, pos_bb, attacks & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+
+            /* Store sliding piece attacks */
+            switch ( pt )
+            {
+            case ( ptype::queen  ): queen_attacks  [ num_queens++  ] = std::make_pair ( pos_bb, attacks ); break;
+            case ( ptype::rook   ): rook_attacks   [ num_rooks++   ] = std::make_pair ( pos_bb, attacks ); break;
+            case ( ptype::bishop ): bishop_attacks [ num_bishops++ ] = std::make_pair ( pos_bb, attacks ); break;
+            }
+        }
+    }
+
+
+
+
+
+    /* SEARCH THROUGH ATTACK SETS */
+
+    /* Look for captures on pawns */
+    for ( unsigned i = 0; i < num_pawns;   ++i ) if ( attack_loop_functor ( ptype::pawn,   pawn_attacks   [ i ].first, pawn_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+
+    /* Look for other attacks */
+    for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & pp ) ) return best_value;
+    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & pp ) ) return best_value;
+    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & pp ) ) return best_value;
+    for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & pp ) ) return best_value;
+
+
+
+
+
+    /* PAWN PUSHES */
+    {
+        /* Get the pawns */
+        bitboard pawns = bb ( pc, ptype::pawn ); 
+
+
+
+        /* PIECE LOOP */
+
+        /* Iterate through the pawns */
+        while ( pawns )
+        {
+            /* Get the position and singleton bitboard of the next pawn */
+            const unsigned pos = pawns.trailing_zeros_nocheck ();
+            const bitboard pos_bb = singleton_bitboard ( pos );
+
+            /* Unset this bit in the set of pawns */
+            pawns &= ~pos_bb;
+
+            /* If is on a diagonal block vector, continue */
+            if ( pos_bb & diagonal_block_vectors ) continue;
+
+            /* Get the pushes, and ensure that they protected the king */
+            bitboard pushes = ( pc == pcolor::white ? pos_bb.pawn_push_n ( pp ) : pos_bb.pawn_push_s ( pp ) ) & check_vectors_dep_check_count;
+
+            /* If is on a straight block vector, ensure the pushes stayed on the block vector */
+            if ( pos_bb & straight_block_vectors ) pushes &= straight_block_vectors;
+
+            /* Call the attack loop functor */
+            if ( attack_loop_functor ( ptype::pawn, pos_bb, pushes ) ) return best_value;
+        }
+    }
+
+
+
+
+    /* KING MOVES */
+    {
+        /* Lookup the king attacks */
+        bitboard attacks = bitboard::king_attack_lookup ( king_pos ) & sp;
+
+        /* Unset the king early */
+        get_bb ( pc ) &= ~bb ( pc, ptype::king );
+        get_bb ( pc, ptype::king ).empty ();
+
+        /* Iterate through the attacks and make sure that they are not protected */
+        bitboard attacks_temp = attacks;
+        while ( attacks_temp )
+        {
+            /* Get the next test position */
+            const unsigned test_pos = attacks_temp.trailing_zeros_nocheck ();
+            attacks_temp.reset ( test_pos );
+
+            /* If is protected, reset in attacks */
+            attacks.reset_if ( test_pos, is_protected ( npc, test_pos ) );
+        }
+
+        /* Call the attack loop functor */
+        if ( attack_loop_functor ( ptype::king, singleton_bitboard ( king_pos ), attacks ) ) return best_value;
+    }
+
+
+
+    /* Return the best value */
+    return best_value;
 }
