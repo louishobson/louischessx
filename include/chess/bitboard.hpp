@@ -59,6 +59,21 @@ inline constexpr chess::diagonal_compass chess::compass_next ( const diagonal_co
 
 
 
+/* BITBOARD CREATION */
+
+/** @name  singleton_bitboard
+ * 
+ * @brief  Create a singleton bitboard from a position
+ * @param  pos:  The absolute position [0,63]
+ * @param  rank: The rank of the bit [0,7]
+ * @param  file: The file of the bit [0,7]
+ * @return bitboard
+ */
+inline constexpr chess::bitboard chess::singleton_bitboard ( unsigned pos ) noexcept { return bitboard { 1ull << pos }; }
+inline constexpr chess::bitboard chess::singleton_bitboard ( unsigned rank, unsigned file ) noexcept { return bitboard { 1ull << ( rank * 8 + file ) }; }
+
+
+
 /* OTHER BITWISE OPERATIONS */
 
 
@@ -314,6 +329,86 @@ inline constexpr chess::bitboard chess::bitboard::flood_fill ( const bitboard p 
 
     /* Return the flood */
     return x;
+}
+
+/** @name  straight/diagonal_flood_fill
+ * 
+ * @brief  Similar to flood_fill, but only fill in straight or diagonal steps
+ * @param  p: Propagator set: set bits are where the board is allowed to flow
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::straight_flood_fill ( bitboard p ) const noexcept
+{
+    /* See flood_fill for specifics on the algorithm */
+    bitboard x { bits }, prev;
+    do {
+        prev = x;
+        x |= x.shift ( compass::n ) | x.shift ( compass::s ) | x.shift ( compass::e ) | x.shift ( compass::w );
+        x &= p;
+    } while ( x != prev );
+    return x;
+}
+inline constexpr chess::bitboard chess::bitboard::diagonal_flood_fill ( bitboard p ) const noexcept
+{
+    /* See flood_fill for specifics on the algorithm */
+    bitboard x { bits }, prev;
+    do {
+        prev = x;
+        x |= x.shift ( compass::ne ) | x.shift ( compass::nw ) | x.shift ( compass::se ) | x.shift ( compass::sw );
+        x &= p;
+    } while ( x != prev );
+    return x;
+}
+
+/** @name  flood_span
+ * 
+ * @brief  Fill the board in all directions until all positions reachable from the current are found.
+ *         Unlike flood_fill, this method uses a primary and secondary propagator.
+ * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture
+ * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow with capture, empty by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::flood_span ( const bitboard pp, const bitboard sp ) const noexcept
+{
+    /* Store the original bitboard */
+    const bitboard orig { bits };
+
+    /* Start off by flood filling using the primary propagator */
+    bitboard x = flood_fill ( pp );
+
+    /* Now shift out by one and check with the secondary propagator */
+    x |= x.shift ( compass::w ) | x.shift ( compass::e );
+    x |= x.shift ( compass::s ) | x.shift ( compass::n );
+    x &= ( pp | sp );
+
+    /* Return x with the original bits unset */
+    return x & ~orig;
+}
+
+/** @name  straight/diagonal_flood_span
+ * 
+ * @brief  Similar to flood_span, but only fill in straight or diagonal steps
+ * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture
+ * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow with capture, empty by default
+ * @return A new bitboard
+ */
+inline constexpr chess::bitboard chess::bitboard::straight_flood_span ( bitboard pp, bitboard sp ) const noexcept
+{
+    /* See flood_span for specifics on the algorithm */
+    const bitboard orig { bits };
+    bitboard x = straight_flood_fill ( pp );
+    x |= x.shift ( compass::n ) | x.shift ( compass::s ) | x.shift ( compass::e ) | x.shift ( compass::w );
+    x &= ( pp | sp );
+    return x & ~orig;
+}
+inline constexpr chess::bitboard chess::bitboard::diagonal_flood_span ( bitboard pp, bitboard sp ) const noexcept
+{
+    /* See flood_span for specifics on the algorithm */
+    const bitboard orig { bits };
+    bitboard x = diagonal_flood_fill ( pp );
+    x |= x.shift ( compass::ne ) | x.shift ( compass::nw ) | x.shift ( compass::se ) | x.shift ( compass::sw );
+    x &= ( pp | sp );
+    return x & ~orig;
 }
 
 /** @name  is_connected

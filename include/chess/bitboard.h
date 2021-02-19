@@ -90,6 +90,21 @@ namespace chess
      * Forward reference to bitboard can friend it.
      */
     class chessboard;
+
+
+
+    /* BITBOARD CREATION */
+
+    /** @name  singleton_bitboard
+     * 
+     * @brief  Create a singleton bitboard from a position
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return bitboard
+     */
+    constexpr bitboard singleton_bitboard ( unsigned pos ) noexcept;
+    constexpr bitboard singleton_bitboard ( unsigned rank, unsigned file ) noexcept;
 }
 
 
@@ -430,6 +445,35 @@ public:
      */
     constexpr bitboard flood_fill ( bitboard p ) const noexcept;
 
+    /** @name  straight/diagonal_flood_fill
+     * 
+     * @brief  Similar to flood_fill, but only fill in straight or diagonal steps
+     * @param  p: Propagator set: set bits are where the board is allowed to flow
+     * @return A new bitboard
+     */
+    constexpr bitboard straight_flood_fill ( bitboard p ) const noexcept;
+    constexpr bitboard diagonal_flood_fill ( bitboard p ) const noexcept;
+
+    /** @name  flood_span
+     * 
+     * @brief  Fill the board in all directions until all positions reachable from the current are found.
+     *         Unlike flood_fill, this method uses a primary and secondary propagator.
+     * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture
+     * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow with capture, empty by default
+     * @return A new bitboard
+     */
+    constexpr bitboard flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
+
+    /** @name  straight/diagonal_flood_span
+     * 
+     * @brief  Similar to flood_span, but only fill in straight or diagonal steps
+     * @param  pp: Primary propagator set: set bits are where the board is allowed to flow without capture
+     * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow with capture, empty by default
+     * @return A new bitboard
+     */
+    constexpr bitboard straight_flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
+    constexpr bitboard diagonal_flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
+
     /** @name  is_connected
      * 
      * @brief  Use a flood fill algorithm to test whether a set of targets can all be reached
@@ -602,6 +646,13 @@ public:
      */
     constexpr unsigned long long get_value () const noexcept { return bits; }
 
+    /** @name  set_value
+     * 
+     * @param  val: The value to set the bitboard to
+     * @return void
+     */
+    constexpr void set_value ( unsigned long long val ) noexcept { bits = val; }
+
     /** @name  set, reset, toggle
      * 
      * @brief  Inline set, unset or toggle a bit
@@ -701,12 +752,12 @@ private:
         static constexpr unsigned long long rank_8          { 0xff00000000000000 };
 
         static constexpr unsigned long long shift_sw         { ~rank_8 & ~file_h };
-        static constexpr unsigned long long shift_s          {                   };
+        static constexpr unsigned long long shift_s          {      universe     };
         static constexpr unsigned long long shift_se         { ~rank_8 & ~file_a };
         static constexpr unsigned long long shift_w          {           ~file_h };
         static constexpr unsigned long long shift_e          {           ~file_a };
         static constexpr unsigned long long shift_nw         { ~rank_1 & ~file_h };
-        static constexpr unsigned long long shift_n          {                   };
+        static constexpr unsigned long long shift_n          {      universe     };
         static constexpr unsigned long long shift_ne         { ~rank_1 & ~file_a };
 
         static constexpr unsigned long long knight_shift_ssw { ~rank_8 & ~rank_7 & ~file_h           };
@@ -971,17 +1022,6 @@ private:
      */
     static constexpr unsigned long long singleton_bitset ( unsigned pos ) noexcept { return 1ull << pos; }
     static constexpr unsigned long long singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 1ull << ( rank * 8 + file ); }
-
-    /** @name  singleton_bitboard
-     *
-     * @brief  Create a bitboard with one bit set
-     * @param  pos:  The absolute position [0,63]
-     * @param  rank: The rank of the bit [0,7]
-     * @param  file: The file of the bit [0,7]
-     * @return bitboard
-     */
-    static constexpr bitboard singleton_bitboard ( unsigned pos ) noexcept { return bitboard { singleton_bitset ( pos ) }; }
-    static constexpr bitboard singleton_bitboard ( unsigned rank, unsigned file ) noexcept { return bitboard { singleton_bitset ( rank, file ) }; }
 
 };
 
