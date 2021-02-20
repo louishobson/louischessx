@@ -33,6 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <string>
+#include <vector>
 
 
 
@@ -89,7 +90,7 @@ namespace chess
 
     /* class chessboard 
      *
-     * Store and manipulate a bitboard-based chess board
+     * Store and manipulate a bitboard-based chessboard
      */
     class chessboard;
 }
@@ -100,103 +101,47 @@ namespace chess
 
 /* class chessboard 
  *
- * Store and manipulate a bitboard-based chess board
+ * Store and manipulate a bitboard-based chessboard
  */
 class chess::chessboard
 {
+
+    /* Forward declarations */
+    struct check_info_t;
+
 public:
 
     /* CONSTRUCTORS */
 
     /** @name  default constructor
      * 
-     * @brief  Sets up an opening chess board
+     * @brief  Sets up an opening chessboard
      */
-    chessboard () = default;
+    chessboard () noexcept = default;
 
-
-
-    /* FORMATTING */
-
-    /** @name  simple_format_board
+    /** @name  copy constructor
      * 
-     * @brief  Create a simple representation of the board.
-     *         Lower-case letters mean black, upper case white.
-     * @return string
+     * @brief  Copy constructs the chessboard
      */
-    std::string simple_format_board () const;
+    chessboard ( const chessboard& other ) noexcept;
 
-
-
-//private:
-
-    /* TYPES */
-
-    /* Struct for castling rights */
-    struct castling_rights_t
-    {
-        bool can_castle = true;
-        bool castle_made = false;
-        bool kingside_lost = false, queenside_lost = false;
-    };
-
-    /* Check info */
-    struct check_info_t
-    {
-        bitboard check_vectors;
-        bitboard block_vectors;
-    };
-
-    /* Alpha beta return */
-    struct alpha_beta_t;
-
-
-
-    /* HASHING STRUCT */
-
-    /* struct hash
-     *
-     * Creates a hash for the chessboard
+    /** @name  copy assignment operator
+     * 
+     * @brief  Copy assigns the chessboard
      */
-    struct hash
-    {
-        /** @name  operator ()
-         * 
-         * @brief  Creates a hash for a chessboard
-         * @param  cb: The chessboard to hash
-         * @return The hash
-         */
-        std::size_t operator () ( const chessboard& cb ) const noexcept;
-    };
+    chessboard& operator= ( const chessboard& other ) noexcept;
 
-
-
-    /* ATTRIBUTES */
-
-    /* Array of color bitboards */
-    bitboard color_bbs [ 2 ] =
-    {
-        bitboard { 0x000000000000ffff },
-        bitboard { 0xffff000000000000 }
-    };
-
-    /* 2D array of type and color bitboards */
-    bitboard type_bbs [ 6 ] [ 2 ] =
-    { 
-        { bitboard { 0x0000000000000010 }, bitboard { 0x0800000000000000 } },
-        { bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 } },
-        { bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 } },
-        { bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 } },
-        { bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 } },
-        { bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 } }
-    };
-
-    /* Whether white and black has castling rights.
-     * Only records whether the king or rooks have been moved, not whether castling is at this time possible.
-     * Indexes of the array accessed using pcolor cast to an integer.
+    /** @name  destructor
+     * 
+     * @brief  Destructs the chessboard
      */
-    std::array<castling_rights_t, 2> castling_rights;
-    
+    ~chessboard () noexcept;
+
+    /** @name  operator==
+     * 
+     * @brief  Compares if two chessboards are equal
+     */
+    bool operator== ( const chessboard& other ) const noexcept;
 
 
 
@@ -233,9 +178,9 @@ public:
      * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
      * @return boolean
      */
-    bool can_castle  ( pcolor pc ) const noexcept { return castling_rights [ static_cast<int> ( pc ) ].can_castle;  }
-    bool castle_made ( pcolor pc ) const noexcept { return castling_rights [ static_cast<int> ( pc ) ].castle_made; }
-    bool castle_lost ( pcolor pc ) const noexcept { return castling_rights [ static_cast<int> ( pc ) ].kingside_lost & castling_rights [ static_cast<int> ( pc ) ].queenside_lost; }
+    bool can_castle  ( pcolor pc ) const noexcept { return castling_rights & ( 0b01010000 << static_cast<int> ( pc ) ); }
+    bool castle_made ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000001 << static_cast<int> ( pc ) ); }
+    bool castle_lost ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000100 << static_cast<int> ( pc ) ); }
 
 
 
@@ -276,17 +221,22 @@ public:
      */
     chess_hot int evaluate ( pcolor pc );
 
+
+
+    /* SEARCH */
+
     /** @name  alpha_beta_search
      * 
      * @brief  Apply an alpha-beta search to a given depth.
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+     * @param  fd_depth: The forwards depth, defaulta to 0 and should always be 0.
      * @param  alpha: The maximum value pc has discovered, defaults to -10000.
      * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, int alpha = -10000, int beta = 10000 );
+    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, unsigned fd_depth = 0, int alpha = -10000, int beta = 10000 );
 
 
 
@@ -313,6 +263,117 @@ public:
 
 
 
+    /* FORMATTING */
+
+    /** @name  simple_format_board
+     * 
+     * @brief  Create a simple representation of the board.
+     *         Lower-case letters mean black, upper case white.
+     * @return string
+     */
+    std::string simple_format_board () const;
+
+
+
+private:
+
+    /* TYPES */
+
+    /* Check info */
+    struct check_info_t
+    {
+        /* Check and block vectors */
+        bitboard check_vectors;
+        bitboard block_vectors;
+    };
+
+    /* Killer move struct */
+    struct killer_move_t
+    {
+        /* Store the piece type that moved, and the type of the piece it captures */
+        ptype pt = ptype::no_piece, capture_pt = ptype::no_piece;
+
+        /* Store the initial and final positions in this bitboard */
+        bitboard pos_bb, attack_pos_bb;
+    };
+
+    /* A structure to store a state of alpha-beta search.
+     * Defined after chessboard, since is non-trivial and would be clumbersome to define here.
+     */
+    struct ab_state_t;
+
+    /* A structure containing temporary alpha-beta search data.
+     * Defined after chessboard, since depends on chessboard being complete.
+     */
+    struct ab_working_t;
+
+    /* HASHING STRUCT */
+
+    /* struct hash
+     *
+     * Creates a hash for the chessboard
+     */
+    struct hash
+    {
+        /** @name  operator ()
+         * 
+         * @brief  Creates a hash for a chessboard
+         * @param  cb: The chessboard or alpha-beta state to hash
+         * @return The hash
+         */
+        std::size_t operator () ( const chessboard& cb ) const noexcept;
+        std::size_t operator () ( const ab_state_t& cb ) const noexcept;
+    };
+
+
+
+    /* ATTRIBUTES */
+
+    /* Array of color bitboards */
+    std::array<bitboard, 2> color_bbs
+    {
+        bitboard { 0x000000000000ffff },
+        bitboard { 0xffff000000000000 }
+    };
+
+    /* 2D array of type and color bitboards */
+    std::array<std::array<bitboard, 2>, 6> type_bbs
+    { 
+        bitboard { 0x0000000000000010 }, bitboard { 0x0800000000000000 },
+        bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 },
+        bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 },
+        bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 },
+        bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 },
+        bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 }
+    };
+
+    /* Whether white and black has castling rights.
+     * Only records whether the king or rooks have been moved, not whether castling is at this time possible.
+     * Eight bits are used to store the rights, alternating bits for each color, in order of least to most significant:
+     *   0: Castle made
+     *   1: Castle lost (both)
+     *   2: Can kingside castle 
+     *   3: Can queenside castle
+     */
+    unsigned castling_rights = 0;
+
+    /* A structure containing temporary alpha beta search data */
+    ab_working_t * ab_working = nullptr;
+    
+
+
+    /* ALLOCATION AND DEALLOCATION */
+
+    /** @name  allocate/deallocate_ab_working
+     * 
+     * @brief  Allocates or deallocates ab_working, protecting against double deallocation.
+     * @param  depth: The depth to allocate to ab_working
+     */
+    void allocate_ab_working ( unsigned depth );
+    void deallocate_ab_working ();
+
+
+
 
     /* ATTACK LOOKUPS */
 
@@ -325,6 +386,64 @@ public:
      */
     constexpr bitboard any_attack_lookup ( ptype pt, unsigned pos ) const noexcept;
 
+};
+
+
+
+/* AB_STATE_T DEFINITION */
+
+/* A structure to store a state of alpha-beta search.
+ * Defined after chessboard, since is non-trivial and would be clumbersome to define here.
+ */
+struct chess::chessboard::ab_state_t
+{
+
+    /* CONSTRUCTORS */
+
+    /** @name  default constructor
+     * 
+     * @brief  Unlike chessboard, initialized the state to be an empty board
+     */
+    ab_state_t () noexcept = default;
+
+    /** @name  chessboard constructor
+     * 
+     * @brief  Construct from a chessboard state
+     * @param  cb: The chessboard to construct from
+     * @param  pc: The player who's move it is next
+     */
+    ab_state_t ( const chessboard& cb, pcolor pc ) noexcept;
+
+    /** @name  operator==
+     * 
+     * @brief  Compare two alpha-beta states
+     */
+    bool operator== ( const ab_state_t& other ) const noexcept = default;
+
+    
+
+    /* ATTRIBUTES */
+
+    /* Bitboards to store the state */
+    std::array<bitboard, 8> bbs;
+
+    /* Store the next player's turn and check info */
+    unsigned pc_and_check_info = 0;
+    
+};
+
+
+
+/* AB_WORKING_T DEFINITION */
+
+/* A structure containing temporary alpha-beta search data */
+struct chess::chessboard::ab_working_t
+{
+    /* An array of killer moves */
+    std::vector<killer_move_t> killer_moves;
+
+    /* The transposition tables */
+    std::unordered_map<ab_state_t, int, hash> ttable;
 };
 
 

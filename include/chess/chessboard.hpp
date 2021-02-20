@@ -23,23 +23,6 @@
 
 
 
-
-/* HASHING FUNCTION IMPLEMENTATION */
-
-/** @name  operator ()
- * 
- * @brief  Creates a hash for a chessboard
- * @param  cb: The chessboard to hash
- * @return The hash
- */
-inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb ) const noexcept
-{
-    /* Simply return the occupied positions */
-    return cb.bb ().get_value ();
-}
-
-
-
 /* PIECE ENUMS */
 
 
@@ -62,22 +45,141 @@ inline constexpr chess::pcolor chess::other_color ( const pcolor pc ) noexcept {
 
 
 
-/* ALPHA_BETA_T IMPLEMENTATION */
+/* AB_STATE_T IMPLEMENTATION */
 
-/* alpha_beta_t
- *
- * Return type for alpha beta search.
- * Store the leaf state and accompanying value.
+/** @name  chessboard constructor
+ * 
+ * @brief  Construct from a chessboard state
+ * @param  cb: The chessboard to construct from
+ * @param  pc: The player who's move it is next
  */
-struct chess::chessboard::alpha_beta_t
+inline chess::chessboard::ab_state_t::ab_state_t ( const chessboard& cb, pcolor pc ) noexcept : bbs 
 {
-    chessboard state;
-    int value;
-};
+    cb.bb ( pcolor::white ),
+    cb.bb ( pcolor::black ),
+    cb.bb ( ptype::queen  ),
+    cb.bb ( ptype::rook   ),
+    cb.bb ( ptype::bishop ),
+    cb.bb ( ptype::knight ),
+    cb.bb ( ptype::pawn   ),
+    cb.bb ( ptype::king   )
+}, pc_and_check_info { static_cast<int> ( pc ) | cb.castling_rights << 1 } {}
+
+
+
+/* HASHING FUNCTION IMPLEMENTATION */
+
+
+
+/** @name  operator ()
+ * 
+ * @brief  Creates a hash for a chessboard
+ * @param  cb: The chessboard or alpha-beta state to hash
+ * @return The hash
+ */
+inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb ) const noexcept
+{
+    /* Simply return the occupied positions */
+    return cb.bb ().get_value ();
+}
+inline std::size_t chess::chessboard::hash::operator () ( const ab_state_t& cb ) const noexcept
+{
+    /* Simply return the occupied positions */
+    return ( cb.bbs [ 0 ] | cb.bbs [ 1 ] ).get_value ();
+}
+
+
+
+/* CHESSBOARD CONSTRUCTORS AND OPERATORS */
+
+
+
+/** @name  copy constructor
+ * 
+ * @brief  Copy constructs the chess board
+ */
+inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
+    /* Initialize values */
+    : color_bbs       { other.color_bbs }
+    , type_bbs        { other.type_bbs }
+    , castling_rights { other.castling_rights }
+
+    /* Don't create ab_working, since it will be created if a search occured */
+{}
+
+/** @name  copy assignment operator
+ * 
+ * @brief  Copy assigns the chess board
+ */
+inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other ) noexcept
+{
+    /* Copy over values */
+    color_bbs       = other.color_bbs;
+    type_bbs        = other.type_bbs;
+    castling_rights = other.castling_rights;
+
+    /* Don't create ab_working, since it will be created if a search occured */
+
+    /* Return this object */
+    return * this;
+}
+
+/** @name  destructor
+ * 
+ * @brief  Destructs the chessboard
+ */
+inline chess::chessboard::~chessboard () noexcept
+{
+    /* Destroy the working values, if not already */
+    deallocate_ab_working ();
+}
+
+/** @name  operator==
+ * 
+ * @brief  Compares if two chessboards are equal
+ */
+inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
+{
+    /* Compare and return */
+    return ( ( color_bbs == other.color_bbs ) && ( type_bbs == other.type_bbs ) && ( castling_rights == other.castling_rights ) );
+}
+
+
+
+/* AB_WORKING ALLOCATION AND DEALLOCATION */
+
+/** @name  allocate/deallocate_ab_working
+ * 
+ * @brief  Allocates or deallocates ab_working, protecting against double deallocation
+ * @param  depth: The depth to allocate to ab_working
+ */
+inline void chess::chessboard::allocate_ab_working ( unsigned depth )
+{
+    /* If is not already allocated, allocate, else erase */
+    if ( !ab_working ) ab_working = new ab_working_t; else
+    {
+        ab_working->killer_moves.clear ();;
+        ab_working->ttable.clear ();
+    }
+
+    /* Allocate the correct size for killer moves */
+     ab_working->killer_moves.resize ( depth );
+}
+inline void chess::chessboard::deallocate_ab_working ()
+{
+    /* If allocated, delete */
+    if ( ab_working ) 
+    {
+        delete ab_working;
+        ab_working = nullptr;
+    }
+}
 
 
 
 /* FIND COLOR AND TYPE */
+
+
 
 /** @name  find_color
  *
@@ -118,6 +220,8 @@ inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const unsign
 
 
 /* ATTACK LOOKUPS */
+
+
 
 /** @name  any_attack_lookup
  * 

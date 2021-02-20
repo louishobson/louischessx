@@ -1031,17 +1031,43 @@ int chess::chessboard::evaluate ( pcolor pc )
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  fd_depth: The forwards depth, defaulta to 0 and should always be 0.
  * @param  alpha: The maximum value pc has discovered, defaults to -10000.
  * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
  * @return int
  */
-int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha, int beta )
+int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned fd_depth, int alpha, int beta )
 {
-   
-    /* CHECK FOR LEAF NODE */
+    /* CHECK FOR LEAF AND PARENT NODES */
 
-    /* If depth == 0, return a value based on the evaluation function */
+    /* If a leaf node, return a value based on the evaluation function */
     if ( depth == 0 ) return evaluate ( pc );
+
+    /* If the parent node, allocate working values */
+    if ( fd_depth == 0 ) allocate_ab_working ( depth );
+
+
+
+    /* TRY A LOOKUP */
+
+    /* Get the range within states will be searched for in the transposition table */
+    constexpr unsigned ttable_min_search_depth = 3, ttable_max_search_depth = 7;
+
+    /* Get the range within new states will be stored in the transposition table */
+    constexpr unsigned ttable_min_store_depth = 1, ttable_max_store_depth = 4;
+
+    /* Create the ab_state */
+    ab_state_t ab_state { * this, pc };
+
+    /* Only try if in the specified depth range */
+    if ( fd_depth >= ttable_min_search_depth && fd_depth <= ttable_max_search_depth )
+    {
+        /* Try to find the state */
+        auto search_it = ab_working->ttable.find ( ab_state );
+
+        /* If is found, return the value stored */
+        if ( search_it != ab_working->ttable.end () ) return search_it->second;
+    }
 
 
 
@@ -1077,7 +1103,7 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
     const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
 
     /* Create a constexpr list of sliding ptypes */
-    constexpr ptype sliding_pts [ 3 ] = { ptype::queen, ptype::rook, ptype::bishop };
+    constexpr ptype sliding_pts [ 3 ] = { ptype::bishop, ptype::rook, ptype::queen };
 
 
 
@@ -1151,7 +1177,7 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
             * Switch around and negate alpha and beta, since it is the other player's turn.
             * Since the next move is done by the other player, negate the value.
             */
-            int new_value = -alpha_beta_search ( npc, depth - 1, -beta, -alpha );
+            int new_value = -alpha_beta_search ( npc, depth - 1, fd_depth + 1, -beta, -alpha );
 
             /* Unset the bits changed for the piece move */
             get_bb ( pc )     &= ~attack_pos_bb;
@@ -1172,9 +1198,23 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
             alpha = std::max ( alpha, best_value );
             if ( alpha >= beta )
             {
-                /* Reset pos in board state and return true */
+                /* Reset pos in board state */
                 get_bb ( pc )     |= pos_bb;
                 get_bb ( pc, pt ) |= pos_bb;
+
+                /* If is at the parent node, delete the working values */
+                if ( fd_depth == 0 ) deallocate_ab_working (); else
+
+                /* Otherwise if not at the parent node: */
+                {
+                    /* Set the killer move for this depth */
+                    ab_working->killer_moves.at ( fd_depth ) = killer_move_t { pt, capture_pt, pos_bb, attack_pos_bb };
+
+                    /* If is in the specified depth, add to the transposition table */
+                    if ( fd_depth >= ttable_min_store_depth && fd_depth <= ttable_max_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state, best_value ) );
+                }
+
+                /* Return */
                 return true;
             }
         }
@@ -1221,8 +1261,12 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
             /* If is on a diagonal block vector, ensure the captures stayed on the block vector */
             if ( pos_bb & diagonal_block_vectors ) attacks &= diagonal_block_vectors;
 
-            /* Look for captures on non-pawns */
-            if ( attack_loop_functor ( ptype::pawn, pos_bb, attacks & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+            /* Look for a killer move */
+            if ( ab_working->killer_moves.at ( fd_depth ).pt == ptype::pawn && ab_working->killer_moves.at ( fd_depth ).pos_bb == pos_bb && ( ab_working->killer_moves.at ( fd_depth ).attack_pos_bb & attacks ) )
+            {
+                attacks &= ~ab_working->killer_moves.at ( fd_depth ).attack_pos_bb;
+                if ( attack_loop_functor ( ptype::pawn, pos_bb, ab_working->killer_moves.at ( fd_depth ).attack_pos_bb ) ) return best_value;
+            }
 
             /* Store pawn attacks */
             pawn_attacks [ num_pawns++ ] = std::make_pair ( pos_bb, attacks );
@@ -1258,8 +1302,12 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
             /* Get the attacks, ensuring they protected the king */
             bitboard attacks = bitboard::knight_attack_lookup ( pos ) & sp & check_vectors_dep_check_count;
 
-            /* Look for captures on non-pawns */
-            if ( attack_loop_functor ( ptype::knight, pos_bb, attacks & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+            /* Look for a killer move */
+            if ( ab_working->killer_moves.at ( fd_depth ).pt == ptype::knight && ab_working->killer_moves.at ( fd_depth ).pos_bb == pos_bb && ( ab_working->killer_moves.at ( fd_depth ).attack_pos_bb & attacks ) )
+            {
+                attacks &= ~ab_working->killer_moves.at ( fd_depth ).attack_pos_bb;
+                if ( attack_loop_functor ( ptype::knight, pos_bb, ab_working->killer_moves.at ( fd_depth ).attack_pos_bb ) ) return best_value;
+            }
 
             /* Store knight attacks */
             knight_attacks [ num_knights++ ] = std::make_pair ( pos_bb, attacks );
@@ -1337,8 +1385,12 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
             /* Ensure that attacks protected the king */
             attacks &= check_vectors_dep_check_count;
 
-            /* Look for captures on non-pawns */
-            if ( attack_loop_functor ( pt, pos_bb, attacks & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+            /* Look for a killer move */
+            if ( ab_working->killer_moves.at ( fd_depth ).pt == pt && ab_working->killer_moves.at ( fd_depth ).pos_bb == pos_bb && ( ab_working->killer_moves.at ( fd_depth ).attack_pos_bb & attacks ) )
+            {
+                attacks &= ~ab_working->killer_moves.at ( fd_depth ).attack_pos_bb;
+                if ( attack_loop_functor ( pt, pos_bb, ab_working->killer_moves.at ( fd_depth ).attack_pos_bb ) ) return best_value;
+            }
 
             /* Store sliding piece attacks */
             switch ( pt )
@@ -1356,14 +1408,21 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
 
     /* SEARCH THROUGH ATTACK SETS */
 
-    /* Look for captures on pawns */
+    /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
+    for ( unsigned i = 0; i < num_pawns;   ++i ) if ( attack_loop_functor ( ptype::pawn,   pawn_attacks   [ i ].first, pawn_attacks   [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+    
+    /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
     for ( unsigned i = 0; i < num_pawns;   ++i ) if ( attack_loop_functor ( ptype::pawn,   pawn_attacks   [ i ].first, pawn_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
     for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
     for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
 
-    /* Look for other attacks */
+    /* Look for other attacks. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
     for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & pp ) ) return best_value;
     for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & pp ) ) return best_value;
     for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & pp ) ) return best_value;
@@ -1385,8 +1444,10 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
         /* Iterate through the pawns */
         while ( pawns )
         {
-            /* Get the position and singleton bitboard of the next pawn */
-            const unsigned pos = pawns.trailing_zeros_nocheck ();
+            /* Get the position and singleton bitboard of the next pawn.
+             * Favour the further away pawns to encourage them to move towards the other color.
+             */
+            const unsigned pos = ( opposing_conc ? pawns.trailing_zeros_nocheck () : 63 - pawns.leading_zeros_nocheck () );
             const bitboard pos_bb = singleton_bitboard ( pos );
 
             /* Unset this bit in the set of pawns */
@@ -1435,6 +1496,16 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, int alpha,
     }
 
 
+
+
+
+    /* FINALLY */
+
+    /* If is at the parent node, delete the working values */
+    if ( fd_depth == 0 ) deallocate_ab_working (); else
+
+    /* If is in the specified depth, add to the transposition table */
+    if ( fd_depth >= ttable_min_store_depth && fd_depth <= ttable_max_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state, best_value ) );
 
     /* Return the best value */
     return best_value;
