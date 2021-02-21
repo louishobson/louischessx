@@ -207,6 +207,9 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
     const bitboard pp = ~bb ();
     const bitboard sp = bb ( pc );
 
+    /* Get the adjacent open cells. These are the cells which don't contain an enemy piece or a friendly pawn or knight (and protection coule be given by a sliding piece) */
+    const bitboard adj_open_cells = bitboard::king_attack_lookup ( pos ) & ~bb ( other_color ( pc ) ) & ~bb ( pc, ptype::pawn ) & ~bb ( pc, ptype::knight );
+
 
 
     /* KING, KNIGHTS AND PAWNS */
@@ -232,13 +235,13 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
     diagonal_compass diagonal_dir = diagonal_compass_start ();
 
     /* Iterate through the straight compass to see if those sliding pieces could be defending */
-    if ( bitboard::straight_attack_lookup ( pos ) & fr_straight )
+    if ( bitboard::straight_attack_lookup ( pos ).contains_any ( adj_open_cells ) & bitboard::straight_attack_lookup ( pos ).contains_any ( fr_straight ) )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
         /* Only continue if this is a possibly valid direction, then return if is protected */
-        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( straight_dir ), pos ) & fr_straight )
+        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( straight_dir ), pos ).contains_any ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( straight_dir ), pos ).contains_any ( fr_straight ) )
             if ( pos_bb.rook_attack ( straight_dir, pp, sp ) & fr_straight ) return true;      
 
         /* Increment compass */
@@ -246,13 +249,13 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
     }
 
     /* Iterate through the diagonal compass to see if those sliding pieces could be defending */
-    if ( bitboard::diagonal_attack_lookup ( pos ) & fr_diagonal )
+    if ( bitboard::diagonal_attack_lookup ( pos ).contains_any ( adj_open_cells ) & bitboard::diagonal_attack_lookup ( pos ).contains_any ( fr_diagonal ) )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
     for ( unsigned i = 0; i < 4; ++i )
     {
         /* Only continue if this is a possibly valid direction, then return if is protected  */
-        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( diagonal_dir ), pos ) & fr_diagonal )
+        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( diagonal_dir ), pos ).contains_any ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( diagonal_dir ), pos ).contains_any ( fr_diagonal ) )
             if ( pos_bb.bishop_attack ( diagonal_dir, pp, sp ) & fr_diagonal ) return true;
 
         /* Increment compass */
@@ -1047,6 +1050,13 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     /* Set the range within new states will be stored in the transposition table */
     constexpr unsigned ttable_min_store_depth = 1, ttable_max_store_depth = 4;
 
+    /* Create a constexpr list of sliding ptypes */
+    constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
+
+    /* Create a constexpr list of what order pieces should be examined for different moves */
+    constexpr ptype capture_order [] = { ptype::pawn, ptype::knight, ptype::bishop, ptype::rook, ptype::queen, ptype::king };
+    constexpr ptype move_order []    = { ptype::knight, ptype::queen, ptype::rook, ptype::bishop, ptype::pawn, ptype::king };
+
 
 
     /* CHECK FOR LEAF AND PARENT NODES */
@@ -1078,7 +1088,6 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     /* Store the current best value */
     int best_value = -10000;
 
-
     /* Get the other player */
     const pcolor npc = other_color ( pc );
 
@@ -1087,7 +1096,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     const bitboard check_vectors = check_info.check_vectors, block_vectors = check_info.block_vectors;
 
     /* Throw if the opposing king is in check */
-    if ( is_in_check ( npc ) ) throw std::runtime_error { "Opposing color is in check in alpha_beta_search ()." };
+    //if ( is_in_check ( npc ) ) throw std::runtime_error { "Opposing color is in check in alpha_beta_search ()." };
 
     /* Get king position */
     const unsigned king_pos = bb ( pc, ptype::king ).trailing_zeros_nocheck ();
@@ -1104,14 +1113,6 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
     /* Get the opposing concentation. True for north of board, false for south. */
     const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
-
-
-    /* Create a constexpr list of sliding ptypes */
-    constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
-
-    /* Create a constexpr list of what order pieces should be examined for different moves */
-    constexpr ptype capture_order [] = { ptype::pawn, ptype::knight, ptype::bishop, ptype::rook, ptype::queen, ptype::king };
-    constexpr ptype move_order []    = { ptype::knight, ptype::queen, ptype::rook, ptype::bishop, ptype::pawn, ptype::king };
 
     /* Clear the attack sets */
     for ( auto& attack_set : ab_working->moves [ fd_depth ] ) attack_set.clear ();
@@ -1259,7 +1260,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         if ( killer_move_states.first == killer_move_state_t::unfound ) if ( pt == killer_moves.first.pt && pos_bb == killer_moves.first.pos_bb )
         {
             /* The piece was found, and if it is possible try it immediately */
-            if ( moves.contains ( killer_moves.first.move_pos_bb ) ) if ( apply_moves ( pt, pos_bb, killer_moves.first.move_pos_bb ) ) return true;
+            if ( moves & killer_moves.first.move_pos_bb ) if ( apply_moves ( pt, pos_bb, killer_moves.first.move_pos_bb ) ) return true;
 
             /* Unset that move */
             moves &= ~killer_moves.first.move_pos_bb;
@@ -1272,7 +1273,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         if ( killer_move_states.second == killer_move_state_t::unfound ) if ( pt == killer_moves.second.pt && pos_bb == killer_moves.second.pos_bb )
         {
             /* The piece was found, so test if it is possible */
-            if ( moves.contains ( killer_moves.second.move_pos_bb ) ) killer_move_states.second == killer_move_state_t::possible; else killer_move_states.second == killer_move_state_t::failed;
+            if ( moves & killer_moves.second.move_pos_bb ) killer_move_states.second == killer_move_state_t::possible; else killer_move_states.second == killer_move_state_t::failed;
         }
 
         /* If the first killer move has failed and the second has been marked possible, try it now */
@@ -1323,7 +1324,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             /* PAWN ATTACKS */
 
             /* If is on a straight block vector, cannot be a valid pawn attack */
-            if ( !straight_block_vectors.contains ( pos_bb ) )
+            if ( straight_block_vectors.is_disjoint ( pos_bb ) )
             {
                 /* Get the attacks, and ensure that they protected the king */
                 bitboard attacks = ( pc == pcolor::white ? pos_bb.pawn_any_attack_n ( bb ( npc ) ) : pos_bb.pawn_any_attack_s ( bb ( npc ) ) ) & check_vectors_dep_check_count;
@@ -1338,7 +1339,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             /* PAWN PUSHES */
 
             /* If is on a straight block vector, cannot be a valid pawn push */
-            if ( !diagonal_block_vectors.contains ( pos_bb ) )
+            if ( diagonal_block_vectors.is_disjoint ( pos_bb ) )
             {
                 /* Get the pushes, and ensure that they protected the king */
                 bitboard pushes = ( pc == pcolor::white ? pos_bb.pawn_push_n ( pp ) : pos_bb.pawn_push_s ( pp ) ) & check_vectors_dep_check_count;
@@ -1433,7 +1434,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             /* If the piece is blocking, then it is possible the piece may be immobile.
              * First check if it is on a straight block vector.
             */
-            if ( pos_bb & straight_block_vectors ) [[ unlikely ]]
+            if ( straight_block_vectors & pos_bb ) [[ unlikely ]]
             {
                 /* If in check, or is a bishop, continue */
                 if ( check_vectors.is_empty () | ( pt == ptype::bishop ) ) continue;
@@ -1444,7 +1445,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             } else
 
             /* Else check if is on a diagonal block vector */
-            if ( pos_bb & diagonal_block_vectors ) [[ unlikely ]]
+            if ( diagonal_block_vectors & pos_bb ) [[ unlikely ]]
             {
                 /* If in check, or is a rook, continue */
                 if ( check_vectors.is_empty () | ( pt == ptype::rook ) ) continue;
@@ -1512,6 +1513,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         /* Store attacks */
         ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::king ) ].push_back ( std::make_pair ( king, attacks ) );
     }
+
 
 
 
