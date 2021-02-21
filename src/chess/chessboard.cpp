@@ -1473,35 +1473,6 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
 
 
-    /* SEARCH THROUGH ATTACK SETS */
-
-    /* Try the second killer move */
-    if ( Killer_moves_failed < 2 )
-    if ( killer_moves.second.pt != ptype::no_piece ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( killer_moves.second.pt ) ] )
-        if ( try_killer_move ( 1, killer_moves.second.pt, moves.first, moves.second ) ) return best_value;
-
-    /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
-    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
-        if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
-
-    /* If a quiescence cutoff, return here */
-    if ( quiescence_cutoff ) return std::max ( best_value, evaluate ( pc ) ); else
-    {
-            
-        /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
-        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
-            if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
-
-        /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
-        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( move_order [ i ] ) ] )
-            if ( apply_moves ( move_order [ i ], moves.first, moves.second & ~bb ( npc ) ) ) return best_value;
-
-    }
-
-
-
-
-
     /* KING */
     {
         /* Get the king */
@@ -1510,7 +1481,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         /* Lookup the king attacks */
         bitboard attacks = bitboard::king_attack_lookup ( king_pos ) & sp;
 
-        /* Unset the king early */
+        /* Unset the king */
         get_bb ( pc ) &= ~king;
         get_bb ( pc, ptype::king ).empty ();
 
@@ -1526,9 +1497,42 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             attacks.reset_if ( test_pos, is_protected ( npc, test_pos ) );
         }
 
-        /* Try captures then other moves */
-        if ( apply_moves ( ptype::king, king, attacks & bb ( npc ) ) ) return best_value;
-        if ( apply_moves ( ptype::king, king, attacks & pp ) ) return best_value;
+        /* Reset the king */
+        get_bb ( pc )              |= king;
+        get_bb ( pc, ptype::king ) |= king;
+
+        /* If the first killer move is possible, try it immediately */
+        if ( try_killer_move ( Killer_moves_failed, ptype::king, king, attacks ) ) return best_value;
+
+        /* Store attacks */
+        ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::king ) ].push_back ( std::make_pair ( king, attacks ) );
+    }
+
+
+
+
+
+    /* SEARCH THROUGH ATTACK SETS */
+
+    /* Try the second killer move */
+    if ( Killer_moves_failed < 2 )
+    if ( killer_moves.second.pt != ptype::no_piece ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( killer_moves.second.pt ) ] )
+        if ( try_killer_move ( 1, killer_moves.second.pt, moves.first, moves.second ) ) return best_value;
+
+    /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+        if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
+            
+    /* If a quiescence cutoff, return here */
+    if ( quiescence_cutoff ) return std::max ( best_value, evaluate ( pc ) ); else
+    {
+        /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
+        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+            if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
+
+        /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
+        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( move_order [ i ] ) ] )
+            if ( apply_moves ( move_order [ i ], moves.first, moves.second & ~bb ( npc ) ) ) return best_value;
     }
 
 
