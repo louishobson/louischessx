@@ -1209,7 +1209,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
                 /* Otherwise if not at the parent node: */
                 {
                     /* Create the killer move */
-                    const killer_move_t killer_move { pt, pos_bb, move_pos_bb };
+                    const move_t killer_move { pt, pos_bb, move_pos_bb };
 
                     /* If the most recent killer move is not correct, swap the pair */
                     if ( killer_moves.first != killer_move )
@@ -1257,33 +1257,33 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     auto try_killer_move = [ & ] ( ptype pt, bitboard pos_bb, bitboard& moves ) -> bool
     {
         /* If the first killer move is unfound, try to find it now */
-        if ( killer_move_states.first == killer_move_state_t::unfound ) if ( pt == killer_moves.first.pt && pos_bb == killer_moves.first.pos_bb )
+        if ( killer_move_states.first == killer_move_state_t::unfound ) if ( pt == killer_moves.first.pt && pos_bb == killer_moves.first.from_bb )
         {
             /* The piece was found, and if it is possible try it immediately */
-            if ( moves & killer_moves.first.move_pos_bb ) if ( apply_moves ( pt, pos_bb, killer_moves.first.move_pos_bb ) ) return true;
+            if ( moves & killer_moves.first.to_bb ) if ( apply_moves ( pt, pos_bb, killer_moves.first.to_bb ) ) return true;
 
             /* Unset that move */
-            moves &= ~killer_moves.first.move_pos_bb;
+            moves &= ~killer_moves.first.to_bb;
 
             /* Set that the first killer move failed */
             killer_move_states.first = killer_move_state_t::failed;
         }
 
         /* If the second killer move is unfound, try to find it now */
-        if ( killer_move_states.second == killer_move_state_t::unfound ) if ( pt == killer_moves.second.pt && pos_bb == killer_moves.second.pos_bb )
+        if ( killer_move_states.second == killer_move_state_t::unfound ) if ( pt == killer_moves.second.pt && pos_bb == killer_moves.second.from_bb )
         {
             /* The piece was found, so test if it is possible */
-            if ( moves & killer_moves.second.move_pos_bb ) killer_move_states.second == killer_move_state_t::possible; else killer_move_states.second == killer_move_state_t::failed;
+            if ( moves & killer_moves.second.to_bb ) killer_move_states.second == killer_move_state_t::possible; else killer_move_states.second == killer_move_state_t::failed;
         }
 
         /* If the first killer move has failed and the second has been marked possible, try it now */
         if ( killer_move_states.first == killer_move_state_t::failed && killer_move_states.second ==  killer_move_state_t::possible )
         {
             /* Try the move */
-            if ( apply_moves ( pt, pos_bb, killer_moves.second.move_pos_bb ) ) return true;
+            if ( apply_moves ( pt, pos_bb, killer_moves.second.to_bb ) ) return true;
 
             /* Unset that move */
-            moves &= ~killer_moves.second.move_pos_bb;
+            moves &= ~killer_moves.second.to_bb;
 
             /* Set to failed */
             killer_move_states.second = killer_move_state_t::failed;

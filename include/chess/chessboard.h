@@ -289,17 +289,17 @@ private:
         bitboard block_vectors;
     };
 
-    /* Killer move struct */
-    struct killer_move_t
+    /* Move struct */
+    struct move_t
     {
         /* Store the piece type that moved */
         ptype pt = ptype::no_piece;
 
-        /* Store the initial and final positions in this bitboard */
-        bitboard pos_bb, move_pos_bb;
+        /* Store the initial and final positions in bitboards */
+        bitboard from_bb, to_bb;
 
         /* Default comparison operator */
-        bool operator== ( const killer_move_t& other ) const noexcept = default;
+        bool operator== ( const move_t& other ) const noexcept = default;
     };
 
     /* A structure to store a state of alpha-beta search.
@@ -448,9 +448,9 @@ struct chess::chessboard::ab_working_t
     std::vector<std::array<std::vector<std::pair<bitboard, bitboard>>, 6>> moves;
 
     /* An array of the two most recent killer moves for each depth */
-    std::vector<std::pair<killer_move_t, killer_move_t>> killer_moves;
+    std::vector<std::pair<move_t, move_t>> killer_moves;
 
-    /* The transposition tables */
+    /* The transposition table */
     std::unordered_map<ab_state_t, int, hash> ttable;
 };
 
