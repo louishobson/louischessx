@@ -267,6 +267,7 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const noexcept
 
 
 
+
 /** @name  evaluate
  * 
  * @brief  Symmetrically evaluate the board state.
@@ -981,7 +982,7 @@ int chess::chessboard::evaluate ( pcolor pc )
         value += KING_QUEEN_MOBILITY * ( white_king_queen_fill.popcount () - black_king_queen_fill.popcount () );
     }
 
-
+    
 
     /* CHECKMATE */
 
@@ -1031,13 +1032,24 @@ int chess::chessboard::evaluate ( pcolor pc )
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  quiescence: Whether, given depth is even, the last level in the tree should be cut short to only imporant moves, defaults to true.
  * @param  fd_depth: The forwards depth, defaulta to 0 and should always be 0.
  * @param  alpha: The maximum value pc has discovered, defaults to -10000.
  * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
  * @return int
  */
-int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned fd_depth, int alpha, int beta )
+int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const bool quiescence, const unsigned fd_depth, int alpha, int beta )
 {
+    /* CONSTANTS */
+
+    /* Set the range within states will be searched for in the transposition table */
+    constexpr unsigned ttable_min_search_depth = 3, ttable_max_search_depth = 8;
+
+    /* Set the range within new states will be stored in the transposition table */
+    constexpr unsigned ttable_min_store_depth = 1, ttable_max_store_depth = 4;
+
+
+
     /* CHECK FOR LEAF AND PARENT NODES */
 
     /* If a leaf node, return a value based on the evaluation function */
@@ -1050,20 +1062,11 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
 
     /* TRY A LOOKUP */
 
-    /* Get the range within states will be searched for in the transposition table */
-    constexpr unsigned ttable_min_search_depth = 3, ttable_max_search_depth = 7;
-
-    /* Get the range within new states will be stored in the transposition table */
-    constexpr unsigned ttable_min_store_depth = 1, ttable_max_store_depth = 4;
-
-    /* Create the ab_state */
-    ab_state_t ab_state { * this, pc };
-
     /* Only try if in the specified depth range */
-    if ( fd_depth >= ttable_min_search_depth && fd_depth <= ttable_max_search_depth )
+    if ( fd_depth <= ttable_max_search_depth && fd_depth >= ttable_min_search_depth )
     {
         /* Try to find the state */
-        auto search_it = ab_working->ttable.find ( ab_state );
+        auto search_it = ab_working->ttable.find ( ab_state_t { * this, pc } );
 
         /* If is found, return the value stored */
         if ( search_it != ab_working->ttable.end () ) return search_it->second;
@@ -1073,11 +1076,12 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
 
     /* SETUP */
 
-    /* Get the other player */
-    const pcolor npc = other_color ( pc );
-
     /* Store the current best value */
     int best_value = -10000;
+
+
+    /* Get the other player */
+    const pcolor npc = other_color ( pc );
 
     /* Get the check info of pc */
     const check_info_t check_info = get_check_info ( pc );
@@ -1102,42 +1106,46 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
     /* Get the opposing concentation. True for north of board, false for south. */
     const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
 
+    /* Get if is a quiescence cutoff point.
+     * The flag must be set this must the penultimate depth level, and fd_depth must be odd.
+     * If so, then say it was white's turn at the parent node, then now it is black's turn.
+     * The only moves which will make a big difference to white here, are ones that capture a piece, or remove black from check.
+     * Therefore only captures will be considered, then the max of best_valueand evaluate () will be returned.
+     */
+    const bool quiescence_cutoff = ( quiescence && depth == 1 && ( fd_depth % 2 ) == 1 && check_vectors.is_empty () );
+
+
     /* Create a constexpr list of sliding ptypes */
-    constexpr ptype sliding_pts [ 3 ] = { ptype::bishop, ptype::rook, ptype::queen };
+    constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
 
+    /* Create a constexpr list of what order pieces should be examined for different moves */
+    constexpr ptype capture_order [] = { ptype::pawn, ptype::knight, ptype::bishop, ptype::rook, ptype::queen, ptype::king };
+    constexpr ptype move_order []    = { ptype::knight, ptype::queen, ptype::rook, ptype::bishop, ptype::pawn, ptype::king };
 
+    /* Clear the attack sets */
+    for ( auto& attack_set : ab_working->moves [ fd_depth ] ) attack_set.clear ();
 
-    /* ATTACK SET STORAGE */
+    /* Get a reference to the killer moves */
+    auto& killer_moves = ab_working->killer_moves [ fd_depth ];
 
-    /* A pair of bitboards is used to store a singleton and its attack set */
-    typedef std::pair<bitboard, bitboard> bbpair;
-
-    /* Pawn, knight and sliding pieces */
-    std::array<bbpair, 8> pawn_attacks;
-    std::array<bbpair, 2> knight_attacks;
-    std::array<bbpair, 1> queen_attacks;
-    std::array<bbpair, 2> rook_attacks;
-    std::array<bbpair, 2> bishop_attacks;
-
-    /* How full each of the above arrays are */
-    unsigned num_pawns = 0, num_knights = 0, num_queens = 0, num_rooks = 0, num_bishops = 0;
+    /* The number of killer moves that failed to cause an alpha-beta cutoff */
+    unsigned Killer_moves_failed = 0;
     
-
 
 
 
 
     /* ATTACK LOOP FUNCTOR */
 
-    /** @name  attack_loop_functor
+    /** @name  apply_moves
      * 
      * @brief  loops through attacks (captures first) and recursively calls alpha_beta_search on each of them
      * @param  pt: The type of the piece currently in focus
      * @param  pos_bb: A singleton bitboard for the piece currently in focus
-     * @param  attacks: The attack set for that piece
+     * @param  moves: The possible moves for that piece
      * @return boolean, true for an alpha-beta cutoff, false otherwise
      */
-    auto attack_loop_functor = [ & ] ( ptype pt, bitboard pos_bb, bitboard attacks ) -> bool
+    auto apply_moves = [ & ] ( ptype pt, bitboard pos_bb, bitboard moves ) -> bool
     {
         /* Unset pos in the board state */
         get_bb ( pc )     &= ~pos_bb;
@@ -1145,49 +1153,49 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
 
 
 
-        /* ATTACK LOOP */
+        /* MOVE LOOP */
 
-        /* Iterate through the individual */
-        while ( attacks )
+        /* Iterate through the individual moves */
+        while ( moves )
         {
-            /* Get the position and singleton bitboard of the next attack.
+            /* Get the position and singleton bitboard of the next move.
              * Choose motion towards the opposing color.
              */
-            const unsigned attack_pos = ( opposing_conc ? 63 - attacks.leading_zeros_nocheck () : attacks.trailing_zeros_nocheck () );
-            const bitboard attack_pos_bb = singleton_bitboard ( attack_pos );
+            const unsigned move_pos = ( opposing_conc ? 63 - moves.leading_zeros_nocheck () : moves.trailing_zeros_nocheck () );
+            const bitboard move_pos_bb = singleton_bitboard ( move_pos );
 
-            /* Unset this bit in the set of attacks */
-            attacks &= ~attack_pos_bb;
+            /* Unset this bit in the set of moves */
+            moves &= ~move_pos_bb;
 
             /* Set the new bits for the piece move */
-            get_bb ( pc )     |= attack_pos_bb;
-            get_bb ( pc, pt ) |= attack_pos_bb; 
+            get_bb ( pc )     |= move_pos_bb;
+            get_bb ( pc, pt ) |= move_pos_bb; 
 
-            /* Get any enemy piece captured by the attack */
-            const ptype capture_pt = find_type ( npc, attack_pos );
+            /* Get any enemy piece captured by the move */
+            const ptype capture_pt = find_type ( npc, move_pos_bb );
 
             /* If there is a capture, unset those bits */
             if ( capture_pt != ptype::no_piece )
             {
-                get_bb ( npc )             &= ~attack_pos_bb;
-                get_bb ( npc, capture_pt ) &= ~attack_pos_bb;
+                get_bb ( npc )             &= ~move_pos_bb;
+                get_bb ( npc, capture_pt ) &= ~move_pos_bb;
             } 
 
             /* Recursively call to get the value for this move.
             * Switch around and negate alpha and beta, since it is the other player's turn.
             * Since the next move is done by the other player, negate the value.
             */
-            int new_value = -alpha_beta_search ( npc, depth - 1, fd_depth + 1, -beta, -alpha );
+            int new_value = -alpha_beta_search ( npc, depth - 1, quiescence, fd_depth + 1, -beta, -alpha );
 
             /* Unset the bits changed for the piece move */
-            get_bb ( pc )     &= ~attack_pos_bb;
-            get_bb ( pc, pt ) &= ~attack_pos_bb; 
+            get_bb ( pc )     &= ~move_pos_bb;
+            get_bb ( pc, pt ) &= ~move_pos_bb; 
 
             /* If there was a capture, reset those bits */
             if ( capture_pt != ptype::no_piece )
             {
-                get_bb ( npc )             |= attack_pos_bb;
-                get_bb ( npc, capture_pt ) |= attack_pos_bb;
+                get_bb ( npc )             |= move_pos_bb;
+                get_bb ( npc, capture_pt ) |= move_pos_bb;
             }
 
             /* If the new value is greater than the best value, then reassign the best value.
@@ -1207,11 +1215,21 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
 
                 /* Otherwise if not at the parent node: */
                 {
-                    /* Set the killer move for this depth */
-                    ab_working->killer_moves.at ( fd_depth ) = killer_move_t { pt, capture_pt, pos_bb, attack_pos_bb };
+                    /* Create the killer move */
+                    const killer_move_t killer_move { pt, pos_bb, move_pos_bb };
+
+                    /* If the most recent killer move is not correct, swap the pair */
+                    if ( killer_moves.first != killer_move )
+                    {
+                        /* Swap */
+                        std::swap ( killer_moves.first, killer_moves.second );
+
+                        /* If the most recent killer move is still not correct, replace the most recent killer move */
+                        if ( killer_moves.first != killer_move ) killer_moves.first = killer_move;
+                    }
 
                     /* If is in the specified depth, add to the transposition table */
-                    if ( fd_depth >= ttable_min_store_depth && fd_depth <= ttable_max_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state, best_value ) );
+                    if ( fd_depth <= ttable_max_store_depth && fd_depth >= ttable_min_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
                 }
 
                 /* Return */
@@ -1233,7 +1251,47 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
 
 
 
-    /* PAWN ATTACKS */
+    /* KILLER MOVE FUNCTOR */
+
+    /** @name  try_killer_move
+     * 
+     * @brief  Check whether a killer move is possible and apply it if so
+     * @param  failed: If 0 uses the first killer move, 1 uses the second, more than 1 returns false
+     * @param  pt: The type of the piece currently in focus
+     * @param  pos_bb: A singleton bitboard for the piece currently in focus
+     * @param  moves: The moves for that piece
+     * @return boolean, true for an alpha-beta cutoff, false otherwise
+     */
+    auto try_killer_move = [ & ] ( unsigned failed, ptype pt, bitboard pos_bb, bitboard& moves ) -> bool
+    {
+        /* If both killer moves failed, return false */
+        if ( failed > 2 ) return false;
+
+        /* Get the killer move */
+        auto& killer_move = ( failed == 0 ? killer_moves.first : killer_moves.second );
+
+        /* Check that the type, piece and possible moves match up */
+        if ( pt == killer_move.pt && pos_bb == killer_move.pos_bb && moves.contains ( killer_move.move_pos_bb ) )
+        {
+            /* The killer move is possible, so try it and return true on an alpha beta cutoff */
+            if ( apply_moves ( pt, pos_bb, killer_move.move_pos_bb ) ) return true;
+
+            /* Unset that move */
+            moves &= ~killer_move.move_pos_bb;
+
+            /* Increment failed */
+            ++failed;
+        }
+
+        /* Return false */
+        return false;
+    };
+
+
+
+
+
+    /* PAWNS */
     {
         /* Get the pawns */
         bitboard pawns = bb ( pc, ptype::pawn ); 
@@ -1245,35 +1303,57 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
         /* Iterate through the pawns */
         while ( pawns )
         {
-            /* Get the position and singleton bitboard of the next pawn */
-            const unsigned pos = pawns.trailing_zeros_nocheck ();
+            /* Get the position and singleton bitboard of the next pawn.
+             * Favour the further away pawns to encourage them to move towards the other color.
+             */
+            const unsigned pos = ( opposing_conc ? pawns.trailing_zeros_nocheck () : 63 - pawns.leading_zeros_nocheck () );
             const bitboard pos_bb = singleton_bitboard ( pos );
 
             /* Unset this bit in the set of pawns */
             pawns &= ~pos_bb;
 
-            /* If is on a straight block vector, continue */
-            if ( pos_bb & straight_block_vectors ) continue;
+            /* Prepare to union pawn moves */
+            bitboard moves;
 
-            /* Get the attacks, and ensure that they protected the king */
-            bitboard attacks = ( pc == pcolor::white ? pos_bb.pawn_any_attack_n ( bb ( npc ) ) : pos_bb.pawn_any_attack_s ( bb ( npc ) ) ) & check_vectors_dep_check_count;
+            /* PAWN ATTACKS */
 
-            /* If is on a diagonal block vector, ensure the captures stayed on the block vector */
-            if ( pos_bb & diagonal_block_vectors ) attacks &= diagonal_block_vectors;
-
-            /* Look for a killer move */
-            if ( ab_working->killer_moves.at ( fd_depth ).pt == ptype::pawn && ab_working->killer_moves.at ( fd_depth ).pos_bb == pos_bb && ( ab_working->killer_moves.at ( fd_depth ).attack_pos_bb & attacks ) )
+            /* If is on a straight block vector, cannot be a valid pawn attack */
+            if ( !straight_block_vectors.contains ( pos_bb ) )
             {
-                attacks &= ~ab_working->killer_moves.at ( fd_depth ).attack_pos_bb;
-                if ( attack_loop_functor ( ptype::pawn, pos_bb, ab_working->killer_moves.at ( fd_depth ).attack_pos_bb ) ) return best_value;
+                /* Get the attacks, and ensure that they protected the king */
+                bitboard attacks = ( pc == pcolor::white ? pos_bb.pawn_any_attack_n ( bb ( npc ) ) : pos_bb.pawn_any_attack_s ( bb ( npc ) ) ) & check_vectors_dep_check_count;
+
+                /* If is on a diagonal block vector, ensure the captures stayed on the block vector */
+                if ( pos_bb & diagonal_block_vectors ) attacks &= diagonal_block_vectors;
+
+                /* Union moves */
+                moves |= attacks;                
             }
 
-            /* Store pawn attacks */
-            pawn_attacks [ num_pawns++ ] = std::make_pair ( pos_bb, attacks );
+            /* PAWN PUSHES */
+
+            /* If is on a straight block vector, cannot be a valid pawn push */
+            if ( !diagonal_block_vectors.contains ( pos_bb ) )
+            {
+                /* Get the pushes, and ensure that they protected the king */
+                bitboard pushes = ( pc == pcolor::white ? pos_bb.pawn_push_n ( pp ) : pos_bb.pawn_push_s ( pp ) ) & check_vectors_dep_check_count;
+
+                /* If is on a straight block vector, ensure the pushes stayed on the block vector */
+                if ( pos_bb & straight_block_vectors ) pushes &= straight_block_vectors;
+
+                /* Union moves */
+                moves |= pushes;
+            }
+
+            /* If the first killer move is possible, try it immediately */
+            if ( try_killer_move ( Killer_moves_failed, ptype::pawn, pos_bb, moves ) ) return best_value;
+
+            /* Store pawn moves */
+            ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::pawn ) ].push_back ( std::make_pair ( pos_bb, moves ) );
         }
     }
 
-    
+
 
 
 
@@ -1302,15 +1382,11 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
             /* Get the attacks, ensuring they protected the king */
             bitboard attacks = bitboard::knight_attack_lookup ( pos ) & sp & check_vectors_dep_check_count;
 
-            /* Look for a killer move */
-            if ( ab_working->killer_moves.at ( fd_depth ).pt == ptype::knight && ab_working->killer_moves.at ( fd_depth ).pos_bb == pos_bb && ( ab_working->killer_moves.at ( fd_depth ).attack_pos_bb & attacks ) )
-            {
-                attacks &= ~ab_working->killer_moves.at ( fd_depth ).attack_pos_bb;
-                if ( attack_loop_functor ( ptype::knight, pos_bb, ab_working->killer_moves.at ( fd_depth ).attack_pos_bb ) ) return best_value;
-            }
+            /* If the first killer move is possible, try it immediately */
+            if ( try_killer_move ( Killer_moves_failed, ptype::knight, pos_bb, attacks ) ) return best_value;
 
             /* Store knight attacks */
-            knight_attacks [ num_knights++ ] = std::make_pair ( pos_bb, attacks );
+            ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::knight ) ].push_back ( std::make_pair ( pos_bb, attacks ) );
         }
     }
 
@@ -1385,20 +1461,11 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
             /* Ensure that attacks protected the king */
             attacks &= check_vectors_dep_check_count;
 
-            /* Look for a killer move */
-            if ( ab_working->killer_moves.at ( fd_depth ).pt == pt && ab_working->killer_moves.at ( fd_depth ).pos_bb == pos_bb && ( ab_working->killer_moves.at ( fd_depth ).attack_pos_bb & attacks ) )
-            {
-                attacks &= ~ab_working->killer_moves.at ( fd_depth ).attack_pos_bb;
-                if ( attack_loop_functor ( pt, pos_bb, ab_working->killer_moves.at ( fd_depth ).attack_pos_bb ) ) return best_value;
-            }
+            /* If the first killer move is possible, try it immediately */
+            if ( try_killer_move ( Killer_moves_failed, pt, pos_bb, attacks ) ) return best_value;
 
             /* Store sliding piece attacks */
-            switch ( pt )
-            {
-            case ( ptype::queen  ): queen_attacks  [ num_queens++  ] = std::make_pair ( pos_bb, attacks ); break;
-            case ( ptype::rook   ): rook_attacks   [ num_rooks++   ] = std::make_pair ( pos_bb, attacks ); break;
-            case ( ptype::bishop ): bishop_attacks [ num_bishops++ ] = std::make_pair ( pos_bb, attacks ); break;
-            }
+            ab_working->moves [ fd_depth ] [ static_cast<int> ( pt ) ].push_back ( std::make_pair ( pos_bb, attacks ) );
         }
     }
 
@@ -1408,75 +1475,43 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
 
     /* SEARCH THROUGH ATTACK SETS */
 
+    /* Try the second killer move */
+    if ( Killer_moves_failed < 2 )
+    if ( killer_moves.second.pt != ptype::no_piece ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( killer_moves.second.pt ) ] )
+        if ( try_killer_move ( 1, killer_moves.second.pt, moves.first, moves.second ) ) return best_value;
+
     /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
-    for ( unsigned i = 0; i < num_pawns;   ++i ) if ( attack_loop_functor ( ptype::pawn,   pawn_attacks   [ i ].first, pawn_attacks   [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
-    
-    /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
-    for ( unsigned i = 0; i < num_pawns;   ++i ) if ( attack_loop_functor ( ptype::pawn,   pawn_attacks   [ i ].first, pawn_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
-    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+        if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
 
-    /* Look for other attacks. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
-    for ( unsigned i = 0; i < num_knights; ++i ) if ( attack_loop_functor ( ptype::knight, knight_attacks [ i ].first, knight_attacks [ i ].second & pp ) ) return best_value;
-    for ( unsigned i = 0; i < num_queens;  ++i ) if ( attack_loop_functor ( ptype::queen,  queen_attacks  [ i ].first, queen_attacks  [ i ].second & pp ) ) return best_value;
-    for ( unsigned i = 0; i < num_rooks;   ++i ) if ( attack_loop_functor ( ptype::rook,   rook_attacks   [ i ].first, rook_attacks   [ i ].second & pp ) ) return best_value;
-    for ( unsigned i = 0; i < num_bishops; ++i ) if ( attack_loop_functor ( ptype::bishop, bishop_attacks [ i ].first, bishop_attacks [ i ].second & pp ) ) return best_value;
-
-
-
-
-
-    /* PAWN PUSHES */
+    /* If a quiescence cutoff, return here */
+    if ( quiescence_cutoff ) return std::max ( best_value, evaluate ( pc ) ); else
     {
-        /* Get the pawns */
-        bitboard pawns = bb ( pc, ptype::pawn ); 
+            
+        /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
+        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+            if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
 
+        /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
+        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( move_order [ i ] ) ] )
+            if ( apply_moves ( move_order [ i ], moves.first, moves.second & ~bb ( npc ) ) ) return best_value;
 
-
-        /* PIECE LOOP */
-
-        /* Iterate through the pawns */
-        while ( pawns )
-        {
-            /* Get the position and singleton bitboard of the next pawn.
-             * Favour the further away pawns to encourage them to move towards the other color.
-             */
-            const unsigned pos = ( opposing_conc ? pawns.trailing_zeros_nocheck () : 63 - pawns.leading_zeros_nocheck () );
-            const bitboard pos_bb = singleton_bitboard ( pos );
-
-            /* Unset this bit in the set of pawns */
-            pawns &= ~pos_bb;
-
-            /* If is on a diagonal block vector, continue */
-            if ( pos_bb & diagonal_block_vectors ) continue;
-
-            /* Get the pushes, and ensure that they protected the king */
-            bitboard pushes = ( pc == pcolor::white ? pos_bb.pawn_push_n ( pp ) : pos_bb.pawn_push_s ( pp ) ) & check_vectors_dep_check_count;
-
-            /* If is on a straight block vector, ensure the pushes stayed on the block vector */
-            if ( pos_bb & straight_block_vectors ) pushes &= straight_block_vectors;
-
-            /* Call the attack loop functor */
-            if ( attack_loop_functor ( ptype::pawn, pos_bb, pushes ) ) return best_value;
-        }
     }
 
 
 
 
-    /* KING MOVES */
+
+    /* KING */
     {
+        /* Get the king */
+        const bitboard king = bb ( pc, ptype::king );
+
         /* Lookup the king attacks */
         bitboard attacks = bitboard::king_attack_lookup ( king_pos ) & sp;
 
         /* Unset the king early */
-        get_bb ( pc ) &= ~bb ( pc, ptype::king );
+        get_bb ( pc ) &= ~king;
         get_bb ( pc, ptype::king ).empty ();
 
         /* Iterate through the attacks and make sure that they are not protected */
@@ -1491,8 +1526,9 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
             attacks.reset_if ( test_pos, is_protected ( npc, test_pos ) );
         }
 
-        /* Call the attack loop functor */
-        if ( attack_loop_functor ( ptype::king, singleton_bitboard ( king_pos ), attacks ) ) return best_value;
+        /* Try captures then other moves */
+        if ( apply_moves ( ptype::king, king, attacks & bb ( npc ) ) ) return best_value;
+        if ( apply_moves ( ptype::king, king, attacks & pp ) ) return best_value;
     }
 
 
@@ -1505,7 +1541,7 @@ int chess::chessboard::alpha_beta_search ( pcolor pc, unsigned depth, unsigned f
     if ( fd_depth == 0 ) deallocate_ab_working (); else
 
     /* If is in the specified depth, add to the transposition table */
-    if ( fd_depth >= ttable_min_store_depth && fd_depth <= ttable_max_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state, best_value ) );
+    if ( fd_depth <= ttable_max_store_depth && fd_depth >= ttable_min_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
 
     /* Return the best value */
     return best_value;

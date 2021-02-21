@@ -231,12 +231,13 @@ public:
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+     * @param  quiescence: Whether, given depth is even, the last level in the tree should be cut short to only imporant moves, defaults to true.
      * @param  fd_depth: The forwards depth, defaulta to 0 and should always be 0.
      * @param  alpha: The maximum value pc has discovered, defaults to -10000.
      * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, unsigned fd_depth = 0, int alpha = -10000, int beta = 10000 );
+    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, bool quiescence = true, unsigned fd_depth = 0, int alpha = -10000, int beta = 10000 );
 
 
 
@@ -257,9 +258,11 @@ public:
      *         Note: an out of range position leads to undefined behavior.
      * @param  pc:  The known piece color
      * @param  pos: Board position
+     * @param  pos_bb: Singleton bitboard
      * @return One of ptype
      */
     ptype find_type ( pcolor pc, unsigned pos ) const noexcept;
+    ptype find_type ( pcolor pc, bitboard pos_bb ) const noexcept;
 
 
 
@@ -290,11 +293,14 @@ private:
     /* Killer move struct */
     struct killer_move_t
     {
-        /* Store the piece type that moved, and the type of the piece it captures */
-        ptype pt = ptype::no_piece, capture_pt = ptype::no_piece;
+        /* Store the piece type that moved */
+        ptype pt = ptype::no_piece;
 
         /* Store the initial and final positions in this bitboard */
-        bitboard pos_bb, attack_pos_bb;
+        bitboard pos_bb, move_pos_bb;
+
+        /* Default comparison operator */
+        bool operator== ( const killer_move_t& other ) const noexcept = default;
     };
 
     /* A structure to store a state of alpha-beta search.
@@ -439,8 +445,11 @@ struct chess::chessboard::ab_state_t
 /* A structure containing temporary alpha-beta search data */
 struct chess::chessboard::ab_working_t
 {
-    /* An array of killer moves */
-    std::vector<killer_move_t> killer_moves;
+    /* Array of sets of moves */
+    std::vector<std::array<std::vector<std::pair<bitboard, bitboard>>, 6>> moves;
+
+    /* An array of the two most recent killer moves for each depth */
+    std::vector<std::pair<killer_move_t, killer_move_t>> killer_moves;
 
     /* The transposition tables */
     std::unordered_map<ab_state_t, int, hash> ttable;

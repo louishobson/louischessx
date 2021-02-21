@@ -158,12 +158,13 @@ inline void chess::chessboard::allocate_ab_working ( unsigned depth )
     /* If is not already allocated, allocate, else erase */
     if ( !ab_working ) ab_working = new ab_working_t; else
     {
-        ab_working->killer_moves.clear ();;
+        ab_working->killer_moves.clear ();
         ab_working->ttable.clear ();
     }
 
-    /* Allocate the correct size for killer moves */
-     ab_working->killer_moves.resize ( depth );
+    /* Allocate the correct depth for moves and killer moves */
+    ab_working->moves.resize ( depth );
+    ab_working->killer_moves.resize ( depth );
 }
 inline void chess::chessboard::deallocate_ab_working ()
 {
@@ -202,18 +203,24 @@ inline chess::pcolor chess::chessboard::find_color ( const unsigned pos ) const 
  *         Note: an out of range position leads to undefined behavior.
  * @param  pc:  The known piece color
  * @param  pos: Board position
+ * @param  pos_bb: Singleton bitboard
  * @return One of ptype
  */
 inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const unsigned pos ) const noexcept
 {
-    const bitboard mask = singleton_bitboard ( pos );
-    if ( ( bb ( pc ) & mask ).is_empty () ) return ptype::no_piece;
-    if ( bb ( pc, ptype::pawn   ) & mask ) return ptype::pawn;   else
-    if ( bb ( pc, ptype::knight ) & mask ) return ptype::knight; else
-    if ( bb ( pc, ptype::bishop ) & mask ) return ptype::bishop; else
-    if ( bb ( pc, ptype::rook   ) & mask ) return ptype::rook;   else
-    if ( bb ( pc, ptype::queen  ) & mask ) return ptype::queen;  else
-    if ( bb ( pc, ptype::king   ) & mask ) return ptype::king;   else
+    /* Get a singleton bitboard and recall */
+    return find_type ( pc, singleton_bitboard ( pos ) );
+}
+inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const bitboard pos_bb ) const noexcept
+{
+    /* First detect if there is a piece, then find what type it is */
+    if ( !bb ( pc ).contains ( pos_bb ) ) return ptype::no_piece;
+    if ( bb ( pc, ptype::pawn   ).contains ( pos_bb ) ) return ptype::pawn;   else
+    if ( bb ( pc, ptype::knight ).contains ( pos_bb ) ) return ptype::knight; else
+    if ( bb ( pc, ptype::bishop ).contains ( pos_bb ) ) return ptype::bishop; else
+    if ( bb ( pc, ptype::rook   ).contains ( pos_bb ) ) return ptype::rook;   else
+    if ( bb ( pc, ptype::queen  ).contains ( pos_bb ) ) return ptype::queen;  else
+    if ( bb ( pc, ptype::king   ).contains ( pos_bb ) ) return ptype::king;   else
     return ptype::no_piece;
 }
 
