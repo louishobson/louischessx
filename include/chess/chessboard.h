@@ -231,13 +231,12 @@ public:
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
-     * @param  quiescence: Whether, given depth is even, the last level in the tree should be cut short to only imporant moves, defaults to true.
-     * @param  fd_depth: The forwards depth, defaulta to 0 and should always be 0.
+     * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
      * @param  alpha: The maximum value pc has discovered, defaults to -10000.
      * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, bool quiescence = true, unsigned fd_depth = 0, int alpha = -10000, int beta = 10000 );
+    chess_hot int alpha_beta_search ( pcolor pc, unsigned depth, unsigned fd_depth = 0, int alpha = -10000, int beta = 10000 );
 
 
 

@@ -1032,13 +1032,12 @@ int chess::chessboard::evaluate ( pcolor pc )
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
- * @param  quiescence: Whether, given depth is even, the last level in the tree should be cut short to only imporant moves, defaults to true.
- * @param  fd_depth: The forwards depth, defaulta to 0 and should always be 0.
+ * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
  * @param  alpha: The maximum value pc has discovered, defaults to -10000.
  * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
  * @return int
  */
-int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const bool quiescence, const unsigned fd_depth, int alpha, int beta )
+int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const unsigned fd_depth, int alpha, int beta )
 {
     /* CONSTANTS */
 
@@ -1106,14 +1105,6 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     /* Get the opposing concentation. True for north of board, false for south. */
     const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
 
-    /* Get if is a quiescence cutoff point.
-     * The flag must be set this must the penultimate depth level, and fd_depth must be odd.
-     * If so, then say it was white's turn at the parent node, then now it is black's turn.
-     * The only moves which will make a big difference to white here, are ones that capture a piece, or remove black from check.
-     * Therefore only captures will be considered, then the max of best_valueand evaluate () will be returned.
-     */
-    const bool quiescence_cutoff = ( quiescence && depth == 1 && ( fd_depth % 2 ) == 1 && check_vectors.is_empty () );
-
 
     /* Create a constexpr list of sliding ptypes */
     constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
@@ -1128,8 +1119,9 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     /* Get a reference to the killer moves */
     auto& killer_moves = ab_working->killer_moves [ fd_depth ];
 
-    /* The number of killer moves that failed to cause an alpha-beta cutoff */
-    unsigned Killer_moves_failed = 0;
+    /* Enums to store killer move states */
+    enum class killer_move_state_t { unfound, possible, failed };
+    std::pair<killer_move_state_t, killer_move_state_t> killer_move_states { killer_move_state_t::unfound, killer_move_state_t::unfound };
     
 
 
@@ -1185,7 +1177,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             * Switch around and negate alpha and beta, since it is the other player's turn.
             * Since the next move is done by the other player, negate the value.
             */
-            int new_value = -alpha_beta_search ( npc, depth - 1, quiescence, fd_depth + 1, -beta, -alpha );
+            int new_value = -alpha_beta_search ( npc, depth - 1, fd_depth + 1, -beta, -alpha );
 
             /* Unset the bits changed for the piece move */
             get_bb ( pc )     &= ~move_pos_bb;
@@ -1256,31 +1248,44 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     /** @name  try_killer_move
      * 
      * @brief  Check whether a killer move is possible and apply it if so
-     * @param  failed: If 0 uses the first killer move, 1 uses the second, more than 1 returns false
      * @param  pt: The type of the piece currently in focus
      * @param  pos_bb: A singleton bitboard for the piece currently in focus
      * @param  moves: The moves for that piece
      * @return boolean, true for an alpha-beta cutoff, false otherwise
      */
-    auto try_killer_move = [ & ] ( unsigned failed, ptype pt, bitboard pos_bb, bitboard& moves ) -> bool
+    auto try_killer_move = [ & ] ( ptype pt, bitboard pos_bb, bitboard& moves ) -> bool
     {
-        /* If both killer moves failed, return false */
-        if ( failed > 2 ) return false;
-
-        /* Get the killer move */
-        auto& killer_move = ( failed == 0 ? killer_moves.first : killer_moves.second );
-
-        /* Check that the type, piece and possible moves match up */
-        if ( pt == killer_move.pt && pos_bb == killer_move.pos_bb && moves.contains ( killer_move.move_pos_bb ) )
+        /* If the first killer move is unfound, try to find it now */
+        if ( killer_move_states.first == killer_move_state_t::unfound ) if ( pt == killer_moves.first.pt && pos_bb == killer_moves.first.pos_bb )
         {
-            /* The killer move is possible, so try it and return true on an alpha beta cutoff */
-            if ( apply_moves ( pt, pos_bb, killer_move.move_pos_bb ) ) return true;
+            /* The piece was found, and if it is possible try it immediately */
+            if ( moves.contains ( killer_moves.first.move_pos_bb ) ) if ( apply_moves ( pt, pos_bb, killer_moves.first.move_pos_bb ) ) return true;
 
             /* Unset that move */
-            moves &= ~killer_move.move_pos_bb;
+            moves &= ~killer_moves.first.move_pos_bb;
 
-            /* Increment failed */
-            ++failed;
+            /* Set that the first killer move failed */
+            killer_move_states.first = killer_move_state_t::failed;
+        }
+
+        /* If the second killer move is unfound, try to find it now */
+        if ( killer_move_states.second == killer_move_state_t::unfound ) if ( pt == killer_moves.second.pt && pos_bb == killer_moves.second.pos_bb )
+        {
+            /* The piece was found, so test if it is possible */
+            if ( moves.contains ( killer_moves.second.move_pos_bb ) ) killer_move_states.second == killer_move_state_t::possible; else killer_move_states.second == killer_move_state_t::failed;
+        }
+
+        /* If the first killer move has failed and the second has been marked possible, try it now */
+        if ( killer_move_states.first == killer_move_state_t::failed && killer_move_states.second ==  killer_move_state_t::possible )
+        {
+            /* Try the move */
+            if ( apply_moves ( pt, pos_bb, killer_moves.second.move_pos_bb ) ) return true;
+
+            /* Unset that move */
+            moves &= ~killer_moves.second.move_pos_bb;
+
+            /* Set to failed */
+            killer_move_states.second = killer_move_state_t::failed;
         }
 
         /* Return false */
@@ -1345,8 +1350,8 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
                 moves |= pushes;
             }
 
-            /* If the first killer move is possible, try it immediately */
-            if ( try_killer_move ( Killer_moves_failed, ptype::pawn, pos_bb, moves ) ) return best_value;
+            /* Try the killer moves */
+            if ( try_killer_move ( ptype::pawn, pos_bb, moves ) ) return best_value;
 
             /* Store pawn moves */
             ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::pawn ) ].push_back ( std::make_pair ( pos_bb, moves ) );
@@ -1382,8 +1387,8 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             /* Get the attacks, ensuring they protected the king */
             bitboard attacks = bitboard::knight_attack_lookup ( pos ) & sp & check_vectors_dep_check_count;
 
-            /* If the first killer move is possible, try it immediately */
-            if ( try_killer_move ( Killer_moves_failed, ptype::knight, pos_bb, attacks ) ) return best_value;
+            /* Try the killer moves */
+            if ( try_killer_move ( ptype::knight, pos_bb, attacks ) ) return best_value;
 
             /* Store knight attacks */
             ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::knight ) ].push_back ( std::make_pair ( pos_bb, attacks ) );
@@ -1461,8 +1466,8 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             /* Ensure that attacks protected the king */
             attacks &= check_vectors_dep_check_count;
 
-            /* If the first killer move is possible, try it immediately */
-            if ( try_killer_move ( Killer_moves_failed, pt, pos_bb, attacks ) ) return best_value;
+            /* Try the killer moves */
+            if ( try_killer_move ( pt, pos_bb, attacks ) ) return best_value;
 
             /* Store sliding piece attacks */
             ab_working->moves [ fd_depth ] [ static_cast<int> ( pt ) ].push_back ( std::make_pair ( pos_bb, attacks ) );
@@ -1501,8 +1506,8 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         get_bb ( pc )              |= king;
         get_bb ( pc, ptype::king ) |= king;
 
-        /* If the first killer move is possible, try it immediately */
-        if ( try_killer_move ( Killer_moves_failed, ptype::king, king, attacks ) ) return best_value;
+        /* Try the killer moves */
+        if ( try_killer_move ( ptype::king, king, attacks ) ) return best_value;
 
         /* Store attacks */
         ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::king ) ].push_back ( std::make_pair ( king, attacks ) );
@@ -1514,26 +1519,17 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
     /* SEARCH THROUGH ATTACK SETS */
 
-    /* Try the second killer move */
-    if ( Killer_moves_failed < 2 )
-    if ( killer_moves.second.pt != ptype::no_piece ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( killer_moves.second.pt ) ] )
-        if ( try_killer_move ( 1, killer_moves.second.pt, moves.first, moves.second ) ) return best_value;
-
     /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
     for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
         if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
             
-    /* If a quiescence cutoff, return here */
-    if ( quiescence_cutoff ) return std::max ( best_value, evaluate ( pc ) ); else
-    {
-        /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
-        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
-            if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
+    /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+        if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
 
-        /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
-        for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( move_order [ i ] ) ] )
-            if ( apply_moves ( move_order [ i ], moves.first, moves.second & ~bb ( npc ) ) ) return best_value;
-    }
+    /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( move_order [ i ] ) ] )
+        if ( apply_moves ( move_order [ i ], moves.first, moves.second & ~bb ( npc ) ) ) return best_value;
 
 
 
