@@ -75,6 +75,7 @@ inline chess::chessboard::ab_state_t::ab_state_t ( const chessboard& cb, pcolor 
  * 
  * @brief  Creates a hash for a chessboard
  * @param  cb: The chessboard or alpha-beta state to hash
+ * @param  mv: The move to hash
  * @return The hash
  */
 inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb ) const noexcept
@@ -86,6 +87,11 @@ inline std::size_t chess::chessboard::hash::operator () ( const ab_state_t& cb )
 {
     /* Simply return the occupied positions */
     return ( cb.bbs [ 0 ] | cb.bbs [ 1 ] ).get_value ();
+}
+inline std::size_t chess::chessboard::hash::operator () ( const move_t& mv ) const noexcept
+{
+    /* Return union of the positions */
+    return ( mv.from_bb | mv.to_bb ).get_value ();
 }
 
 
@@ -131,7 +137,7 @@ inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other
 inline chess::chessboard::~chessboard () noexcept
 {
     /* Destroy the working values, if not already */
-    deallocate_ab_working ();
+    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
 }
 
 /** @name  operator==
@@ -142,38 +148,6 @@ inline bool chess::chessboard::operator== ( const chessboard& other ) const noex
 {
     /* Compare and return */
     return ( ( color_bbs == other.color_bbs ) && ( type_bbs == other.type_bbs ) && ( castling_rights == other.castling_rights ) );
-}
-
-
-
-/* AB_WORKING ALLOCATION AND DEALLOCATION */
-
-/** @name  allocate/deallocate_ab_working
- * 
- * @brief  Allocates or deallocates ab_working, protecting against double deallocation
- * @param  depth: The depth to allocate to ab_working
- */
-inline void chess::chessboard::allocate_ab_working ( unsigned depth )
-{
-    /* If is not already allocated, allocate, else erase */
-    if ( !ab_working ) ab_working = new ab_working_t; else
-    {
-        ab_working->killer_moves.clear ();
-        ab_working->ttable.clear ();
-    }
-
-    /* Allocate the correct depth for moves and killer moves */
-    ab_working->moves.resize ( depth );
-    ab_working->killer_moves.resize ( depth );
-}
-inline void chess::chessboard::deallocate_ab_working ()
-{
-    /* If allocated, delete */
-    if ( ab_working ) 
-    {
-        delete ab_working;
-        ab_working = nullptr;
-    }
 }
 
 

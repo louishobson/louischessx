@@ -365,7 +365,7 @@ int chess::chessboard::evaluate ( pcolor pc )
     constexpr int CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES { 10 }; // For every attack (not including pawns or kings)
 
     /* Checkmate */
-    constexpr int CHECKMATE { 10000 }; // If true
+    constexpr int CHECKMATE { 5000 }; // If true
 
 
     
@@ -1031,6 +1031,41 @@ int chess::chessboard::evaluate ( pcolor pc )
 
 /** @name  alpha_beta_search
  * 
+ * @brief  Set up and apply the alpha beta search
+ * @param  pc: The color who's move it is next
+ * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  prev_value: A previous value (from depth -2k) used to configure the aspiration window. Defaults to -10000, which means a previous value isn't used.
+ * @return int
+ */
+int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const int prev_value )
+{
+    /* Allocate new memory if it does not already exist. */
+    if ( !ab_working ) ab_working = new ab_working_t;
+
+    /* Allocate the correct depth for moves and killer moves */
+    ab_working->moves.resize ( depth * depth );
+    ab_working->killer_moves.resize ( depth * depth );
+
+    /* If has been given a previous value, configure the window */
+    const int alpha = ( prev_value == -10000 ? -10000 : prev_value - 5 );
+    const int beta  = ( prev_value == -10000 ?  10000 : prev_value + 5 );
+    const bool enable_null_move = !( prev_value == -10000 );
+
+    /* Call the internal method */
+    int value = alpha_beta_search_internal ( pc, depth, 0, alpha, beta );
+
+    /* If is on a boarder, fall back to the previous value */
+    if ( value == alpha || value == beta ) value = prev_value;
+
+    /* Delete the memory */
+    delete ab_working; ab_working = nullptr;
+
+    /* Return the value */
+    return value;
+}
+
+/** @name  alpha_beta_search_internal
+ * 
  * @brief  Apply an alpha-beta search to a given depth.
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
  * @param  pc: The color who's move it is next
@@ -1038,17 +1073,28 @@ int chess::chessboard::evaluate ( pcolor pc )
  * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
  * @param  alpha: The maximum value pc has discovered, defaults to -10000.
  * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
+ * @param  has_null: Whether a null move has previously been applied, defaults to false.
+ * @param  quiesce: Whether quiescence has started, defaults to false.
  * @return int
  */
-int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const unsigned fd_depth, int alpha, int beta )
+int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned depth, unsigned fd_depth, int alpha, int beta, const bool has_null, bool quiesce )
 {
     /* CONSTANTS */
 
     /* Set the range within states will be searched for in the transposition table */
-    constexpr unsigned ttable_min_search_depth = 3, ttable_max_search_depth = 8;
+    constexpr unsigned ttable_min_search_fd_depth = 3, ttable_max_search_fd_depth = 6;
 
     /* Set the range within new states will be stored in the transposition table */
-    constexpr unsigned ttable_min_store_depth = 1, ttable_max_store_depth = 4;
+    constexpr unsigned ttable_min_store_fd_depth = 1, ttable_max_store_fd_depth = 4;
+
+    /* The change in depth for a null move */
+    constexpr unsigned null_move_change_depth = 3;
+
+    /* The maximum search depth for a null move */
+    constexpr unsigned null_move_max_search_depth = 7;
+
+    /* The number of pieces required for a null move */
+    constexpr unsigned null_move_min_pieces = 7;
 
     /* Create a constexpr list of sliding ptypes */
     constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
@@ -1059,20 +1105,91 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
 
 
-    /* CHECK FOR LEAF AND PARENT NODES */
+    /* SETUP */
 
-    /* If a leaf node, return a value based on the evaluation function */
-    if ( depth == 0 ) return evaluate ( pc );
+    /* Store the current best value.
+     * Losing sooner is worse, which the minus depth accounts for
+     */
+    int best_value = -5000 - depth;
 
-    /* If the parent node, allocate working values */
-    if ( fd_depth == 0 ) allocate_ab_working ( depth );
+    /* Get the other player */
+    const pcolor npc = other_color ( pc );
+
+    /* Get the check info of pc */
+    const check_info_t check_info = get_check_info ( pc );
+    const bitboard check_vectors = check_info.check_vectors, block_vectors = check_info.block_vectors;
+
+    /* Throw if the opposing king is in check */
+    //if ( is_in_check ( npc ) ) throw std::runtime_error { "Opposing color is in check in alpha_beta_search_internal ()." };
+
+    /* Get king position */
+    const unsigned king_pos = bb ( pc, ptype::king ).trailing_zeros_nocheck ();
+
+    /* Get the straight and diagonal block vectors */
+    const bitboard straight_block_vectors = block_vectors & bitboard::straight_attack_lookup ( king_pos );
+    const bitboard diagonal_block_vectors = block_vectors & bitboard::diagonal_attack_lookup ( king_pos );
+
+    /* See evaluate () # Setup for more info */
+    const bitboard check_vectors_dep_check_count = check_vectors.all_if ( !check_vectors ).only_if ( check_vectors.popcount () < 2 );
+
+    /* Get the primary and secondary propagator sets */
+    const bitboard pp = ~bb (), sp = ~bb ( pc );
+
+    /* Get the opposing concentation. True for north of board, false for south. */
+    const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
+
+    /* Whether should add to transposition table */
+    const bool ttable_store = !has_null && fd_depth <= ttable_max_store_fd_depth && fd_depth >= ttable_min_store_fd_depth;
+
+    /* Whether should try a null move.
+     * Must not have used one before.
+     * Must not be in check.
+     * Reducing depth by null_move_change_depth must cause an odd amount of depth left, and at least 3, and at most null_move_max_search_depth.
+     * There must be at least null_move_min_pieces pieces left for this color.
+     * There must be pieces for this color other than the king and pawns.
+     */
+    const bool try_null_move = !has_null && !check_vectors && depth >= 3 + null_move_change_depth && depth <= null_move_max_search_depth + null_move_change_depth && ( ( depth - null_move_change_depth ) % 2 == 1 ) && bb ( pc ).popcount () >= null_move_min_pieces && ( bb ( pc, ptype::queen ) | bb ( pc, ptype::rook ) | bb ( pc, ptype::bishop ) | bb ( pc, ptype::knight ) );
+
+    /* Clear the move sets */
+    for ( auto& moves : ab_working->moves.at ( fd_depth ) ) moves.clear ();
+
+    /* Get a reference to the killer moves */
+    auto& killer_moves = ab_working->killer_moves.at ( fd_depth );
+
+    /* Enums to store killer move states */
+    enum class killer_move_state_t { unfound, possible, failed };
+    std::pair<killer_move_state_t, killer_move_state_t> killer_move_states { killer_move_state_t::unfound, killer_move_state_t::unfound };
 
 
 
+    /* CHECK FOR LEAF */
+
+    /* If at depth zero, start or continue with quiescence */
+    int static_eval = 0;
+    if ( depth == 0 )
+    {
+        /* If in check increase the depth by 1 */
+        if ( check_vectors ) depth++;
+
+        /* Set flag */
+        quiesce = true;
+
+        /* Get static evaluation */
+        static_eval = evaluate ( pc );
+
+        /* Return immediately if static evaluation is greater than beta, return the evaluation */
+        if ( static_eval >= beta ) return static_eval;
+
+        /* Tune alpha to the static evaluation */
+        alpha = std::max ( alpha, static_eval );
+    }
+
+
+    
     /* TRY A LOOKUP */
 
     /* Only try if in the specified depth range */
-    if ( fd_depth <= ttable_max_search_depth && fd_depth >= ttable_min_search_depth )
+    if ( !has_null && fd_depth <= ttable_max_search_fd_depth && fd_depth >= ttable_min_search_fd_depth )
     {
         /* Try to find the state */
         auto search_it = ab_working->ttable.find ( ab_state_t { * this, pc } );
@@ -1083,56 +1200,25 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
 
 
-    /* SETUP */
+    /* TRY NULL MOVE */
 
-    /* Store the current best value */
-    int best_value = -10000;
+    /* If null move is possible, try it */
+    if ( try_null_move )
+    {
+        /* Apply the null move */
+        int score = -alpha_beta_search_internal ( npc, depth - null_move_change_depth, fd_depth + 2, -beta, -beta + 1, true );
 
-    /* Get the other player */
-    const pcolor npc = other_color ( pc );
-
-    /* Get the check info of pc */
-    const check_info_t check_info = get_check_info ( pc );
-    const bitboard check_vectors = check_info.check_vectors, block_vectors = check_info.block_vectors;
-
-    /* Throw if the opposing king is in check */
-    //if ( is_in_check ( npc ) ) throw std::runtime_error { "Opposing color is in check in alpha_beta_search ()." };
-
-    /* Get king position */
-    const unsigned king_pos = bb ( pc, ptype::king ).trailing_zeros_nocheck ();
-
-    /* Get the straight and diagonal block vectors */
-    const bitboard straight_block_vectors = block_vectors & bitboard::straight_attack_lookup ( king_pos );
-    const bitboard diagonal_block_vectors = block_vectors & bitboard::diagonal_attack_lookup ( king_pos );
-
-    /* See evaluate () # Setup for more info */
-    const bitboard check_vectors_dep_check_count = check_vectors.all_if ( check_vectors.is_empty () ).only_if ( check_vectors.popcount () < 2 );
-
-    /* Get the primary and secondary propagator sets */
-    const bitboard pp = ~bb (), sp = ~bb ( pc );
-
-    /* Get the opposing concentation. True for north of board, false for south. */
-    const bool opposing_conc = ( bb ( npc ) & bitboard { 0xffffffff00000000 } ).popcount () >= ( bb ( npc ) & bitboard { 0x00000000ffffffff } ).popcount ();
-
-    /* Clear the attack sets */
-    for ( auto& attack_set : ab_working->moves [ fd_depth ] ) attack_set.clear ();
-
-    /* Get a reference to the killer moves */
-    auto& killer_moves = ab_working->killer_moves [ fd_depth ];
-
-    /* Enums to store killer move states */
-    enum class killer_move_state_t { unfound, possible, failed };
-    std::pair<killer_move_state_t, killer_move_state_t> killer_move_states { killer_move_state_t::unfound, killer_move_state_t::unfound };
-    
+        /* If proved successful, return */
+        if ( score >= beta ) return score;
+    }
 
 
 
-
-    /* ATTACK LOOP FUNCTOR */
+    /* MOVE LOOP FUNCTOR */
 
     /** @name  apply_moves
      * 
-     * @brief  loops through attacks (captures first) and recursively calls alpha_beta_search on each of them
+     * @brief  loops through moves and recursively calls alpha_beta_search_internal on each of them
      * @param  pt: The type of the piece currently in focus
      * @param  pos_bb: A singleton bitboard for the piece currently in focus
      * @param  moves: The possible moves for that piece
@@ -1178,7 +1264,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             * Switch around and negate alpha and beta, since it is the other player's turn.
             * Since the next move is done by the other player, negate the value.
             */
-            int new_value = -alpha_beta_search ( npc, depth - 1, fd_depth + 1, -beta, -alpha );
+            int new_value = -alpha_beta_search_internal ( npc, ( depth != 0 ? depth - 1 : 0 ), fd_depth + 1, -beta, -alpha, has_null, quiesce );
 
             /* Unset the bits changed for the piece move */
             get_bb ( pc )     &= ~move_pos_bb;
@@ -1203,27 +1289,21 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
                 get_bb ( pc )     |= pos_bb;
                 get_bb ( pc, pt ) |= pos_bb;
 
-                /* If is at the parent node, delete the working values */
-                if ( fd_depth == 0 ) deallocate_ab_working (); else
+                /* Create the move */
+                const move_t move { pc, pt, pos_bb, move_pos_bb };
 
-                /* Otherwise if not at the parent node: */
+                /* If the most recent killer move is not correct, swap the pair */
+                if ( killer_moves.first != move )
                 {
-                    /* Create the killer move */
-                    const move_t killer_move { pt, pos_bb, move_pos_bb };
+                    /* Swap */
+                    std::swap ( killer_moves.first, killer_moves.second );
 
-                    /* If the most recent killer move is not correct, swap the pair */
-                    if ( killer_moves.first != killer_move )
-                    {
-                        /* Swap */
-                        std::swap ( killer_moves.first, killer_moves.second );
-
-                        /* If the most recent killer move is still not correct, replace the most recent killer move */
-                        if ( killer_moves.first != killer_move ) killer_moves.first = killer_move;
-                    }
-
-                    /* If is in the specified depth, add to the transposition table */
-                    if ( fd_depth <= ttable_max_store_depth && fd_depth >= ttable_min_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
+                    /* If the most recent killer move is still not correct, replace the most recent killer move */
+                    if ( killer_moves.first != move ) killer_moves.first = move;
                 }
+
+                /* If is flagged to do so, add to the transposition table */
+                if ( ttable_store ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
 
                 /* Return */
                 return true;
@@ -1239,8 +1319,6 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         /* Return false */
         return false;
     };
-
-
 
 
 
@@ -1355,7 +1433,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             if ( try_killer_move ( ptype::pawn, pos_bb, moves ) ) return best_value;
 
             /* Store pawn moves */
-            ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::pawn ) ].push_back ( std::make_pair ( pos_bb, moves ) );
+            ab_working->moves.at ( fd_depth ).at ( static_cast<int> ( ptype::pawn ) ).push_back ( std::make_pair ( pos_bb, moves ) );
         }
     }
 
@@ -1392,7 +1470,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             if ( try_killer_move ( ptype::knight, pos_bb, attacks ) ) return best_value;
 
             /* Store knight attacks */
-            ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::knight ) ].push_back ( std::make_pair ( pos_bb, attacks ) );
+            ab_working->moves.at ( fd_depth ).at ( static_cast<int> ( ptype::knight ) ).push_back ( std::make_pair ( pos_bb, attacks ) );
         }
     }
 
@@ -1471,7 +1549,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
             if ( try_killer_move ( pt, pos_bb, attacks ) ) return best_value;
 
             /* Store sliding piece attacks */
-            ab_working->moves [ fd_depth ] [ static_cast<int> ( pt ) ].push_back ( std::make_pair ( pos_bb, attacks ) );
+            ab_working->moves.at ( fd_depth ).at ( static_cast<int> ( pt ) ).push_back ( std::make_pair ( pos_bb, attacks ) );
         }
     }
 
@@ -1511,7 +1589,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
         if ( try_killer_move ( ptype::king, king, attacks ) ) return best_value;
 
         /* Store attacks */
-        ab_working->moves [ fd_depth ] [ static_cast<int> ( ptype::king ) ].push_back ( std::make_pair ( king, attacks ) );
+        ab_working->moves.at ( fd_depth ).at ( static_cast<int> ( ptype::king ) ).push_back ( std::make_pair ( king, attacks ) );
     }
 
 
@@ -1519,18 +1597,21 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
 
 
-    /* SEARCH THROUGH ATTACK SETS */
+    /* SEARCH THROUGH MOVES */
 
     /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
-    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves.at ( fd_depth ).at  ( static_cast<int> ( capture_order [ i ] ) ) )
         if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc ) & ~bb ( npc, ptype::pawn ) ) ) return best_value;
             
     /* Look for captures on pawns. Less valuable pieces capturing is more likely to be profitable. */
-    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( capture_order [ i ] ) ] )
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves.at ( fd_depth ).at  ( static_cast<int> ( capture_order [ i ] ) ) )
         if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
 
+    /* Only if not at depth 0 consider non-captures */
+    if ( depth != 0 )
+
     /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
-    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves [ fd_depth ] [ static_cast<int> ( move_order [ i ] ) ] )
+    for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves.at ( fd_depth ).at ( static_cast<int> ( move_order [ i ] ) ) )
         if ( apply_moves ( move_order [ i ], moves.first, moves.second & ~bb ( npc ) ) ) return best_value;
 
 
@@ -1539,12 +1620,9 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
 
     /* FINALLY */
 
-    /* If is at the parent node, delete the working values */
-    if ( fd_depth == 0 ) deallocate_ab_working (); else
+    /* If is flagged to do so, add to the transposition table */
+    if ( ttable_store ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
 
-    /* If is in the specified depth, add to the transposition table */
-    if ( fd_depth <= ttable_max_store_depth && fd_depth >= ttable_min_store_depth ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
-
-    /* Return the best value */
-    return best_value;
+    /* Return the best value, or if quiesceing, return alpha */
+    return ( !quiesce ? best_value : alpha );
 }
