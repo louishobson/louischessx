@@ -230,10 +230,9 @@ public:
      * @brief  Set up and apply the alpha beta search
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
-     * @param  prev_value: A previous value (from depth -2k) used to configure the aspiration window. Defaults to -10000, which means a previous value isn't used.
      * @return int
      */
-    int alpha_beta_search ( pcolor pc, unsigned depth, int prev_value = -10000 );
+    int alpha_beta_search ( pcolor pc, unsigned depth );
 
 
 

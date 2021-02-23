@@ -1034,29 +1034,20 @@ int chess::chessboard::evaluate ( pcolor pc )
  * @brief  Set up and apply the alpha beta search
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
- * @param  prev_value: A previous value (from depth -2k) used to configure the aspiration window. Defaults to -10000, which means a previous value isn't used.
  * @return int
  */
-int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const int prev_value )
+int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth )
 {
     /* Allocate new memory if it does not already exist. */
     if ( !ab_working ) ab_working = new ab_working_t;
 
     /* Allocate the correct depth for moves and killer moves */
-    ab_working->moves.resize ( depth * depth );
-    ab_working->killer_moves.resize ( depth * depth );
-
-    /* If has been given a previous value, configure the window */
-    const int alpha = ( prev_value == -10000 ? -10000 : prev_value - 5 );
-    const int beta  = ( prev_value == -10000 ?  10000 : prev_value + 5 );
-    const bool enable_null_move = !( prev_value == -10000 );
+    ab_working->moves.resize ( 32 );
+    ab_working->killer_moves.resize ( 32 );
 
     /* Call the internal method */
-    int value = alpha_beta_search_internal ( pc, depth, 0, alpha, beta );
-
-    /* If is on a boarder, fall back to the previous value */
-    if ( value == alpha || value == beta ) value = prev_value;
-
+    int value = alpha_beta_search_internal ( pc, depth, 0 );
+    
     /* Delete the memory */
     delete ab_working; ab_working = nullptr;
 
@@ -1144,11 +1135,14 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     /* Whether should try a null move.
      * Must not have used one before.
      * Must not be in check.
-     * Reducing depth by null_move_change_depth must cause an odd amount of depth left, and at least 3, and at most null_move_max_search_depth.
+     * Reducing depth by null_move_change_depth must leave a depth of at least 2, and at most null_move_max_search_depth.
      * There must be at least null_move_min_pieces pieces left for this color.
      * There must be pieces for this color other than the king and pawns.
      */
-    const bool try_null_move = !has_null && !check_vectors && depth >= 3 + null_move_change_depth && depth <= null_move_max_search_depth + null_move_change_depth && ( ( depth - null_move_change_depth ) % 2 == 1 ) && bb ( pc ).popcount () >= null_move_min_pieces && ( bb ( pc, ptype::queen ) | bb ( pc, ptype::rook ) | bb ( pc, ptype::bishop ) | bb ( pc, ptype::knight ) );
+    const bool try_null_move = !has_null && !check_vectors && depth >= 2 + null_move_change_depth && depth <= null_move_max_search_depth + null_move_change_depth && bb ( pc ).popcount () >= null_move_min_pieces && ( bb ( pc, ptype::queen ) | bb ( pc, ptype::rook ) | bb ( pc, ptype::bishop ) | bb ( pc, ptype::knight ) );
+
+    /* If fd_depth is greater than the size of the vectors in ab_working, increase their allocated memory */
+    if ( fd_depth >= ab_working->moves.size () ) { ab_working->moves.resize ( ab_working->moves.size () * 2 ); ab_working->killer_moves.resize ( ab_working->killer_moves.size () * 2 ); }
 
     /* Clear the move sets */
     for ( auto& moves : ab_working->moves.at ( fd_depth ) ) moves.clear ();
