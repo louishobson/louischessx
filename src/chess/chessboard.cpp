@@ -1034,24 +1034,76 @@ int chess::chessboard::evaluate ( pcolor pc )
  * @brief  Set up and apply the alpha beta search
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  end_point: The time point at which the search should be ended, never by default.
  * @return int
  */
-int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth )
+int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const std::chrono::steady_clock::time_point end_point )
 {
     /* Allocate new memory if it does not already exist. */
     if ( !ab_working ) ab_working = new ab_working_t;
 
-    /* Allocate the correct depth for moves and killer moves */
+    /* Allocate the memory for moves and killer moves */
     ab_working->moves.resize ( 32 );
     ab_working->killer_moves.resize ( 32 );
 
     /* Call the internal method */
-    int value = alpha_beta_search_internal ( pc, depth, 0 );
+    int value = alpha_beta_search_internal ( pc, depth, end_point );
     
     /* Delete the memory */
     delete ab_working; ab_working = nullptr;
 
     /* Return the value */
+    return value;
+}
+
+/** @name  alpha_beta_iterative_deepening
+ * 
+ * @brief  Apply an alpha beta search over a range of depths
+ * @param  pc: The color who's move it is next
+ * @param  min_depth: The lower bound of the depths to try
+ * @param  max_depth: The upper bound of the depths to try
+ * @param  end_point: The time point at which the search should be ended
+ * @param  threads: The number of threads to run simultaneously, 0 by default
+ * @return int
+ */
+int chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const unsigned min_depth, const unsigned max_depth, const std::chrono::steady_clock::time_point end_point, unsigned threads )
+{
+    /* If threads == 0, increase it to 1 */
+    if ( threads == 0 ) threads = 1;
+
+    /* Create an array of chessboards and futures for each depth */
+    std::vector<chessboard> cbs { max_depth - min_depth + 1, * this };
+    std::vector<std::future<int>> fts { max_depth - min_depth + 1 };
+
+    /* Set of the first set of futures */
+    for ( unsigned i = 0; i < threads && min_depth + i <= max_depth; ++i ) 
+        fts.at ( i ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, &cbs.at ( i ), pc, min_depth + i, end_point );
+
+    /* The running value */
+    int value = 0;
+
+    /* Wait for each future in turn */
+    for ( unsigned i = 0; min_depth + i <= max_depth; ++i )
+    {
+        /* If the future is invalid, break */
+        if ( !fts.at ( i ).valid () ) break;
+
+        /* Get the next future */
+        int new_value = fts.at ( i ).get ();
+
+        /* Only accept the value if not passed the end point */
+        if ( std::chrono::steady_clock::now () < end_point ) 
+        {
+            /* Set the new value */
+            value = new_value;
+
+            /* Possibly start the next thread */
+            if ( min_depth + i + threads <= max_depth ) 
+                fts.at ( i + threads ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, &cbs.at ( i + threads ), pc, min_depth + i + threads, end_point );
+        }
+    }
+    
+    /* Return the value from the deepest complete search */
     return value;
 }
 
@@ -1061,6 +1113,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  end_point: The time point at which the search should be ended, never by default.
  * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
  * @param  alpha: The maximum value pc has discovered, defaults to -10000.
  * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
@@ -1068,7 +1121,7 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
  * @param  quiesce: Whether quiescence has started, defaults to false.
  * @return int
  */
-int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned depth, unsigned fd_depth, int alpha, int beta, const bool has_null, bool quiesce )
+int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point, unsigned fd_depth, int alpha, int beta, const bool has_null, bool quiesce )
 {
     /* CONSTANTS */
 
@@ -1086,6 +1139,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
 
     /* The number of pieces required for a null move */
     constexpr unsigned null_move_min_pieces = 7;
+
+    /* The minimum depth at which an endpoint cutoff is noticed */
+    constexpr unsigned end_point_cutoff_min_depth = 5;
 
     /* Create a constexpr list of sliding ptypes */
     constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
@@ -1200,7 +1256,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     if ( try_null_move )
     {
         /* Apply the null move */
-        int score = -alpha_beta_search_internal ( npc, depth - null_move_change_depth, fd_depth + 2, -beta, -beta + 1, true );
+        int score = -alpha_beta_search_internal ( npc, depth - null_move_change_depth, end_point, fd_depth + 2, -beta, -beta + 1, true, quiesce );
 
         /* If proved successful, return */
         if ( score >= beta ) return score;
@@ -1258,7 +1314,10 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
             * Switch around and negate alpha and beta, since it is the other player's turn.
             * Since the next move is done by the other player, negate the value.
             */
-            int new_value = -alpha_beta_search_internal ( npc, ( depth != 0 ? depth - 1 : 0 ), fd_depth + 1, -beta, -alpha, has_null, quiesce );
+            int new_value = -alpha_beta_search_internal ( npc, ( depth != 0 ? depth - 1 : 0 ), end_point, fd_depth + 1, -beta, -alpha, has_null, quiesce );
+
+            /* If past the end point, return */
+            if ( depth >= end_point_cutoff_min_depth && std::chrono::steady_clock::now () > end_point ) return true;
 
             /* Unset the bits changed for the piece move */
             get_bb ( pc )     &= ~move_pos_bb;

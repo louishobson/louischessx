@@ -8,7 +8,7 @@ CFLAGS=-std=c++20 -Iinclude -g -O2 -march=native -flto
 
 # g++ setup
 CPP=g++
-CPPFLAGS=-std=c++20 -Iinclude -g -O3 -march=native -flto -pedantic
+CPPFLAGS=-std=c++20 -Iinclude -g -O3 -march=native -flto -pedantic -lpthread
 
 # ar setup
 AR=ar

@@ -26,10 +26,9 @@
 
 
 /* INCLUDES */
-#include <algorithm>
 #include <chess/bitboard.h>
-#include <functional>
 #include <iostream>
+#include <future>
 #include <unordered_map>
 #include <utility>
 #include <string>
@@ -230,9 +229,22 @@ public:
      * @brief  Set up and apply the alpha beta search
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+     * @param  end_point: The time point at which the search should be ended, never by default.
      * @return int
      */
-    int alpha_beta_search ( pcolor pc, unsigned depth );
+    int alpha_beta_search ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () );
+
+    /** @name  alpha_beta_iterative_deepening
+     * 
+     * @brief  Apply an alpha beta search over a range of depths
+     * @param  pc: The color who's move it is next
+     * @param  min_depth: The lower bound of the depths to try
+     * @param  max_depth: The upper bound of the depths to try
+     * @param  end_point: The time point at which the search should be ended
+     * @param  threads: The number of threads to run simultaneously, 0 by default
+     * @return int
+     */
+    int alpha_beta_iterative_deepening ( pcolor pc, unsigned min_depth, unsigned max_depth, std::chrono::steady_clock::time_point end_point, unsigned threads = 0 );
 
 
 
@@ -376,6 +388,7 @@ private:
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+     * @param  end_point: The time point at which the search should be ended, never by default.
      * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
      * @param  alpha: The maximum value pc has discovered, defaults to -10000.
      * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
@@ -383,7 +396,7 @@ private:
      * @param  quiesce: Whether quiescence has started, defaults to false.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned depth, unsigned fd_depth = 0, int alpha = -10000, int beta = 10000, bool has_null = false, bool quiesce = false );
+    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (), unsigned fd_depth = 0, int alpha = -10000, int beta = 10000, bool has_null = false, bool quiesce = false );
 
 
 
