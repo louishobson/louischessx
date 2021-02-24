@@ -311,10 +311,15 @@ inline constexpr chess::bitboard chess::bitboard::fill ( const compass dir, bitb
  *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::flood_fill ( const bitboard p ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::flood_fill ( bitboard p ) const noexcept
 {
     /* x will store the output, prev will remember the result of the previous iteration */
     bitboard x { bits }, prev; 
+
+    /* Add the current state to the propagator set */
+    p |= x;
+
+    /* Iterate over shifts */
     do {
         /* Starting new iteration, so copy x over to prev.
          * Union the east and west shift of x with itself.
@@ -341,6 +346,7 @@ inline constexpr chess::bitboard chess::bitboard::straight_flood_fill ( bitboard
 {
     /* See flood_fill for specifics on the algorithm */
     bitboard x { bits }, prev;
+    p |= x;
     do {
         prev = x;
         x |= x.shift ( compass::n ) | x.shift ( compass::s ) | x.shift ( compass::e ) | x.shift ( compass::w );
@@ -352,6 +358,7 @@ inline constexpr chess::bitboard chess::bitboard::diagonal_flood_fill ( bitboard
 {
     /* See flood_fill for specifics on the algorithm */
     bitboard x { bits }, prev;
+    p |= x;
     do {
         prev = x;
         x |= x.shift ( compass::ne ) | x.shift ( compass::nw ) | x.shift ( compass::se ) | x.shift ( compass::sw );

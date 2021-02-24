@@ -111,6 +111,7 @@ inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
     , castling_rights { other.castling_rights }
 
     /* Don't create ab_working, since it will be created if a search occured */
+    , ab_working { nullptr }
 {}
 
 /** @name  copy assignment operator
@@ -124,7 +125,8 @@ inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other
     type_bbs        = other.type_bbs;
     castling_rights = other.castling_rights;
 
-    /* Don't create ab_working, since it will be created if a search occured */
+    /* Don't copy ab_working, since it will be created if a search occured */
+    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
 
     /* Return this object */
     return * this;

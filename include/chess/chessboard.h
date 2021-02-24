@@ -26,6 +26,7 @@
 
 
 /* INCLUDES */
+#include <algorithm>
 #include <chess/bitboard.h>
 #include <iostream>
 #include <future>
@@ -105,9 +106,6 @@ namespace chess
 class chess::chessboard
 {
 
-    /* Forward declarations */
-    struct check_info_t;
-
 public:
 
     /* CONSTRUCTORS */
@@ -141,6 +139,37 @@ public:
      * @brief  Compares if two chessboards are equal
      */
     bool operator== ( const chessboard& other ) const noexcept;
+
+
+
+    /* PUBLIC TYPES */
+
+    /* Check info */
+    struct check_info_t
+    {
+        /* Check and block vectors */
+        bitboard check_vectors;
+        bitboard block_vectors;
+    };
+
+    /* Move struct */
+    struct move_t
+    {
+        /* Store the color that moved */
+        pcolor pc = pcolor::no_piece;
+
+        /* Store the piece type that moved */
+        ptype pt = ptype::no_piece;
+
+        /* Store the initial and final positions in bitboards */
+        bitboard from_bb, to_bb;
+
+        /* Default comparison operator */
+        bool operator== ( const move_t& other ) const noexcept = default;
+    };
+
+    /* Typedef for a list of moves and their values */
+    typedef std::vector<std::pair<move_t, int>> move_list_t;
 
 
 
@@ -230,9 +259,9 @@ public:
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  end_point: The time point at which the search should be ended, never by default.
-     * @return int
+     * @return An array of moves and their values
      */
-    int alpha_beta_search ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () );
+    move_list_t alpha_beta_search ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () );
 
     /** @name  alpha_beta_iterative_deepening
      * 
@@ -242,9 +271,9 @@ public:
      * @param  max_depth: The upper bound of the depths to try
      * @param  end_point: The time point at which the search should be ended
      * @param  threads: The number of threads to run simultaneously, 0 by default
-     * @return int
+     * @return An array of moves and their values
      */
-    int alpha_beta_iterative_deepening ( pcolor pc, unsigned min_depth, unsigned max_depth, std::chrono::steady_clock::time_point end_point, unsigned threads = 0 );
+    move_list_t alpha_beta_iterative_deepening ( pcolor pc, unsigned min_depth, unsigned max_depth, std::chrono::steady_clock::time_point end_point, unsigned threads = 0 );
 
 
 
@@ -288,30 +317,6 @@ public:
 private:
 
     /* PRIVATE TYPES */
-
-    /* Check info */
-    struct check_info_t
-    {
-        /* Check and block vectors */
-        bitboard check_vectors;
-        bitboard block_vectors;
-    };
-
-    /* Move struct */
-    struct move_t
-    {
-        /* Store the color that moved */
-        pcolor pc = pcolor::no_piece;
-
-        /* Store the piece type that moved */
-        ptype pt = ptype::no_piece;
-
-        /* Store the initial and final positions in bitboards */
-        bitboard from_bb, to_bb;
-
-        /* Default comparison operator */
-        bool operator== ( const move_t& other ) const noexcept = default;
-    };
 
     /* A structure to store a state of alpha-beta search.
      * Defined after chessboard, since is non-trivial and would be clumbersome to define here.
@@ -466,6 +471,9 @@ struct chess::chessboard::ab_working_t
 {
     /* Array of sets of moves */
     std::vector<std::array<std::vector<std::pair<bitboard, bitboard>>, 6>> moves;
+
+    /* An array of root moves and their values */
+    std::vector<std::pair<move_t, int>> root_moves;
 
     /* An array of the two most recent killer moves for each depth */
     std::vector<std::pair<move_t, move_t>> killer_moves;

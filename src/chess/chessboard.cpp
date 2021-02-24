@@ -299,16 +299,6 @@ int chess::chessboard::evaluate ( pcolor pc )
 
 
 
-    /* COUNTER */
-
-    /* Initiate counter */
-    static int counter = 0;
-
-    /* Print every millionth call */
-    if ( ++counter % 1000000 == 0 ) std::cout << counter / 1000000 << "\n";
-
-
-
     /* CONSTANTS */
 
     /* Masks */
@@ -438,7 +428,7 @@ int chess::chessboard::evaluate ( pcolor pc )
      */ 
     const bitboard white_behind_passed_pawns = ( bb ( pcolor::white, ptype::pawn ) & ~white_pawn_rear_span ).span ( compass::s, pp, ~bitboard {} ) & black_semiopen_files;
     const bitboard black_behind_passed_pawns = ( bb ( pcolor::black, ptype::pawn ) & ~black_pawn_rear_span ).span ( compass::n, pp, ~bitboard {} ) & white_semiopen_files;
-    
+
 
 
     /* ACCUMULATORS */
@@ -452,7 +442,6 @@ int chess::chessboard::evaluate ( pcolor pc )
     /* Partial defence unions. Gives cells which are protected by friendly pieces.
      * This is found from the union of all general attacks and can be used to determine opposing king's possible moves.
      * However, blocking sliding pieces' general attacks are not included in this union (due to complexity to calculate), hence 'partial'.
-     * If there are blocking sliding pieces, the opponent's king's attacks must be individually inspected to test if they are legal.
      */
     bitboard white_partial_defence_union, black_partial_defence_union;
 
@@ -470,11 +459,6 @@ int chess::chessboard::evaluate ( pcolor pc )
 
     /* Accumulate bishop or knight captures on enemy straight pieces */
     int diagonal_or_knight_captures_on_straight_diff = 0;
-
-    /* Whether each color has any blocking sliding pieces.
-     * See partial defence unions above as to why these booleans are important.
-     */
-    bool white_has_blocking_sliding_pieces = false, black_has_blocking_sliding_pieces = false;
 
 
 
@@ -575,8 +559,8 @@ int chess::chessboard::evaluate ( pcolor pc )
         bitboard straight_blocking_attacks, diagonal_blocking_attacks;
 
         /* Flood span straight and diagonal (but only if there are pieces to flood) */
-        if ( straight_blocking_pieces ) { straight_blocking_attacks = straight_blocking_pieces.straight_flood_span ( white_straight_block_vectors ); white_has_blocking_sliding_pieces = true; }
-        if ( diagonal_blocking_pieces ) { diagonal_blocking_attacks = diagonal_blocking_pieces.diagonal_flood_span ( white_diagonal_block_vectors ); white_has_blocking_sliding_pieces = true; }
+        if ( straight_blocking_pieces ) straight_blocking_attacks = straight_blocking_pieces.straight_flood_span ( white_straight_block_vectors );
+        if ( diagonal_blocking_pieces ) diagonal_blocking_attacks = diagonal_blocking_pieces.diagonal_flood_span ( white_diagonal_block_vectors );
 
         /* Get the union of blocking attacks */
         const bitboard blocking_attacks = straight_blocking_attacks | diagonal_blocking_attacks;
@@ -621,8 +605,8 @@ int chess::chessboard::evaluate ( pcolor pc )
         bitboard straight_blocking_attacks, diagonal_blocking_attacks;
 
         /* Flood span straight and diagonal (but only if there are pieces to flood) */
-        if ( straight_blocking_pieces ) { straight_blocking_attacks = straight_blocking_pieces.straight_flood_span ( black_straight_block_vectors ); black_has_blocking_sliding_pieces = true; }
-        if ( diagonal_blocking_pieces ) { diagonal_blocking_attacks = diagonal_blocking_pieces.diagonal_flood_span ( black_diagonal_block_vectors ); black_has_blocking_sliding_pieces = true; }
+        if ( straight_blocking_pieces ) straight_blocking_attacks = straight_blocking_pieces.straight_flood_span ( black_straight_block_vectors );
+        if ( diagonal_blocking_pieces ) diagonal_blocking_attacks = diagonal_blocking_pieces.diagonal_flood_span ( black_diagonal_block_vectors );
 
         /* Get the union of blocking attacks */
         const bitboard blocking_attacks = straight_blocking_attacks | diagonal_blocking_attacks;
@@ -729,7 +713,7 @@ int chess::chessboard::evaluate ( pcolor pc )
             white_partial_defence_union |= knight_attacks;
 
             /* Find legal knight attacks. Note that a blocking knight cannot move along its block vector, hence cannot move at all. */
-            knight_attacks = knight_attacks.only_if ( !white_check_vectors.test ( pos ) ) & white_legalize_attacks;
+            knight_attacks = knight_attacks.only_if ( !white_block_vectors.test ( pos ) ) & white_legalize_attacks;
 
             /* Sum mobility */
             white_mobility += knight_attacks.popcount ();
@@ -755,7 +739,7 @@ int chess::chessboard::evaluate ( pcolor pc )
             black_partial_defence_union |= knight_attacks;
 
             /* Find legal knight attacks. Note that a blocking knight cannot move along its block vector, hence cannot move at all. */
-            knight_attacks = knight_attacks.only_if ( !black_check_vectors.test ( pos ) ) & black_legalize_attacks;
+            knight_attacks = knight_attacks.only_if ( !black_block_vectors.test ( pos ) ) & black_legalize_attacks;
 
             /* Sum mobility */
             black_mobility += knight_attacks.popcount ();
@@ -817,8 +801,8 @@ int chess::chessboard::evaluate ( pcolor pc )
          * Blocking pawns can push only if they started and ended within a straight block vector.
          * If in check, ensure that the movements protected the king.
          */
-        const bitboard white_pawn_pushes = white_non_blocking_pawns.pawn_push_n ( pp ) | ( white_straight_blocking_pawns.pawn_push_n ( pp ) & white_straight_block_vectors ) & white_check_vectors_dep_check_count;
-        const bitboard black_pawn_pushes = black_non_blocking_pawns.pawn_push_s ( pp ) | ( black_straight_blocking_pawns.pawn_push_s ( pp ) & black_straight_block_vectors ) & black_check_vectors_dep_check_count;
+        const bitboard white_pawn_pushes = ( white_non_blocking_pawns.pawn_push_n ( pp ) | ( white_straight_blocking_pawns.pawn_push_n ( pp ) & white_straight_block_vectors ) ) & white_check_vectors_dep_check_count;
+        const bitboard black_pawn_pushes = ( black_non_blocking_pawns.pawn_push_s ( pp ) | ( black_straight_blocking_pawns.pawn_push_s ( pp ) & black_straight_block_vectors ) ) & black_check_vectors_dep_check_count;
 
         /* Get general pawn attacks */
         const bitboard white_pawn_attacks = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ) | bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw );
@@ -829,10 +813,10 @@ int chess::chessboard::evaluate ( pcolor pc )
          * Blocking pawns can attack only if they started and ended within a diagonal block vector.
          * If in check, ensure that the movements protected the king.
          */
-        const bitboard white_pawn_captures_e = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::ne ) & white_diagonal_block_vectors ) ) & white_legalize_attacks;
-        const bitboard white_pawn_captures_w = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::nw ) & white_diagonal_block_vectors ) ) & white_legalize_attacks;
-        const bitboard black_pawn_captures_e = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::se ) & black_diagonal_block_vectors ) ) & black_legalize_attacks;
-        const bitboard black_pawn_captures_w = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::sw ) & black_diagonal_block_vectors ) ) & black_legalize_attacks;
+        const bitboard white_pawn_captures_e = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::ne ) & white_diagonal_block_vectors ) ) & bb ( pcolor::black ) & white_legalize_attacks;
+        const bitboard white_pawn_captures_w = ( white_non_blocking_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::nw ) & white_diagonal_block_vectors ) ) & bb ( pcolor::black ) & white_legalize_attacks;
+        const bitboard black_pawn_captures_e = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::se ) & black_diagonal_block_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
+        const bitboard black_pawn_captures_w = ( black_non_blocking_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_blocking_pawns.pawn_attack ( diagonal_compass::sw ) & black_diagonal_block_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
 
 
 
@@ -906,8 +890,7 @@ int chess::chessboard::evaluate ( pcolor pc )
     /* KING ATTACKS */
 
     /* Use the king position to look for possible attacks.
-     * If the opposing player has blocking sliding pieces, then their defence union will be incomplete.
-     * In this case, all king attacks must be individually validated to ensure they don't lead to check.
+     * As well as using the partial defence union, check any left over king moves for check.
      */
 
     /* Scope the new bitboards */
@@ -919,8 +902,8 @@ int chess::chessboard::evaluate ( pcolor pc )
         bitboard white_king_attacks = white_king_span & ~black_king_span & ~bb ( pcolor::white ) & ~black_partial_defence_union;
         bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union;
 
-        /* If there are any possible white king attacks, detect if black defence union is incomplete */
-        if ( white_king_attacks.is_nonempty () & black_has_blocking_sliding_pieces ) 
+        /* Validate the remaining white king moves */
+        if ( white_king_attacks.is_nonempty () ) 
         {
             /* Create a temporary bitboard */
             bitboard white_king_attacks_temp = white_king_attacks;
@@ -943,8 +926,8 @@ int chess::chessboard::evaluate ( pcolor pc )
             get_bb ( pcolor::white, ptype::king ) |= white_king;
         }
 
-        /* If there are any possible black king attacks, detect if white defence union is incomplete */
-        if ( black_king_attacks.is_nonempty () & white_has_blocking_sliding_pieces ) 
+        /* Validate the remaining black king moves */
+        if ( black_king_attacks.is_nonempty () ) 
         {
             /* Create a temporary bitboard */
             bitboard black_king_attacks_temp = black_king_attacks;
@@ -984,8 +967,6 @@ int chess::chessboard::evaluate ( pcolor pc )
          */
         value += KING_QUEEN_MOBILITY * ( white_king_queen_fill.popcount () - black_king_queen_fill.popcount () );
     }
-
-    
 
     /* CHECKMATE */
 
@@ -1035,9 +1016,9 @@ int chess::chessboard::evaluate ( pcolor pc )
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
  * @param  end_point: The time point at which the search should be ended, never by default.
- * @return int
+ * @return An array of moves and their values
  */
-int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const std::chrono::steady_clock::time_point end_point )
+chess::chessboard::move_list_t chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const std::chrono::steady_clock::time_point end_point )
 {
     /* Allocate new memory if it does not already exist. */
     if ( !ab_working ) ab_working = new ab_working_t;
@@ -1046,14 +1027,26 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
     ab_working->moves.resize ( 32 );
     ab_working->killer_moves.resize ( 32 );
 
+    /* Reserve memory for root moves */
+    ab_working->root_moves.reserve ( 128 );
+
     /* Call the internal method */
-    int value = alpha_beta_search_internal ( pc, depth, end_point );
+    alpha_beta_search_internal ( pc, depth, end_point );
+
+    /* Extract the move list */
+    move_list_t moves = std::move ( ab_working->root_moves );
+
+    /* Shrink to fit */
+    moves.shrink_to_fit ();
+
+    /* Order the moves */
+    std::sort ( moves.begin (), moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
     
     /* Delete the memory */
     delete ab_working; ab_working = nullptr;
 
-    /* Return the value */
-    return value;
+    /* Return the moves */
+    return moves;
 }
 
 /** @name  alpha_beta_iterative_deepening
@@ -1064,23 +1057,23 @@ int chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth
  * @param  max_depth: The upper bound of the depths to try
  * @param  end_point: The time point at which the search should be ended
  * @param  threads: The number of threads to run simultaneously, 0 by default
- * @return int
+ * @return An array of moves and their values
  */
-int chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const unsigned min_depth, const unsigned max_depth, const std::chrono::steady_clock::time_point end_point, unsigned threads )
+chess::chessboard::move_list_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const unsigned min_depth, const unsigned max_depth, const std::chrono::steady_clock::time_point end_point, unsigned threads )
 {
     /* If threads == 0, increase it to 1 */
     if ( threads == 0 ) threads = 1;
 
     /* Create an array of chessboards and futures for each depth */
     std::vector<chessboard> cbs { max_depth - min_depth + 1, * this };
-    std::vector<std::future<int>> fts { max_depth - min_depth + 1 };
+    std::vector<std::future<move_list_t>> fts { max_depth - min_depth + 1 };
 
     /* Set of the first set of futures */
     for ( unsigned i = 0; i < threads && min_depth + i <= max_depth; ++i ) 
         fts.at ( i ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, &cbs.at ( i ), pc, min_depth + i, end_point );
 
-    /* The running value */
-    int value = 0;
+    /* The running moves list */
+    move_list_t deepest_moves;
 
     /* Wait for each future in turn */
     for ( unsigned i = 0; min_depth + i <= max_depth; ++i )
@@ -1089,13 +1082,13 @@ int chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const u
         if ( !fts.at ( i ).valid () ) break;
 
         /* Get the next future */
-        int new_value = fts.at ( i ).get ();
+        move_list_t new_moves = fts.at ( i ).get ();
 
-        /* Only accept the value if not passed the end point */
+        /* Only accept the new moves if not passed the end point */
         if ( std::chrono::steady_clock::now () < end_point ) 
         {
-            /* Set the new value */
-            value = new_value;
+            /* Set the deepest moves */
+            deepest_moves = std::move ( new_moves );
 
             /* Possibly start the next thread */
             if ( min_depth + i + threads <= max_depth ) 
@@ -1103,8 +1096,8 @@ int chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const u
         }
     }
     
-    /* Return the value from the deepest complete search */
-    return value;
+    /* Return the moves from the deepest complete search */
+    return deepest_moves;
 }
 
 /** @name  alpha_beta_search_internal
@@ -1150,6 +1143,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     constexpr ptype capture_order [] = { ptype::pawn, ptype::knight, ptype::bishop, ptype::rook, ptype::queen, ptype::king };
     constexpr ptype move_order []    = { ptype::knight, ptype::queen, ptype::rook, ptype::bishop, ptype::pawn, ptype::king };
 
+    /* The top and bottom ranks of the board (to detect pawns being queened) */
+    constexpr bitboard top_and_bottom_ranks { bitboard::masks::rank_1 | bitboard::masks::rank_8 };
+
 
 
     /* SETUP */
@@ -1177,7 +1173,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     const bitboard diagonal_block_vectors = block_vectors & bitboard::diagonal_attack_lookup ( king_pos );
 
     /* See evaluate () # Setup for more info */
-    const bitboard check_vectors_dep_check_count = check_vectors.all_if ( !check_vectors ).only_if ( check_vectors.popcount () < 2 );
+    const bitboard check_vectors_dep_check_count = check_vectors.all_if ( !check_vectors ).only_if ( ( check_vectors & bb ( npc ) ).popcount () < 2 );
 
     /* Get the primary and secondary propagator sets */
     const bitboard pp = ~bb (), sp = ~bb ( pc );
@@ -1203,12 +1199,12 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     /* Clear the move sets */
     for ( auto& moves : ab_working->moves.at ( fd_depth ) ) moves.clear ();
 
-    /* Get a reference to the killer moves */
-    auto& killer_moves = ab_working->killer_moves.at ( fd_depth );
-
     /* Enums to store killer move states */
     enum class killer_move_state_t { unfound, possible, failed };
     std::pair<killer_move_state_t, killer_move_state_t> killer_move_states { killer_move_state_t::unfound, killer_move_state_t::unfound };
+
+    /* Get the current killer moves */
+    auto killer_moves = ab_working->killer_moves.at ( fd_depth );
 
 
 
@@ -1308,16 +1304,21 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
             {
                 get_bb ( npc )             &= ~move_pos_bb;
                 get_bb ( npc, capture_pt ) &= ~move_pos_bb;
-            } 
+            }
+
+            /* Queen pawns */
+            const bitboard queened_pawns = bb ( pc, ptype::pawn ) & top_and_bottom_ranks;
+            if ( queened_pawns )
+            {
+                bb ( pc, ptype::queen ) |=  queened_pawns;
+                bb ( pc, ptype::pawn  ) &= ~queened_pawns;
+            }
 
             /* Recursively call to get the value for this move.
             * Switch around and negate alpha and beta, since it is the other player's turn.
             * Since the next move is done by the other player, negate the value.
             */
             int new_value = -alpha_beta_search_internal ( npc, ( depth != 0 ? depth - 1 : 0 ), end_point, fd_depth + 1, -beta, -alpha, has_null, quiesce );
-
-            /* If past the end point, return */
-            if ( depth >= end_point_cutoff_min_depth && std::chrono::steady_clock::now () > end_point ) return true;
 
             /* Unset the bits changed for the piece move */
             get_bb ( pc )     &= ~move_pos_bb;
@@ -1329,6 +1330,27 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
                 get_bb ( npc )             |= move_pos_bb;
                 get_bb ( npc, capture_pt ) |= move_pos_bb;
             }
+
+            /* Unqueen queened pawns */
+            if ( queened_pawns )
+            {
+                bb ( pc, ptype::queen ) &= ~queened_pawns;
+                bb ( pc, ptype::pawn  ) |=  queened_pawns;
+            }
+
+            /* If past the end point, return */
+            if ( depth >= end_point_cutoff_min_depth && std::chrono::steady_clock::now () > end_point ) 
+            {
+                /* Reset pos in board state */
+                get_bb ( pc )     |= pos_bb;
+                get_bb ( pc, pt ) |= pos_bb;
+
+                /* Return true to cause cutoff */
+                return true;
+            }
+
+            /* If at the parent node, add to the root moves */
+            if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move_t { pc, pt, pos_bb, move_pos_bb }, new_value ) );
 
             /* If the new value is greater than the best value, then reassign the best value.
             * Further check if the new best value is greater than alpha, if so reassign alpha.
@@ -1353,6 +1375,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
 
                     /* If the most recent killer move is still not correct, replace the most recent killer move */
                     if ( killer_moves.first != move ) killer_moves.first = move;
+
+                    /* Copy over the new killer moves */
+                    ab_working->killer_moves.at ( fd_depth ) = killer_moves; 
                 }
 
                 /* If is flagged to do so, add to the transposition table */
@@ -1649,8 +1674,15 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
 
 
 
-
     /* SEARCH THROUGH MOVES */
+
+    /* Look for pawn moves that queen that pawn */
+    for ( auto& moves : ab_working->moves.at ( fd_depth ).at ( static_cast<int> ( ptype::pawn ) ) )
+    {
+        /* Apply the move, then remove those bits */
+        if ( apply_moves ( ptype::pawn, moves.first, moves.second & top_and_bottom_ranks ) ) return best_value; 
+        moves.second &= ~top_and_bottom_ranks;
+    }
 
     /* Look for captures on non-pawns. Less valuable pieces capturing is more likely to be profitable. */
     for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves.at ( fd_depth ).at  ( static_cast<int> ( capture_order [ i ] ) ) )
@@ -1660,7 +1692,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     for ( unsigned i = 0; i < 6; ++i ) for ( auto& moves : ab_working->moves.at ( fd_depth ).at  ( static_cast<int> ( capture_order [ i ] ) ) )
         if ( apply_moves ( capture_order [ i ], moves.first, moves.second & bb ( npc, ptype::pawn ) ) ) return best_value;
 
-    /* Only if not at depth 0 consider non-captures */
+    /* If at depth 0, don't consider non-captures */
     if ( depth != 0 )
 
     /* Look for other moves. Knights are more likely to have a big effect, followed by queens, rooks then bishops. */
@@ -1676,6 +1708,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
     /* If is flagged to do so, add to the transposition table */
     if ( ttable_store ) ab_working->ttable.insert ( std::make_pair ( ab_state_t { * this, pc }, best_value ) );
 
-    /* Return the best value, or if quiesceing, return alpha */
-    return ( !quiesce ? best_value : alpha );
+    /* Return the best value */
+    return best_value;
 }
