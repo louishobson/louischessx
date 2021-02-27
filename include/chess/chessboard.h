@@ -178,26 +178,22 @@ public:
     /** @name  get_bb
      * 
      * @brief  Gets a bitboard, by reference, based on a single piece type
-     * @param  pc: One of pcolor. Undefined behavior if is no_piece.
-     * @param  pt: One of ptype. Undefined behavior if is no_piece.
+     * @param  pc: One of pcolor, undefined behaviour if no_piece.
+     * @param  pt: One of ptype, no_piece by default, which gives all the pieces of that color.
      * @return The bitboard for pt 
      */
-    bitboard& get_bb ( pcolor pc ) noexcept { return color_bbs [ static_cast<int> ( pc ) ]; } 
-    bitboard& get_bb ( pcolor pc, ptype pt ) noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
-    const bitboard& get_bb ( pcolor pc ) const noexcept { return color_bbs [ static_cast<int> ( pc ) ]; }
-    const bitboard& get_bb ( pcolor pc, ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
+    bitboard& get_bb ( pcolor pc, ptype pt = ptype::no_piece ) noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
+    const bitboard& get_bb ( pcolor pc, ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
 
     /** @name  bb
      * 
      * @brief  Gets a bitboard, by copy, based on a single piece type
      * @param  pc: One of pcolor. Undefined behavior if is no_piece.
-     * @param  pt: One of ptype. Undefined behavior if is no_piece.
+     * @param  pt: One of ptype, no_piece by default, which gives all the pieces of that color.
      * @return The bitboard for pt
      */
-    bitboard bb () const noexcept { return bb ( pcolor::white ) | bb ( pcolor::black ); }
-    bitboard bb ( pcolor pc ) const noexcept { return color_bbs [ static_cast<int> ( pc ) ]; }
-    bitboard bb ( pcolor pc, ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
-    bitboard bb ( ptype pt ) const noexcept { return type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::white ) ] | type_bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::black ) ]; }
+    bitboard bb ( pcolor pc, ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
+    bitboard bb ( ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::white ) ] | bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::black ) ]; }
     
     /** @name  can_castle, castle_made, castle_lost
      * 
@@ -352,22 +348,16 @@ private:
 
     /* ATTRIBUTES */
 
-    /* Array of color bitboards */
-    std::array<bitboard, 2> color_bbs
-    {
-        bitboard { 0x000000000000ffff },
-        bitboard { 0xffff000000000000 }
-    };
-
     /* 2D array of type and color bitboards */
-    std::array<std::array<bitboard, 2>, 6> type_bbs
+    std::array<std::array<bitboard, 2>, 7> bbs
     { 
         bitboard { 0x0000000000000010 }, bitboard { 0x0800000000000000 },
         bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 },
         bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 },
         bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 },
         bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 },
-        bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 }
+        bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 },
+        bitboard { 0x000000000000ffff }, bitboard { 0xffff000000000000 }
     };
 
     /* Whether white and black has castling rights.
@@ -395,13 +385,20 @@ private:
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  end_point: The time point at which the search should be ended, never by default.
      * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
-     * @param  alpha: The maximum value pc has discovered, defaults to -10000.
-     * @param  beta:  The minimum value not pc has discovered, defaults to 10000.
+     * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
+     * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @param  has_null: Whether a null move has previously been applied, defaults to false.
      * @param  quiesce: Whether quiescence has started, defaults to false.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (), unsigned fd_depth = 0, int alpha = -10000, int beta = 10000, bool has_null = false, bool quiesce = false );
+    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned depth, 
+        std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (), 
+        unsigned fd_depth = 0, 
+        int alpha         = std::numeric_limits<int>::min () + 1, 
+        int beta          = std::numeric_limits<int>::max (),
+        bool has_null     = false, 
+        bool quiesce      = false 
+    );
 
 
 

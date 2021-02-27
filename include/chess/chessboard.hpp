@@ -106,8 +106,7 @@ inline std::size_t chess::chessboard::hash::operator () ( const move_t& mv ) con
  */
 inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
     /* Initialize values */
-    : color_bbs       { other.color_bbs }
-    , type_bbs        { other.type_bbs }
+    : bbs             { other.bbs }
     , castling_rights { other.castling_rights }
 
     /* Don't create ab_working, since it will be created if a search occured */
@@ -121,8 +120,7 @@ inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
 inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other ) noexcept
 {
     /* Copy over values */
-    color_bbs       = other.color_bbs;
-    type_bbs        = other.type_bbs;
+    bbs             = other.bbs;
     castling_rights = other.castling_rights;
 
     /* Don't copy ab_working, since it will be created if a search occured */
@@ -149,7 +147,7 @@ inline chess::chessboard::~chessboard () noexcept
 inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
 {
     /* Compare and return */
-    return ( ( color_bbs == other.color_bbs ) && ( type_bbs == other.type_bbs ) && ( castling_rights == other.castling_rights ) );
+    return ( ( bbs == other.bbs ) && ( castling_rights == other.castling_rights ) );
 }
 
 
