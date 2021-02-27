@@ -251,7 +251,7 @@ public:
 
     /** @name  alpha_beta_search
      * 
-     * @brief  Set up and apply the alpha beta search
+     * @brief  Set up and apply the alpha-beta search
      * @param  pc: The color who's move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  end_point: The time point at which the search should be ended, never by default.
@@ -261,7 +261,7 @@ public:
 
     /** @name  alpha_beta_iterative_deepening
      * 
-     * @brief  Apply an alpha beta search over a range of depths
+     * @brief  Apply an alpha-beta search over a range of depths
      * @param  pc: The color who's move it is next
      * @param  min_depth: The lower bound of the depths to try
      * @param  max_depth: The upper bound of the depths to try
@@ -370,7 +370,7 @@ private:
      */
     unsigned castling_rights = 0;
 
-    /* A structure containing temporary alpha beta search data */
+    /* A structure containing temporary alpha-beta search data */
     ab_working_t * ab_working = nullptr;
 
 

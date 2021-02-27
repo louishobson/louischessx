@@ -1012,7 +1012,7 @@ int chess::chessboard::evaluate ( pcolor pc )
 
 /** @name  alpha_beta_search
  * 
- * @brief  Set up and apply the alpha beta search
+ * @brief  Set up and apply the alpha-beta search
  * @param  pc: The color who's move it is next
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
  * @param  end_point: The time point at which the search should be ended, never by default.
@@ -1051,7 +1051,7 @@ chess::chessboard::move_list_t chess::chessboard::alpha_beta_search ( const pcol
 
 /** @name  alpha_beta_iterative_deepening
  * 
- * @brief  Apply an alpha beta search over a range of depths
+ * @brief  Apply an alpha-beta search over a range of depths
  * @param  pc: The color who's move it is next
  * @param  min_depth: The lower bound of the depths to try
  * @param  max_depth: The upper bound of the depths to try
@@ -1371,7 +1371,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned de
             {
                 /* If the new value is greater than the best value, then reassign the best value.
                 * Further check if the new best value is greater than alpha, if so reassign alpha.
-                * If alpha is now greater than beta, return true due to an alpha beta cutoff.
+                * If alpha is now greater than beta, return true due to an alpha-beta cutoff.
                 */
                 best_value = std::max ( best_value, new_value );
                 alpha = std::max ( alpha, best_value );
