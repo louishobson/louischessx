@@ -145,31 +145,13 @@ public:
     /* PUBLIC TYPES */
 
     /* Check info */
-    struct check_info_t
-    {
-        /* Check and block vectors */
-        bitboard check_vectors;
-        bitboard block_vectors;
-    };
+    struct check_info_t;
 
     /* Move struct */
-    struct move_t
-    {
-        /* Store the color that moved */
-        pcolor pc = pcolor::no_piece;
+    struct move_t;
 
-        /* Store the piece type that moved */
-        ptype pt = ptype::no_piece;
-
-        /* Store the initial and final positions in bitboards */
-        bitboard from_bb, to_bb;
-
-        /* Default comparison operator */
-        bool operator== ( const move_t& other ) const noexcept = default;
-    };
-
-    /* Typedef for a list of moves and their values */
-    typedef std::vector<std::pair<move_t, int>> move_list_t;
+    /* Typedef for a the result of an alpha beta search */
+    typedef std::vector<std::pair<move_t, int>> ab_result_t;
 
 
 
@@ -195,16 +177,46 @@ public:
     bitboard bb ( pcolor pc, ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
     bitboard bb ( ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::white ) ] | bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::black ) ]; }
     
-    /** @name  can_castle, castle_made, castle_lost
+    /** @name  can_castle, can_kingside_castle, can_queenside_castle, castle_made, castle_lost
      * 
      * @brief  Gets information about castling for each color.
      *         castle_lost gives whether both kingside and castling rights have been lost.
      * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
      * @return boolean
      */
-    bool can_castle  ( pcolor pc ) const noexcept { return castling_rights & ( 0b01010000 << static_cast<int> ( pc ) ); }
-    bool castle_made ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000001 << static_cast<int> ( pc ) ); }
-    bool castle_lost ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000100 << static_cast<int> ( pc ) ); }
+    bool castle_made          ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000001 << static_cast<int> ( pc ) ); }
+    bool castle_lost          ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000100 << static_cast<int> ( pc ) ); }
+    bool can_kingside_castle  ( pcolor pc ) const noexcept { return castling_rights & ( 0b00010000 << static_cast<int> ( pc ) ); }
+    bool can_queenside_castle ( pcolor pc ) const noexcept { return castling_rights & ( 0b01000000 << static_cast<int> ( pc ) ); }
+    bool can_castle           ( pcolor pc ) const noexcept { return castling_rights & ( 0b01010000 << static_cast<int> ( pc ) ); }
+
+    /** @name  set_castle_made, set_castle_lost, set_kingside_castle_lost, set_queenside_castle_lost 
+     * 
+     * @brief  Set information about castling for a color.
+     * @param  pc: One of pcolor.
+     * @return void
+     */
+    void set_castle_made ( pcolor pc ) noexcept { castling_rights &= 0b10101111 << static_cast<int> ( pc ); castling_rights |= 0b00000001 << static_cast<int> ( pc ); }
+    void set_castle_lost ( pcolor pc ) noexcept { castling_rights &= 0b10101111 << static_cast<int> ( pc ); castling_rights |= 0b00000100 << static_cast<int> ( pc ); }
+    void set_kingside_castle_lost  ( pcolor pc ) noexcept { castling_rights &= 0b11101111 << static_cast<int> ( pc ); if ( castle_lost ( pc ) ) castling_rights |= 0b00000100 << static_cast<int> ( pc ); }
+    void set_queenside_castle_lost ( pcolor pc ) noexcept { castling_rights &= 0b10111111 << static_cast<int> ( pc ); if ( castle_lost ( pc ) ) castling_rights |= 0b00000100 << static_cast<int> ( pc ); }
+
+    /** @name  make_move
+     * 
+     * @brief  Apply a move
+     * @param  move: The move to apply
+     * @return The castling rights before the move
+     */
+    int make_move ( const move_t& move ) noexcept;
+
+    /** @name  unmake_move
+     * 
+     * @brief  Unmake a move
+     * @param  move: The move to undo
+     * @param  c_rights: The castling rights before the move
+     * @return void
+     */
+    void unmake_move ( const move_t& move, int c_rights ) noexcept;
 
 
 
@@ -257,7 +269,7 @@ public:
      * @param  end_point: The time point at which the search should be ended, never by default.
      * @return An array of moves and their values
      */
-    move_list_t alpha_beta_search ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () );
+    ab_result_t alpha_beta_search ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () );
 
     /** @name  alpha_beta_iterative_deepening
      * 
@@ -267,9 +279,10 @@ public:
      * @param  max_depth: The upper bound of the depths to try
      * @param  end_point: The time point at which the search should be ended
      * @param  threads: The number of threads to run simultaneously, 0 by default
+     * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
      * @return An array of moves and their values
      */
-    move_list_t alpha_beta_iterative_deepening ( pcolor pc, unsigned min_depth, unsigned max_depth, std::chrono::steady_clock::time_point end_point, unsigned threads = 0 );
+    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, unsigned min_depth, unsigned max_depth, std::chrono::steady_clock::time_point end_point, unsigned threads = 0, bool finish_first = false );
 
 
 
@@ -314,35 +327,17 @@ private:
 
     /* PRIVATE TYPES */
 
-    /* A structure to store a state of alpha-beta search.
-     * Defined after chessboard, since is non-trivial and would be clumbersome to define here.
-     */
+    /* Struct to hash a chessboard or state */
+    struct hash;
+
+    /* A structure to store a state of alpha-beta search */
     struct ab_state_t;
 
-    /* A structure containing temporary alpha-beta search data.
-     * Defined after chessboard, since depends on chessboard being complete.
-     */
+    /* A structure for a ttable entry in alpha-beta search */
+    struct ab_ttable_entry_t;
+
+    /* A structure containing temporary alpha-beta search data */
     struct ab_working_t;
-
-    /* HASHING STRUCT */
-
-    /* struct hash
-     *
-     * Creates a hash for the chessboard
-     */
-    struct hash
-    {
-        /** @name  operator ()
-         * 
-         * @brief  Creates a hash for a chessboard
-         * @param  cb: The chessboard or alpha-beta state to hash
-         * @param  mv: The move to hash
-         * @return The hash
-         */
-        std::size_t operator () ( const chessboard& cb ) const noexcept;
-        std::size_t operator () ( const ab_state_t& cb ) const noexcept;
-        std::size_t operator () ( const move_t& mv ) const noexcept;
-    };
 
 
 
@@ -368,7 +363,7 @@ private:
      *   2: Can kingside castle 
      *   3: Can queenside castle
      */
-    unsigned castling_rights = 0;
+    unsigned castling_rights = 0b11110000;
 
     /* A structure containing temporary alpha-beta search data */
     ab_working_t * ab_working = nullptr;
@@ -382,22 +377,21 @@ private:
      * @brief  Apply an alpha-beta search to a given depth.
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color who's move it is next
-     * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+     * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search
      * @param  end_point: The time point at which the search should be ended, never by default.
-     * @param  fd_depth: The forwards depth, defaults to 0 and should always be 0.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
-     * @param  has_null: Whether a null move has previously been applied, defaults to false.
-     * @param  quiesce: Whether quiescence has started, defaults to false.
+     * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
+     * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
+     * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned depth, 
-        std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (), 
-        unsigned fd_depth = 0, 
-        int alpha         = std::numeric_limits<int>::min () + 1, 
-        int beta          = std::numeric_limits<int>::max (),
-        bool has_null     = false, 
-        bool quiesce      = false 
+    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned bk_depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (),
+        int alpha           = -20000, 
+        int beta            = +20000, 
+        unsigned fd_depth   = 0, 
+        unsigned null_depth = 0, 
+        unsigned q_depth    = 0
     );
 
 
@@ -417,11 +411,63 @@ private:
 
 
 
+/* CHECK_INFO_T DEFINITION */
+
+/* Check info */
+struct chess::chessboard::check_info_t
+{
+    /* Check and block vectors */
+    bitboard check_vectors;
+    bitboard block_vectors;
+};
+
+
+
+/* MOVE_T DEFINITION */
+
+/* Move struct */
+struct chess::chessboard::move_t
+{
+    /* Store the color that moved */
+    pcolor pc = pcolor::no_piece;
+
+    /* Store the piece type that moved and that will be captured */
+    ptype pt = ptype::no_piece, capture_pt = ptype::no_piece;
+
+    /* Store the initial and final positions in bitboards */
+    bitboard from, to;
+
+    /* Boolean as to whether the move queens a pawn */
+    bool queens_pawn = false;
+
+    /* Default comparison operator */
+    bool operator== ( const move_t& other ) const noexcept = default;
+};
+
+
+
+/* HASH DEFINITION */
+
+/* Struct to hash a chessboard or state */
+struct chess::chessboard::hash
+{
+    /** @name  operator ()
+     * 
+     * @brief  Creates a hash for a chessboard
+     * @param  cb: The chessboard or alpha-beta state to hash
+     * @param  mv: The move to hash
+     * @return The hash
+     */
+    std::size_t operator () ( const chessboard& cb ) const noexcept;
+    std::size_t operator () ( const ab_state_t& cb ) const noexcept;
+    std::size_t operator () ( const move_t& mv ) const noexcept;
+};
+
+
+
 /* AB_STATE_T DEFINITION */
 
-/* A structure to store a state of alpha-beta search.
- * Defined after chessboard, since is non-trivial and would be clumbersome to define here.
- */
+/* A structure to store a state of alpha-beta search */
 struct chess::chessboard::ab_state_t
 {
 
@@ -461,13 +507,33 @@ struct chess::chessboard::ab_state_t
 
 
 
+/* AB_TTABLE_ENTRY_T DEFINITION */
+
+/* A structure for a ttable entry in alpha-beta search */
+struct chess::chessboard::ab_ttable_entry_t
+{
+    /* An enum for whether the ttable entry is exact or an upper or lower bound */
+    enum class bound_t { exact, upper, lower };
+
+    /* The value of the ttable entry */
+    int value;
+
+    /* The bk_depth that the entry was made */
+    unsigned bk_depth;
+
+    /* The bound of the ttable entry */
+    bound_t bound;
+};
+
+
+
 /* AB_WORKING_T DEFINITION */
 
 /* A structure containing temporary alpha-beta search data */
 struct chess::chessboard::ab_working_t
 {
     /* Array of sets of moves */
-    std::vector<std::array<std::vector<std::pair<bitboard, bitboard>>, 6>> moves;
+    std::vector<std::array<std::vector<std::pair<bitboard, bitboard>>, 6>> move_sets;
 
     /* An array of root moves and their values */
     std::vector<std::pair<move_t, int>> root_moves;
@@ -476,7 +542,7 @@ struct chess::chessboard::ab_working_t
     std::vector<std::pair<move_t, move_t>> killer_moves;
 
     /* The transposition table */
-    std::unordered_map<ab_state_t, int, hash> ttable;
+    std::unordered_map<ab_state_t, ab_ttable_entry_t, hash> ttable;
 };
 
 

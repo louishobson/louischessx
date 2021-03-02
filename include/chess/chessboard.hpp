@@ -45,6 +45,95 @@ inline constexpr chess::pcolor chess::other_color ( const pcolor pc ) noexcept {
 
 
 
+
+/* MAKE_MOVE IMPLEMENTATION */
+
+/** @name  make_move
+ * 
+ * @brief  Apply a move
+ * @param  move: The move to apply
+ * @return The castling rights before the move
+ */
+inline int chess::chessboard::make_move ( const move_t& move ) noexcept
+{
+    /* Create constexprs for kingside and queenside rooks */
+    constexpr bitboard kingside_rooks { 0x8000000000000001 }, queenside_rooks { 0x0100000000000080 };
+
+    /* Unset the original position of the piece */
+    get_bb ( move.pc )          &= ~move.from;
+    get_bb ( move.pc, move.pt ) &= ~move.from;
+
+    /* Set the new position of the piece */
+    get_bb ( move.pc )          |= move.to;
+    get_bb ( move.pc, move.pt ) |= move.to; 
+
+    /* Remove any captured pieces */
+    if ( move.capture_pt != ptype::no_piece )
+    {
+        get_bb ( other_color ( move.pc ) )                  &= ~move.to;
+        get_bb ( other_color ( move.pc ), move.capture_pt ) &= ~move.to;
+    }
+
+    /* Queen pawns */
+    if ( move.queens_pawn )
+    {
+        get_bb ( move.pc, ptype::queen ) |=  move.to;
+        get_bb ( move.pc, ptype::pawn  ) &= ~move.to;
+    }
+
+    /* Get the castling rights */
+    const int c_rights = castling_rights;
+
+    /* Check for lost castling rights */
+    if ( can_castle ( move.pc ) )
+    {
+        if ( move.pt == ptype::king ) set_castle_lost ( move.pc ); else
+        if ( move.pt == ptype::rook && move.from.contains_any ( kingside_rooks  ) ) set_kingside_castle_lost  ( move.pc ); else
+        if ( move.pt == ptype::rook && move.from.contains_any ( queenside_rooks ) ) set_queenside_castle_lost ( move.pc );
+    }
+
+    /* Return the old castling rights */
+    return c_rights;
+}
+
+/** @name  unmake_move
+ * 
+ * @brief  Unmake a move
+ * @param  move: The move to undo
+ * @param  c_rights: The castling rights before the move
+ * @return void
+ */
+inline void chess::chessboard::unmake_move ( const move_t& move, const int c_rights ) noexcept
+{
+    /* Reset castling rights */
+    castling_rights = c_rights;
+
+    /* Unqueen pawns */
+    if ( move.queens_pawn )
+    {
+        get_bb ( move.pc, ptype::queen ) &= ~move.to;
+        get_bb ( move.pc, ptype::pawn  ) |=  move.to;
+    }
+
+    /* Reset any captured pieces */
+    if ( move.capture_pt != ptype::no_piece )
+    {
+        get_bb ( other_color ( move.pc ) )                  |= move.to;
+        get_bb ( other_color ( move.pc ), move.capture_pt ) |= move.to;
+    }
+
+    /* Unset the new position of the piece */
+    get_bb ( move.pc )          &= ~move.to;
+    get_bb ( move.pc, move.pt ) &= ~move.to; 
+
+    /* Reset the original position of the piece */
+    get_bb ( move.pc )          |= move.from;
+    get_bb ( move.pc, move.pt ) |= move.from;
+}
+
+
+
+
 /* AB_STATE_T IMPLEMENTATION */
 
 /** @name  chessboard constructor
@@ -85,13 +174,24 @@ inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb )
 }
 inline std::size_t chess::chessboard::hash::operator () ( const ab_state_t& cb ) const noexcept
 {
-    /* Simply return the occupied positions */
-    return ( cb.bbs [ 0 ] | cb.bbs [ 1 ] ).get_value ();
+    /* Set the hash to zero initially */
+    bitboard hash_value { 0xcf4c987a6b0979 };
+
+    /* Combine all bitboards into the hash */
+    #pragma clang loop unroll ( full )
+    #pragma GCC unroll 8
+    for ( unsigned i = 0; i < 8; ++i ) hash_value ^= cb.bbs [ i ].bit_rotl ( i * 7 );
+
+    /* Incorporate pc_and_check_info into hash */
+    hash_value ^= bitboard { cb.pc_and_check_info };
+
+    /* Return the hash */
+    return hash_value.get_value ();
 }
 inline std::size_t chess::chessboard::hash::operator () ( const move_t& mv ) const noexcept
 {
-    /* Return union of the positions */
-    return ( mv.from_bb | mv.to_bb ).get_value ();
+    /* Return the hash of the positions */
+    return ( mv.from ^ mv.to.bit_rotl ( 7 ) ).get_value () ^ static_cast<int> ( mv.pc ) ^ static_cast<int> ( mv.pt ) << 1;
 }
 
 
