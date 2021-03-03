@@ -416,9 +416,9 @@ private:
 /* Check info */
 struct chess::chessboard::check_info_t
 {
-    /* Check and block vectors */
+    /* Check and pin vectors */
     bitboard check_vectors;
-    bitboard block_vectors;
+    bitboard pin_vectors;
 };
 
 
@@ -431,14 +431,11 @@ struct chess::chessboard::move_t
     /* Store the color that moved */
     pcolor pc = pcolor::no_piece;
 
-    /* Store the piece type that moved and that will be captured */
-    ptype pt = ptype::no_piece, capture_pt = ptype::no_piece;
+    /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
+    ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
 
     /* Store the initial and final positions in bitboards */
     bitboard from, to;
-
-    /* Boolean as to whether the move queens a pawn */
-    bool queens_pawn = false;
 
     /* Default comparison operator */
     bool operator== ( const move_t& other ) const noexcept = default;

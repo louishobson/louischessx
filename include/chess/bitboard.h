@@ -258,13 +258,13 @@ public:
      */
     constexpr bool contains ( bitboard other ) const noexcept { return ( bits & other.bits ) == other.bits; }
 
-    /** @name  contains_any
+    /** @name  has_common
      * 
      * @brief  Finds if another bitboard has any common set bits
      * @param  other: The bitboard to test against
      * @return boolean
      */
-    constexpr bool contains_any ( bitboard other ) const noexcept { return ( bits & other.bits ) != 0; }
+    constexpr bool has_common ( bitboard other ) const noexcept { return ( bits & other.bits ) != 0; }
 
     /** @name  is_disjoint
      * 

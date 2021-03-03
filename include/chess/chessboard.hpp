@@ -74,11 +74,11 @@ inline int chess::chessboard::make_move ( const move_t& move ) noexcept
         get_bb ( other_color ( move.pc ), move.capture_pt ) &= ~move.to;
     }
 
-    /* Queen pawns */
-    if ( move.queens_pawn )
+    /* Promote pawn */
+    if ( move.promote_pt != ptype::no_piece )
     {
-        get_bb ( move.pc, ptype::queen ) |=  move.to;
-        get_bb ( move.pc, ptype::pawn  ) &= ~move.to;
+        get_bb ( move.pc, move.promote_pt ) |=  move.to;
+        get_bb ( move.pc, ptype::pawn )     &= ~move.to;
     }
 
     /* Get the castling rights */
@@ -88,8 +88,8 @@ inline int chess::chessboard::make_move ( const move_t& move ) noexcept
     if ( can_castle ( move.pc ) )
     {
         if ( move.pt == ptype::king ) set_castle_lost ( move.pc ); else
-        if ( move.pt == ptype::rook && move.from.contains_any ( kingside_rooks  ) ) set_kingside_castle_lost  ( move.pc ); else
-        if ( move.pt == ptype::rook && move.from.contains_any ( queenside_rooks ) ) set_queenside_castle_lost ( move.pc );
+        if ( move.pt == ptype::rook && move.from.has_common ( kingside_rooks  ) ) set_kingside_castle_lost  ( move.pc ); else
+        if ( move.pt == ptype::rook && move.from.has_common ( queenside_rooks ) ) set_queenside_castle_lost ( move.pc );
     }
 
     /* Return the old castling rights */
@@ -108,11 +108,11 @@ inline void chess::chessboard::unmake_move ( const move_t& move, const int c_rig
     /* Reset castling rights */
     castling_rights = c_rights;
 
-    /* Unqueen pawns */
-    if ( move.queens_pawn )
+    /* Unpromote pawn */
+    if ( move.promote_pt != ptype::no_piece )
     {
-        get_bb ( move.pc, ptype::queen ) &= ~move.to;
-        get_bb ( move.pc, ptype::pawn  ) |=  move.to;
+        get_bb ( move.pc, move.promote_pt ) &= ~move.to;
+        get_bb ( move.pc, ptype::pawn )     |=  move.to;
     }
 
     /* Reset any captured pieces */
