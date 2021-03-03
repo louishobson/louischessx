@@ -1143,8 +1143,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth */
     constexpr unsigned NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 6;
 
-    /* The number of pieces required for a null move */
-    constexpr unsigned NULL_MOVE_MIN_PIECES = 7;
+    /* The number of pieces such that if any player has less than this, the game is considered endgame */
+    constexpr unsigned ENDGAME_PIECES = 7;
 
     /* The maximum fd_depth at which an endpoint cutoff is noticed */
     constexpr unsigned END_POINT_CUTOFF_MAX_FD_DEPTH = 5;
@@ -1226,27 +1226,37 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
 
     /* BOOLEAN FLAGS */
 
-    /* Get whether the ttable should be used.
+    /* Get whether we are in the endgame. Any of:
+     * The number of pieces must be less than ENDGAME_PIECES.
+     * There must be pieces other than the king and pawns.
+     */
+    const bool endgame = bb ( pcolor::white ).popcount () < ENDGAME_PIECES || bb ( pcolor::black ).popcount () < ENDGAME_PIECES
+        || !( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) | bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::knight ) )
+        || !( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) | bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::knight ) );
+
+    /* Get whether the ttable should be used. All of:
      * Must not be trying a null move.
      * Must not be quiescing.
      * Must be within the specified fd_depth range.
      */
     bool use_ttable = !null_depth && !q_depth && fd_depth <= TTABLE_MAX_SEARCH_FD_DEPTH && fd_depth >= TTABLE_MIN_SEARCH_FD_DEPTH;
 
-    /* Whether should try a null move.
+    /* Get whether delta pruning should be used. All of:
+     * Must not be the endgame.
+     */
+    const bool use_delta_pruning = !endgame;
+
+    /* Whether should try a null move. All of:
      * Must not already be trying a null move.
+     * Must not be the endgame
      * Must not be quiescing.
      * Must have an fd_depth of at least NULL_MOVE_MIN_FD_DEPTH.
      * Reducing depth by NULL_MOVE_CHANGE_BK_DEPTH must cause a leftover depth within the specified range
      * Must not be in check.
-     * There must be at least NULL_MOVE_MIN_PIECES pieces left for this color.
-     * There must be pieces for this color other than the king and pawns.
      */
-    const bool try_null_move = !null_depth && !q_depth && fd_depth >= NULL_MOVE_MIN_FD_DEPTH && !check_vectors 
+    const bool use_null_move = !null_depth && !endgame && !q_depth && fd_depth >= NULL_MOVE_MIN_FD_DEPTH && !check_vectors 
         && bk_depth >= NULL_MOVE_MIN_LEFTOVER_BK_DEPTH + NULL_MOVE_CHANGE_BK_DEPTH 
-        && bk_depth <= NULL_MOVE_MAX_LEFTOVER_BK_DEPTH + NULL_MOVE_CHANGE_BK_DEPTH 
-        && bb ( pc ).popcount () >= NULL_MOVE_MIN_PIECES 
-        && ( bb ( pc, ptype::queen ) | bb ( pc, ptype::rook ) | bb ( pc, ptype::bishop ) | bb ( pc, ptype::knight ) );
+        && bk_depth <= NULL_MOVE_MAX_LEFTOVER_BK_DEPTH + NULL_MOVE_CHANGE_BK_DEPTH;
 
 
 
@@ -1415,8 +1425,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             /* Else return now if exceeding the max quiescence depth */
             if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return static_eval;
 
-            /* Or return on delta pruning */
-            if ( static_eval + QUIESCENCE_DELTA < alpha ) return static_eval;
+            /* Or return on delta pruning if allowed */
+            if ( use_delta_pruning && static_eval + QUIESCENCE_DELTA < alpha ) return static_eval;
         }
 
         /* Return if static evaluation is greater than beta */
@@ -1431,13 +1441,15 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     /* TRY NULL MOVE */
 
     /* If null move is possible, try it */
-    if ( try_null_move )
+    if ( use_null_move )
     {
         /* Apply the null move */
         int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_point, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
 
-        /* If proved successful, return */
-        if ( score >= beta ) return score;
+        /* If proved successful, return beta.
+         * Don't return score, since the null move will cause extremes of values otherwise.
+         */
+        if ( score >= beta ) return beta;
     }
 
 
