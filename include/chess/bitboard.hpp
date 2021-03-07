@@ -27,6 +27,17 @@
 
 
 
+/** @name  cast_compass
+ * 
+ * @brief  Cast a compass to an integer
+ * @param  dir: The compass to cast
+ * @return unsigned
+ */
+inline constexpr unsigned chess::cast_compass ( compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
+inline constexpr unsigned chess::cast_compass ( knight_compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
+inline constexpr unsigned chess::cast_compass ( straight_compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
+inline constexpr unsigned chess::cast_compass ( diagonal_compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
+
 /** @name  compass_start, knight/straight/diagonal_compass_start
  *
  * @brief  Gives the first direction in a compass (useful for iterating over a compass)
@@ -43,18 +54,18 @@ inline constexpr chess::diagonal_compass chess::diagonal_compass_start () noexce
  * @param  dir: The compass direction to advance.
  * @return A compass
  */
-inline constexpr chess::compass chess::compass_next ( const compass dir ) noexcept { return static_cast<compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
-inline constexpr chess::knight_compass chess::compass_next ( const knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( static_cast<int> ( dir ) + 1 ) & 7 ); }
+inline constexpr chess::compass chess::compass_next ( const compass dir ) noexcept { return static_cast<compass> ( ( cast_compass ( dir ) + 1 ) & 7 ); }
+inline constexpr chess::knight_compass chess::compass_next ( const knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( cast_compass ( dir ) + 1 ) & 7 ); }
 inline constexpr chess::straight_compass chess::compass_next ( const straight_compass dir ) noexcept 
 { 
-    bool add_one = ( static_cast<int> ( dir ) == 3 );
-    return static_cast<straight_compass> ( ( static_cast<int> ( dir ) + 2 - add_one ) & 7 );
+    bool add_one = ( cast_compass ( dir ) == 3 );
+    return static_cast<straight_compass> ( ( cast_compass ( dir ) + 2 - add_one ) & 7 );
 }
 inline constexpr chess::diagonal_compass chess::compass_next ( const diagonal_compass dir ) noexcept 
 { 
-    bool add_one = ( static_cast<int> ( dir ) == 7 );
-    bool add_three = ( static_cast<int> ( dir ) == 2 );
-    return static_cast<diagonal_compass> ( ( static_cast<int> ( dir ) + 2 - add_one + add_three ) & 7 );
+    bool add_one = ( cast_compass ( dir ) == 7 );
+    bool add_three = ( cast_compass ( dir ) == 2 );
+    return static_cast<diagonal_compass> ( ( cast_compass ( dir ) + 2 - add_one + add_three ) & 7 );
 }
 
 

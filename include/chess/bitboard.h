@@ -36,21 +36,32 @@ namespace chess
      *
      * Enum for compass directions
      */
-    enum class compass { sw, s, se, w, e, nw, n, ne };
+    enum class compass : unsigned { sw, s, se, w, e, nw, n, ne };
 
     /* enum knight_compass
      *
      * Enum for knight compass directions
      */
-    enum class knight_compass { ssw, sse, sww, see, nww, nee, nnw, nne };
+    enum class knight_compass : unsigned { ssw, sse, sww, see, nww, nee, nnw, nne };
 
     /* enum straight/diag_compass
      *
      * Enums for straight and diagonal compasses.
      * Can be cast to a normal compass.
      */
-    enum straight_compass { s  = 1, w  = 3, e  = 4, n  = 6 };
-    enum diagonal_compass { sw = 0, se = 2, nw = 5, ne = 7 };
+    enum straight_compass : unsigned { s  = 1, w  = 3, e  = 4, n  = 6 };
+    enum diagonal_compass : unsigned { sw = 0, se = 2, nw = 5, ne = 7 };
+
+    /** @name  cast_compass
+     * 
+     * @brief  Cast a compass to an integer
+     * @param  dir: The compass to cast
+     * @return unsigned
+     */
+    constexpr unsigned cast_compass ( compass dir ) noexcept;
+    constexpr unsigned cast_compass ( knight_compass dir ) noexcept;
+    constexpr unsigned cast_compass ( straight_compass dir ) noexcept;
+    constexpr unsigned cast_compass ( diagonal_compass dir ) noexcept;
 
     /** @name  compass_start, knight/straight/diagonal_compass_start
      * 
@@ -712,6 +723,50 @@ public:
 
 
 
+    /* LOOKUPS */
+
+    /** @name  king_attack_lookup, knight_attack_lookup
+     * 
+     * @brief  Lookup the possible moves of single king or knight
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return bitboard
+     */
+    static constexpr bitboard king_attack_lookup   ( unsigned pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
+    static constexpr bitboard knight_attack_lookup ( unsigned pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
+    static constexpr bitboard king_attack_lookup   ( unsigned rank, unsigned file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
+    static constexpr bitboard knight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
+
+    /** @name  straight_attack_lookup, diagonal_attack_lookup, queen_attack_lookup
+     * 
+     * @brief  Lookup the possible moves of single sliding piece
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return bitboard
+     */
+    static constexpr bitboard straight_attack_lookup ( unsigned pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
+    static constexpr bitboard diagonal_attack_lookup ( unsigned pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
+    static constexpr bitboard queen_attack_lookup    ( unsigned pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
+    static constexpr bitboard straight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard diagonal_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard queen_attack_lookup    ( unsigned rank, unsigned file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
+
+    /** @name  omnidir_attack_lookup
+     * 
+     * @brief  Lookup the possible moves of a single sliding piece in a single direction
+     * @param  dir: The direction to move in
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return bitboard
+     */
+    static constexpr bitboard omnidir_attack_lookup ( compass dir, unsigned pos ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ pos ] }; }
+    static constexpr bitboard omnidir_attack_lookup ( compass dir, unsigned rank, unsigned file ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ rank * 8 + file ] }; }
+
+
+
     /* FORMATTING */
 
     /** @name  format_board
@@ -723,9 +778,20 @@ public:
      */
     std::string format_board ( char zero = '.', char one = '#' ) const;
 
+    /** @name  name_cell
+     * 
+     * @brief  Get the name of the cell at a position
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return string
+     */
+    static std::string name_cell ( unsigned pos ) { return name_cell ( pos / 8, pos % 8 ); }
+    static std::string name_cell ( unsigned rank, unsigned file ) { return std::string { { static_cast<char> ( 'a' + file ), static_cast<char> ( '1' + rank ) } }; };
 
 
-private:
+
+//private:
 
     /* TYPES */
 
@@ -741,32 +807,37 @@ private:
         static constexpr unsigned long long black_squares   { 0xaa55aa55aa55aa55 };
         static constexpr unsigned long long center_squares  { 0x0000001818000000 };
 
-        static constexpr unsigned long long file_a          { 0x0101010101010101 };
-        static constexpr unsigned long long file_b          { 0x0202020202020202 };
-        static constexpr unsigned long long file_c          { 0x0404040404040404 };
-        static constexpr unsigned long long file_d          { 0x0808080808080808 };
-        static constexpr unsigned long long file_e          { 0x1010101010101010 };
-        static constexpr unsigned long long file_f          { 0x2020202020202020 };
-        static constexpr unsigned long long file_g          { 0x4040404040404040 };
-        static constexpr unsigned long long file_h          { 0x8080808080808080 };
+        static constexpr unsigned long long kingside_castle_empty_squares  { 0x6000000000000060 };
+        static constexpr unsigned long long queenside_castle_empty_squares { 0x0e0000000000000e };
+        static constexpr unsigned long long kingside_castle_safe_squares   { 0x7000000000000070 };
+        static constexpr unsigned long long queenside_castle_safe_squares  { 0x1c0000000000001c };
 
-        static constexpr unsigned long long rank_1          { 0x00000000000000ff };
-        static constexpr unsigned long long rank_2          { 0x000000000000ff00 };
-        static constexpr unsigned long long rank_3          { 0x0000000000ff0000 };
-        static constexpr unsigned long long rank_4          { 0x00000000ff000000 };
-        static constexpr unsigned long long rank_5          { 0x000000ff00000000 };
-        static constexpr unsigned long long rank_6          { 0x0000ff0000000000 };
-        static constexpr unsigned long long rank_7          { 0x00ff000000000000 };
-        static constexpr unsigned long long rank_8          { 0xff00000000000000 };
+        static constexpr unsigned long long file_a { 0x0101010101010101 };
+        static constexpr unsigned long long file_b { 0x0202020202020202 };
+        static constexpr unsigned long long file_c { 0x0404040404040404 };
+        static constexpr unsigned long long file_d { 0x0808080808080808 };
+        static constexpr unsigned long long file_e { 0x1010101010101010 };
+        static constexpr unsigned long long file_f { 0x2020202020202020 };
+        static constexpr unsigned long long file_g { 0x4040404040404040 };
+        static constexpr unsigned long long file_h { 0x8080808080808080 };
 
-        static constexpr unsigned long long shift_sw         { ~rank_8 & ~file_h };
-        static constexpr unsigned long long shift_s          {      universe     };
-        static constexpr unsigned long long shift_se         { ~rank_8 & ~file_a };
-        static constexpr unsigned long long shift_w          {           ~file_h };
-        static constexpr unsigned long long shift_e          {           ~file_a };
-        static constexpr unsigned long long shift_nw         { ~rank_1 & ~file_h };
-        static constexpr unsigned long long shift_n          {      universe     };
-        static constexpr unsigned long long shift_ne         { ~rank_1 & ~file_a };
+        static constexpr unsigned long long rank_1 { 0x00000000000000ff };
+        static constexpr unsigned long long rank_2 { 0x000000000000ff00 };
+        static constexpr unsigned long long rank_3 { 0x0000000000ff0000 };
+        static constexpr unsigned long long rank_4 { 0x00000000ff000000 };
+        static constexpr unsigned long long rank_5 { 0x000000ff00000000 };
+        static constexpr unsigned long long rank_6 { 0x0000ff0000000000 };
+        static constexpr unsigned long long rank_7 { 0x00ff000000000000 };
+        static constexpr unsigned long long rank_8 { 0xff00000000000000 };
+
+        static constexpr unsigned long long shift_sw { ~rank_8 & ~file_h };
+        static constexpr unsigned long long shift_s  {      universe     };
+        static constexpr unsigned long long shift_se { ~rank_8 & ~file_a };
+        static constexpr unsigned long long shift_w  {           ~file_h };
+        static constexpr unsigned long long shift_e  {           ~file_a };
+        static constexpr unsigned long long shift_nw { ~rank_1 & ~file_h };
+        static constexpr unsigned long long shift_n  {      universe     };
+        static constexpr unsigned long long shift_ne { ~rank_1 & ~file_a };
 
         static constexpr unsigned long long knight_shift_ssw { ~rank_8 & ~rank_7 & ~file_h           };
         static constexpr unsigned long long knight_shift_sse { ~rank_8 & ~rank_7 & ~file_a           };
@@ -975,50 +1046,10 @@ private:
      * @param  dir: Compass direction
      * @return Shift value or mask
      */
-    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ static_cast<int> ( dir ) ]; }
-    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ static_cast<int> ( dir ) ]; }
-    static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ static_cast<int> ( dir ) ] }; }
-    static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ static_cast<int> ( dir ) ] }; }
-
-    /** @name  king_attack_lookup, knight_attack_lookup
-     * 
-     * @brief  Lookup the possible moves of single king or knight
-     * @param  pos:  The absolute position [0,63]
-     * @param  rank: The rank of the bit [0,7]
-     * @param  file: The file of the bit [0,7]
-     * @return bitboard
-     */
-    static constexpr bitboard king_attack_lookup   ( unsigned pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
-    static constexpr bitboard knight_attack_lookup ( unsigned pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
-    static constexpr bitboard king_attack_lookup   ( unsigned rank, unsigned file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
-    static constexpr bitboard knight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
-
-    /** @name  straight_attack_lookup, diagonal_attack_lookup, queen_attack_lookup
-     * 
-     * @brief  Lookup the possible moves of single sliding piece
-     * @param  pos:  The absolute position [0,63]
-     * @param  rank: The rank of the bit [0,7]
-     * @param  file: The file of the bit [0,7]
-     * @return bitboard
-     */
-    static constexpr bitboard straight_attack_lookup ( unsigned pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
-    static constexpr bitboard diagonal_attack_lookup ( unsigned pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
-    static constexpr bitboard queen_attack_lookup    ( unsigned pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
-    static constexpr bitboard straight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard diagonal_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard queen_attack_lookup    ( unsigned rank, unsigned file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
-
-    /** @name  omnidir_attack_lookup
-     * 
-     * @brief  Lookup the possible moves of a single sliding piece in a single direction
-     * @param  dir: The direction to move in
-     * @param  pos:  The absolute position [0,63]
-     * @param  rank: The rank of the bit [0,7]
-     * @param  file: The file of the bit [0,7]
-     * @return bitboard
-     */
-    static constexpr bitboard omnidir_attack_lookup ( compass dir, unsigned pos ) noexcept { return bitboard { omnidir_attack_lookups [ static_cast<int> ( dir ) ] [ pos ] }; }
-    static constexpr bitboard omnidir_attack_lookup ( compass dir, unsigned rank, unsigned file ) noexcept { return bitboard { omnidir_attack_lookups [ static_cast<int> ( dir ) ] [ rank * 8 + file ] }; }
+    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ cast_compass ( dir ) ]; }
+    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ cast_compass ( dir ) ]; }
+    static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ cast_compass ( dir ) ] }; }
+    static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ cast_compass ( dir ) ] }; }
 
     /** @name  singleton_bitset
      * 
