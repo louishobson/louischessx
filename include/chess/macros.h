@@ -18,6 +18,16 @@
 
 
 
+/* CHESS_VALIDATE
+ *
+ * If defined and set to true, extra checks and throw expressions will be used.
+ */
+#ifndef CHESS_VALIDATE
+    #define CHESS_VALIDATE 1
+#endif
+
+
+
 /** @name  CHESS_GCC_VERSION
  * 
  * @brief  Evaluates to if GCC is greater or equal to the version specified
@@ -30,30 +40,23 @@
 
 
 
-/* chess_has_builtin
+/* CHESS_HAS_BUILTIN
  * 
  * Will check if a builtin is availible (GCC or CLANG)
  */
 #ifdef __has_builtin
-    #define chess_has_builtin( b ) __has_builtin ( __builtin_ ## b )
+    #define CHESS_HAS_BUILTIN( b ) __has_builtin ( __builtin_ ## b )
 #else
-    #define chess_has_builtin( b ) 0
+    #define CHESS_HAS_BUILTIN( b ) 0
 #endif
 
 
 
-
-/* chess_inline
+/* chess_validate_throw
  *
- * Force the method to be inlined
+ * Enables noexcept only if extra validation is disabled.
  */
-#define chess_inline [[ gnu::always_inline ]]
-
-/* chess_inline_constexpr
- *
- * Force the method to be inlined and constexpr
- */
-#define chess_inline_constexpr [[ gnu::always_inline ]] constexpr
+#define chess_validate_throw noexcept ( !CHESS_VALIDATE )
 
 /* chess_hot
  *
@@ -69,7 +72,7 @@
  * @param  x: The integer
  * @return The number of set zeros
  */
-#if chess_has_builtin ( popcountll ) // CHESS_GCC_VERSION ( 3, 4, 6 )
+#if CHESS_HAS_BUILTIN ( popcountll ) // CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_POPCOUNT64( x ) __builtin_popcountll ( x )
 #endif
 
@@ -81,10 +84,10 @@
  * @param  x: The integer
  * @return The number of leading/trailing zeros
  */
-#if chess_has_builtin ( clzll )  //CHESS_GCC_VERSION ( 3, 4, 6 )
+#if CHESS_HAS_BUILTIN ( clzll )  //CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_CLZ64( x ) __builtin_clzll ( x )
 #endif
-#if chess_has_builtin ( ctzll )
+#if CHESS_HAS_BUILTIN ( ctzll )
     #define CHESS_BUILTIN_CTZ64( x ) __builtin_ctzll ( x )
 #endif
 
@@ -96,7 +99,7 @@
  * @param  x: The integer
  * @return The swapped integer
  */
-#if chess_has_builtin ( bswap64 ) // CHESS_GCC_VERSION ( 3, 4, 6 )
+#if CHESS_HAS_BUILTIN ( bswap64 ) // CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_BSWAP64( x ) __builtin_bswap64 ( x )
 #endif
 
@@ -110,10 +113,10 @@
  * @return The swapped integer
  */
 /*
-#if chess_has_builtin ( rotateleft64 )
+#if CHESS_HAS_BUILTIN ( rotateleft64 )
     #define CHESS_BUILTIN_ROL64( x, o ) __builtin_rotateleft64 ( x, o )
 #endif
-#if chess_has_builtin ( rotateright64 )
+#if CHESS_HAS_BUILTIN ( rotateright64 )
     #define CHESS_BUILTIN_ROR64( x, o ) __builtin_rotateright64 ( x, o )
 #endif
 */
@@ -127,7 +130,7 @@
  * @return The reversed integer
  */
 /*
-#if chess_has_builtin ( bitreverse64 ) // CHESS_GCC_VERSION ( 3, 4, 6 )
+#if CHESS_HAS_BUILTIN ( bitreverse64 ) // CHESS_GCC_VERSION ( 3, 4, 6 )
     #define CHESS_BUILTIN_REVERSE64( x ) __builtin_bitreverse64 ( x )
 #endif
 */

@@ -28,6 +28,7 @@
 /* INCLUDES */
 #include <algorithm>
 #include <chess/bitboard.h>
+#include <chess/macros.h>
 #include <iostream>
 #include <future>
 #include <unordered_map>
@@ -48,7 +49,7 @@ namespace chess
      *
      * Enum values for different colors of piece (not types)
      */
-    enum class pcolor
+    enum class pcolor : unsigned
     {
         white,
         black,
@@ -59,7 +60,7 @@ namespace chess
      *
      * Enum values for different types of piece (not colors)
      */
-    enum class ptype
+    enum class ptype : unsigned
     {
         queen,
         rook,
@@ -67,6 +68,7 @@ namespace chess
         knight,
         pawn,
         king,
+        any_piece,
         no_piece
     };
 
@@ -76,7 +78,7 @@ namespace chess
      * @param  pc: The piece color to cast. Undefined behavior if is no_piece.
      * @return bool
      */
-    constexpr bool bool_color ( pcolor pc ) noexcept;
+    constexpr bool bool_color ( pcolor pc ) chess_validate_throw;
 
     /** @name  other_color
      * 
@@ -84,7 +86,43 @@ namespace chess
      * @param  pc: The piece color to switch. Undefined behavior if is no_piece.
      * @return The other color of piece
      */
-    constexpr pcolor other_color ( pcolor pc ) noexcept;
+    constexpr pcolor other_color ( pcolor pc ) chess_validate_throw;
+
+    /** @name  cast_penum
+     * 
+     * @brief  Casts a penum to its underlying type
+     * @param  pc: The piece color to cast
+     * @param  pt: The piece type to cast
+     * @return unsigned
+     */
+    constexpr unsigned cast_penum ( pcolor pc ) noexcept;
+    constexpr unsigned cast_penum ( ptype  pt ) noexcept;
+
+    /** @name  ptype_start
+     * 
+     * @brief  Gives the first ptype in order to iterate through them.
+     * @return ptype
+     */
+    constexpr ptype ptype_start () noexcept;
+
+    /** @name  ptype_next
+     * 
+     * @brief  Gives the next ptype, looping to the beginning before any_piece.
+     * @param  pt: The type to increment.
+     * @return ptype
+     */
+    constexpr ptype ptype_next ( ptype pt ) noexcept;
+
+    /** @name  check_penum
+     * 
+     * @brief  This function does nothing if validation is disabled.
+     *         Otherwise, it takes a pc and pt to be used to access the bbs array, and validate that they are possible.
+     * @param  pc: The piece color
+     * @param  pt: The piece type. Defaults to any_piece (which will pass).
+     * @return void, but will throw if validation is enabled and pc or pt are out of range.
+     */
+    static void check_penum ( pcolor pc, ptype pt = ptype::any_piece ) chess_validate_throw;
+    static void check_penum ( ptype pt ) chess_validate_throw;
 
 
 
@@ -144,11 +182,11 @@ public:
 
     /* PUBLIC TYPES */
 
+    /* Move class */
+    class move_t;
+
     /* Check info */
     struct check_info_t;
-
-    /* Move struct */
-    struct move_t;
 
     /* Typedef for a the result of an alpha beta search */
     typedef std::vector<std::pair<move_t, int>> ab_result_t;
@@ -160,35 +198,44 @@ public:
     /** @name  get_bb
      * 
      * @brief  Gets a bitboard, by reference, based on a single piece type
-     * @param  pc: One of pcolor, undefined behaviour if no_piece.
-     * @param  pt: One of ptype, no_piece by default, which gives all the pieces of that color.
+     * @param  pc: One of pcolor, undefined behaviour if no_piece and validation is disabled.
+     * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
      * @return The bitboard for pt 
      */
-    bitboard& get_bb ( pcolor pc, ptype pt = ptype::no_piece ) noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
-    const bitboard& get_bb ( pcolor pc, ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
+    bitboard& get_bb ( pcolor pc, ptype pt = ptype::any_piece ) chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
+    const bitboard& get_bb ( pcolor pc, ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
 
     /** @name  bb
      * 
      * @brief  Gets a bitboard, by copy, based on a single piece type
-     * @param  pc: One of pcolor. Undefined behavior if is no_piece.
-     * @param  pt: One of ptype, no_piece by default, which gives all the pieces of that color.
+     * @param  pc: One of pcolor. Undefined behavior if is no_piece and validation is disabled.
+     * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
      * @return The bitboard for pt
      */
-    bitboard bb ( pcolor pc, ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pc ) ]; }
-    bitboard bb ( ptype pt = ptype::no_piece ) const noexcept { return bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::white ) ] | bbs [ static_cast<int> ( pt ) ] [ static_cast<int> ( pcolor::black ) ]; }
+    bitboard bb ( pcolor pc, ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
+    bitboard bb ( ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pcolor::white ) ] | bbs [ cast_penum ( pt ) ] [ cast_penum ( pcolor::black ) ]; }
     
-    /** @name  can_castle, can_kingside_castle, can_queenside_castle, castle_made, castle_lost
+    /** @name  castle_made, castle_lost, has_kingside_castling_rights, has_queenside_castling_rights, has_any_castling_rights
      * 
-     * @brief  Gets information about castling for each color.
-     *         castle_lost gives whether both kingside and castling rights have been lost.
+     * @brief  Gets information about castling rights
      * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
      * @return boolean
      */
-    bool castle_made          ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000001 << static_cast<int> ( pc ) ); }
-    bool castle_lost          ( pcolor pc ) const noexcept { return castling_rights & ( 0b00000100 << static_cast<int> ( pc ) ); }
-    bool can_kingside_castle  ( pcolor pc ) const noexcept { return castling_rights & ( 0b00010000 << static_cast<int> ( pc ) ); }
-    bool can_queenside_castle ( pcolor pc ) const noexcept { return castling_rights & ( 0b01000000 << static_cast<int> ( pc ) ); }
-    bool can_castle           ( pcolor pc ) const noexcept { return castling_rights & ( 0b01010000 << static_cast<int> ( pc ) ); }
+    bool castle_made ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b00000001 << cast_penum ( pc ) ); }
+    bool castle_lost ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b00000100 << cast_penum ( pc ) ); }
+    bool has_kingside_castling_rights  ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b00010000 << cast_penum ( pc ) ); }
+    bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
+    bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
+
+    /** @name  can_castle, can_kingside_castle, can_queenside_castle
+     * 
+     * @brief  Gets information as to whether a color can legally castle given the current state
+     * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
+     * @return boolean
+     */
+    bool can_kingside_castle  ( pcolor pc ) const chess_validate_throw;
+    bool can_queenside_castle ( pcolor pc ) const chess_validate_throw;
+    bool can_castle           ( pcolor pc ) const chess_validate_throw { return can_kingside_castle ( pc ) | can_queenside_castle ( pc ); }
 
     /** @name  set_castle_made, set_castle_lost, set_kingside_castle_lost, set_queenside_castle_lost 
      * 
@@ -196,27 +243,27 @@ public:
      * @param  pc: One of pcolor.
      * @return void
      */
-    void set_castle_made ( pcolor pc ) noexcept { castling_rights &= 0b10101111 << static_cast<int> ( pc ); castling_rights |= 0b00000001 << static_cast<int> ( pc ); }
-    void set_castle_lost ( pcolor pc ) noexcept { castling_rights &= 0b10101111 << static_cast<int> ( pc ); castling_rights |= 0b00000100 << static_cast<int> ( pc ); }
-    void set_kingside_castle_lost  ( pcolor pc ) noexcept { castling_rights &= 0b11101111 << static_cast<int> ( pc ); if ( castle_lost ( pc ) ) castling_rights |= 0b00000100 << static_cast<int> ( pc ); }
-    void set_queenside_castle_lost ( pcolor pc ) noexcept { castling_rights &= 0b10111111 << static_cast<int> ( pc ); if ( castle_lost ( pc ) ) castling_rights |= 0b00000100 << static_cast<int> ( pc ); }
+    void set_castle_made ( pcolor pc ) chess_validate_throw { check_penum ( pc ); castling_rights &= ~( 0b01010000 << cast_penum ( pc ) ); castling_rights |= 0b00000001 << cast_penum ( pc ); }
+    void set_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); castling_rights &= ~( 0b01010000 << cast_penum ( pc ) ); castling_rights |= 0b00000100 << cast_penum ( pc ); }
+    void set_kingside_castle_lost  ( pcolor pc ) chess_validate_throw { check_penum ( pc ); castling_rights &= ~( 0b00010000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) castling_rights |= 0b00000100 << cast_penum ( pc ); }
+    void set_queenside_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); castling_rights &= ~( 0b01000000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) castling_rights |= 0b00000100 << cast_penum ( pc ); }
 
     /** @name  make_move
      * 
-     * @brief  Apply a move
+     * @brief  Apply a move. Assumes all the information about the move is correct and legal.
      * @param  move: The move to apply
      * @return The castling rights before the move
      */
-    int make_move ( const move_t& move ) noexcept;
+    unsigned make_move ( const move_t& move ) chess_validate_throw;
 
     /** @name  unmake_move
      * 
-     * @brief  Unmake a move
+     * @brief  Unmake a move. Assumes that the move was made immediately before this undo function.
      * @param  move: The move to undo
      * @param  c_rights: The castling rights before the move
      * @return void
      */
-    void unmake_move ( const move_t& move, int c_rights ) noexcept;
+    void unmake_move ( const move_t& move, unsigned c_rights ) chess_validate_throw;
 
 
 
@@ -225,7 +272,7 @@ public:
     /** @name  get_check_info
      * 
      * @brief  Get information about the check state of a color's king
-     * @param  pc: The color who's king we will look at
+     * @param  pc: The color whose king we will look at
      * @return check_info_t
      */
     chess_hot check_info_t get_check_info ( pcolor pc ) const;
@@ -238,24 +285,69 @@ public:
      * @param  pos: The position of the cell to check the defence of.
      * @return boolean
      */
-    chess_hot bool is_protected ( pcolor pc, unsigned pos ) const noexcept;  
+    chess_hot bool is_protected ( pcolor pc, unsigned pos ) const chess_validate_throw;  
 
     /** @name  is_in_check
      * 
      * @brief  Similar to is_protected, but considered specifically whether a king is in check
-     * @param  pc: The color who's king we will look at
+     * @param  pc: The color whose king we will look at
      * @return boolean
      */
-    bool is_in_check ( pcolor pc ) const noexcept { return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros_nocheck () ); }
+    bool is_in_check ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros_nocheck () ); }
 
     /** @name  evaluate
      * 
      * @brief  Symmetrically evaluate the board state.
      *         Note that although is non-const, a call to this function will leave the board unmodified.
-     * @param  pc: The color who's move it is next
+     * @param  pc: The color whose move it is next
      * @return Integer value, positive for pc, negative for not pc
      */
     chess_hot int evaluate ( pcolor pc );
+
+
+
+    /* MOVE CALCULATIONS */
+
+    /** @name  get_pawn_move_set
+     * 
+     * @brief  Gets the move set for a pawn
+     * @param  pc: The color who owns the pawn
+     * @param  pos: The position of the pawn
+     * @param  check_info: The check info for pc
+     * @return A bitboard containing the possible moves for the pawn in question
+     */
+    bitboard get_pawn_move_set ( pcolor pc, unsigned pos, const check_info_t& check_info ) const chess_validate_throw;
+
+    /** @name  get_knight_move_set
+     * 
+     * @brief  Gets the move set for a knight
+     * @param  pc: The color who owns the knight
+     * @param  pos: The position of the knight
+     * @param  check_info: The check info for pc
+     * @return A bitboard containing the possible moves for the knight in question
+     */
+    bitboard get_knight_move_set ( pcolor pc, unsigned pos, const check_info_t& check_info ) const chess_validate_throw;
+
+    /** @name  get_sliding_move_set
+     * 
+     * @brief  Gets the move set for a sliding
+     * @param  pc: The color who owns the sliding piece
+     * @param  pt: The type of the sliding piece, undefined if not a sliding piece
+     * @param  pos: The position of the sliding piece
+     * @param  check_info: The check info for pc
+     * @return A bitboard containing the possible moves for the sliding in question
+     */
+    bitboard get_sliding_move_set ( pcolor pc, ptype pt, unsigned pos, const check_info_t& check_info ) const chess_validate_throw;
+
+    /** @name  get_king_move_set
+     * 
+     * @brief  Gets the move set for the king.
+     *         Note that although is non-const, a call to this function will leave the board unmodified.
+     * @param  pc: The color who owns the king
+     * @param  check_info: The check info for pc
+     * @return A bitboard containing the possible moves for the king in question
+     */
+    bitboard get_king_move_set ( pcolor pc, const check_info_t& check_info ) chess_validate_throw;
 
 
 
@@ -264,7 +356,7 @@ public:
     /** @name  alpha_beta_search
      * 
      * @brief  Set up and apply the alpha-beta search
-     * @param  pc: The color who's move it is next
+     * @param  pc: The color whose move it is next
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  end_point: The time point at which the search should be ended, never by default.
      * @return An array of moves and their values
@@ -274,7 +366,7 @@ public:
     /** @name  alpha_beta_iterative_deepening
      * 
      * @brief  Apply an alpha-beta search over a range of depths
-     * @param  pc: The color who's move it is next
+     * @param  pc: The color whose move it is next
      * @param  min_depth: The lower bound of the depths to try
      * @param  max_depth: The upper bound of the depths to try
      * @param  end_point: The time point at which the search should be ended
@@ -295,7 +387,7 @@ public:
      * @param  pos: Board position
      * @return One of pcolor
      */
-    pcolor find_color ( unsigned pos ) const noexcept;
+    pcolor find_color ( unsigned pos ) const chess_validate_throw;
 
     /** @name  find_type
      * 
@@ -306,8 +398,8 @@ public:
      * @param  pos_bb: Singleton bitboard
      * @return One of ptype
      */
-    ptype find_type ( pcolor pc, unsigned pos ) const noexcept;
-    ptype find_type ( pcolor pc, bitboard pos_bb ) const noexcept;
+    ptype find_type ( pcolor pc, unsigned pos ) const chess_validate_throw;
+    ptype find_type ( pcolor pc, bitboard pos_bb ) const chess_validate_throw;
 
 
 
@@ -321,17 +413,26 @@ public:
      */
     std::string simple_format_board () const;
 
+    /** @name  serialize_move
+     * 
+     * @brief  Creates a FIDE standard move description from a move. Assumes that the move is possible and legal.
+     *         Note that although is non-const, a call to this function will leave the board unmodified.
+     * @param  move: The move to serialize
+     * @return string
+     */
+    std::string serialize_move ( const move_t& move );
+
 
 
 private:
 
     /* PRIVATE TYPES */
 
+    /* A structure to store a state of alpha-beta search */
+    class ab_state_t;
+
     /* Struct to hash a chessboard or state */
     struct hash;
-
-    /* A structure to store a state of alpha-beta search */
-    struct ab_state_t;
 
     /* A structure for a ttable entry in alpha-beta search */
     struct ab_ttable_entry_t;
@@ -346,12 +447,12 @@ private:
     /* 2D array of type and color bitboards */
     std::array<std::array<bitboard, 2>, 7> bbs
     { 
-        bitboard { 0x0000000000000010 }, bitboard { 0x0800000000000000 },
+        bitboard { 0x0000000000000008 }, bitboard { 0x0800000000000000 },
         bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 },
         bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 },
         bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 },
         bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 },
-        bitboard { 0x0000000000000008 }, bitboard { 0x1000000000000000 },
+        bitboard { 0x0000000000000010 }, bitboard { 0x1000000000000000 },
         bitboard { 0x000000000000ffff }, bitboard { 0xffff000000000000 }
     };
 
@@ -370,13 +471,20 @@ private:
 
 
 
+    /* STATIC ATTRIBUTES */
+
+    /* The characters used for pieces based on ptype */
+    static constexpr char piece_chars [] = "QRBNPK#.";
+
+
+
     /* SEARCH */
 
     /** @name  alpha_beta_search_internal
      * 
      * @brief  Apply an alpha-beta search to a given depth.
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
-     * @param  pc: The color who's move it is next
+     * @param  pc: The color whose move it is next
      * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search
      * @param  end_point: The time point at which the search should be ended, never by default.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
@@ -396,17 +504,111 @@ private:
 
 
 
-    /* ATTACK LOOKUPS */
+    /* SANITY CHECKS */
 
-    /** @name  any_attack_lookup
+    /** @name  sanity_check_bbs
      * 
-     * @brief  lookup an attack set based on a type
-     * @param  pt: The type of the piece
-     * @param  pos: The position of the piece
-     * @return A bitboard for the attack set
+     * @brief  Sanity check the bitboards describing the board state. 
+     *         If any cell is occupied by multiple pieces, or ptype::any_piece bitboards are not correct, an exception is thrown.
+     *         Does nothing if CHESS_VALIDATE is not set to true.
+     * @return void
      */
-    constexpr bitboard any_attack_lookup ( ptype pt, unsigned pos ) const noexcept;
+    void sanity_check_bbs () const chess_validate_throw;
 
+};
+
+
+
+/* MOVE_T DEFINITION */
+
+/* Move class */
+class chess::chessboard::move_t
+{
+public:
+
+    /* CONSTRUCTORS */
+
+    /** @name  default constructor
+     * 
+     * @brief  Constructs an empty move, which will have no effect when applied
+     */
+    move_t () noexcept = default;
+
+    /** @name  full constructor
+     * 
+     * @brief  Construct with all the requied information
+     */
+    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, unsigned _from, unsigned _to )
+        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }
+    {}
+
+
+
+    /* OPERATORS */
+
+    /* Default comparison operator */
+    bool operator== ( const move_t& other ) const noexcept = default;
+
+
+
+    /* ATTRIBUTES */
+
+    /* Store the color that moved */
+    pcolor pc = pcolor::no_piece;
+
+    /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
+    ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
+
+    /* Store the initial and final positions */
+    unsigned from, to;
+
+};
+
+
+
+/* AB_STATE_T DEFINITION */
+
+/* A class to store a state of alpha-beta search */
+class chess::chessboard::ab_state_t
+{
+public:
+
+    /* CONSTRUCTORS */
+
+    /** @name  default constructor
+     * 
+     * @brief  Unlike chessboard, initialized the state to be an empty board
+     */
+    ab_state_t () noexcept = default;
+
+    /** @name  chessboard constructor
+     * 
+     * @brief  Construct from a chessboard state
+     * @param  cb: The chessboard to construct from
+     * @param  pc: The player whose move it is next
+     */
+    ab_state_t ( const chessboard& cb, pcolor pc ) chess_validate_throw;
+
+
+    
+    /* OPERATORS */
+
+    /** @name  operator==
+     * 
+     * @brief  Compare two alpha-beta states
+     */
+    bool operator== ( const ab_state_t& other ) const noexcept = default;
+
+    
+
+    /* ATTRIBUTES */
+
+    /* Bitboards to store the state */
+    std::array<bitboard, 8> bbs;
+
+    /* Store the next player's turn and castling rights */
+    unsigned pc_and_castling_rights = 0;
+    
 };
 
 
@@ -419,26 +621,21 @@ struct chess::chessboard::check_info_t
     /* Check and pin vectors */
     bitboard check_vectors;
     bitboard pin_vectors;
-};
 
+    /* The number of times this color is in check */
+    unsigned check_count = 0;
 
+    /* Versions of check and pin vectors but on straights and diagonals */
+    bitboard straight_check_vectors, diagonal_check_vectors;
+    bitboard straight_pin_vectors, diagonal_pin_vectors;
 
-/* MOVE_T DEFINITION */
-
-/* Move struct */
-struct chess::chessboard::move_t
-{
-    /* Store the color that moved */
-    pcolor pc = pcolor::no_piece;
-
-    /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
-    ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
-
-    /* Store the initial and final positions in bitboards */
-    bitboard from, to;
-
-    /* Default comparison operator */
-    bool operator== ( const move_t& other ) const noexcept = default;
+    /* check_vectors_dep_check_count
+     * This can be intersected with possible attacks to ensure that the king was protected.
+     * If not in check, the king does not need to be protected so the bitboard is set to universe.
+     * If in check once, every possible move must bloock check, so the bitboard is set to check_vectors.
+     * If in double check, only the king can move so the bitboard is set to empty.
+     */
+    bitboard check_vectors_dep_check_count;
 };
 
 
@@ -455,51 +652,9 @@ struct chess::chessboard::hash
      * @param  mv: The move to hash
      * @return The hash
      */
-    std::size_t operator () ( const chessboard& cb ) const noexcept;
+    std::size_t operator () ( const chessboard& cb ) const chess_validate_throw;
     std::size_t operator () ( const ab_state_t& cb ) const noexcept;
     std::size_t operator () ( const move_t& mv ) const noexcept;
-};
-
-
-
-/* AB_STATE_T DEFINITION */
-
-/* A structure to store a state of alpha-beta search */
-struct chess::chessboard::ab_state_t
-{
-
-    /* CONSTRUCTORS */
-
-    /** @name  default constructor
-     * 
-     * @brief  Unlike chessboard, initialized the state to be an empty board
-     */
-    ab_state_t () noexcept = default;
-
-    /** @name  chessboard constructor
-     * 
-     * @brief  Construct from a chessboard state
-     * @param  cb: The chessboard to construct from
-     * @param  pc: The player who's move it is next
-     */
-    ab_state_t ( const chessboard& cb, pcolor pc ) noexcept;
-
-    /** @name  operator==
-     * 
-     * @brief  Compare two alpha-beta states
-     */
-    bool operator== ( const ab_state_t& other ) const noexcept = default;
-
-    
-
-    /* ATTRIBUTES */
-
-    /* Bitboards to store the state */
-    std::array<bitboard, 8> bbs;
-
-    /* Store the next player's turn and check info */
-    unsigned pc_and_check_info = 0;
-    
 };
 
 
@@ -530,7 +685,7 @@ struct chess::chessboard::ab_ttable_entry_t
 struct chess::chessboard::ab_working_t
 {
     /* Array of sets of moves */
-    std::vector<std::array<std::vector<std::pair<bitboard, bitboard>>, 6>> move_sets;
+    std::vector<std::array<std::vector<std::pair<unsigned, bitboard>>, 6>> move_sets;
 
     /* An array of root moves and their values */
     std::vector<std::pair<move_t, int>> root_moves;
