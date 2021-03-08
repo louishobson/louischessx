@@ -104,7 +104,7 @@ std::string chess::chessboard::serialize_move ( const move_t& move )
  * @param  pc: The color who's king we will look at
  * @return check_info_t
  */
-chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) const
+chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) const chess_validate_throw
 {
     /* SETUP */
 
@@ -199,7 +199,9 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
     /* KING, KNIGHTS AND PAWNS */
 
     /* Throw if kings are adjacent (this should never occur) */
+#if CHESS_VALIDATE
     if ( bitboard::king_attack_lookup ( king_pos ) & bb ( npc, ptype::king ) ) [[ unlikely ]] throw std::runtime_error { "Adjacent king found in check_info ()." };
+#endif
 
     /* Add checking knights */
     check_info.check_vectors |= bitboard::knight_attack_lookup ( king_pos ) & bb ( npc, ptype::knight );
@@ -333,7 +335,7 @@ bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const chess_val
  * @param  pc: The color who's move it is next
  * @return Integer value, positive for pc, negative for not pc
  */
-int chess::chessboard::evaluate ( pcolor pc )
+int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 {
     /* TERMINOLOGY */
 
@@ -937,8 +939,8 @@ int chess::chessboard::evaluate ( pcolor pc )
          * The empty space must not be protected by the opponent, and the kings must not be left adjacent.
          * Note that some illegal attacks may be included here, if there are any opposing pinned sliding pieces.
          */
-        bitboard white_king_attacks = white_king_span & ~black_king_span & ~bb ( pcolor::white ) & ~black_partial_defence_union;
-        bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union;
+        bitboard white_king_attacks = white_king_span & ~black_king_span & ~bb ( pcolor::white ) & ~black_partial_defence_union & ~white_check_info.check_vectors;
+        bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union & ~black_check_info.check_vectors;
 
         /* Validate the remaining white king moves */
         if ( white_king_attacks.is_nonempty () ) 
@@ -1177,7 +1179,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     constexpr unsigned NULL_MOVE_MIN_FD_DEPTH = 2;
 
     /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth */
-    constexpr unsigned NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 6;
+    constexpr unsigned NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
 
     /* The number of pieces such that if any player has less than this, the game is considered endgame */
     constexpr unsigned ENDGAME_PIECES = 8;
@@ -1185,13 +1187,25 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     /* The maximum fd_depth at which an endpoint cutoff is noticed */
     constexpr unsigned END_POINT_CUTOFF_MAX_FD_DEPTH = 5;
 
-    /* Create a constexpr list of sliding ptypes */
-    constexpr ptype sliding_pts [] = { ptype::bishop, ptype::rook, ptype::queen };
 
-    /* Create a constexpr list of the order of examination of pieces */
-    constexpr ptype captor_order_pts [] = { ptype::pawn, ptype::knight, ptype::bishop, ptype::rook, ptype::queen, ptype::king };
-    constexpr ptype captee_order_pts [] = { ptype::queen, ptype::rook, ptype::bishop, ptype::knight, ptype::pawn };
-    constexpr ptype non_capture_order_pts [] = { ptype::knight, ptype::queen, ptype::rook, ptype::bishop, ptype::pawn, ptype::king };
+
+    /* MEMORY ACCESS FUNCTORS */
+
+    /** @name  access_move_sets
+     * 
+     * @brief  Returns a reference to the array of moves for this depth
+     * @param  pt: The piece to get the move array for
+     * @return A reference to that array
+     */
+    auto access_move_sets = [ & ] ( ptype pt ) -> auto& { return ab_working->move_sets.at ( fd_depth ).at ( cast_penum ( pt ) ); };
+
+    /** @name  access_killer_move
+     * 
+     * @brief  Returns a killer move for this depth
+     * @param  index: The index of the killer move (0 or 1)
+     * @return The killer move
+     */
+    auto access_killer_move = [ & ] ( unsigned index ) -> auto& { return ab_working->killer_moves.at ( fd_depth ).at ( index ); };
  
 
 
@@ -1235,16 +1249,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     const bitboard rank_8 { pc == pcolor::white ? bitboard::masks::rank_8 : bitboard::masks::rank_1 };
     const bitboard rank_7 { pc == pcolor::white ? bitboard::masks::rank_7 : bitboard::masks::rank_2 };
 
-    /* Find the quiescence delta */
-    const unsigned quiescence_delta = std::max 
-    ( {
-        bb ( pcolor::white, ptype::queen  ).popcount () * 38, bb ( pcolor::black, ptype::queen  ).popcount () * 38, 
-        bb ( pcolor::white, ptype::rook   ).popcount () * 20, bb ( pcolor::black, ptype::rook   ).popcount () * 20,
-        bb ( pcolor::white, ptype::bishop ).popcount () * 14, bb ( pcolor::black, ptype::bishop ).popcount () * 14,
-        bb ( pcolor::white, ptype::knight ).popcount () * 14, bb ( pcolor::black, ptype::knight ).popcount () * 14,
-        bb ( pcolor::white, ptype::pawn   ).popcount () *  4, bb ( pcolor::black, ptype::pawn   ).popcount () *  4
-    } ) * 1.5 + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 38;
-
     /* Alpha-beta info */
 
     /* Store the current best value.
@@ -1257,9 +1261,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
 
     /* Get the current alpha-beta state */
     const ab_state_t ab_state { * this, pc };
-
-    /* Get the current killer moves */
-    auto killer_moves = ab_working->killer_moves.at ( fd_depth );
 
 
 
@@ -1298,6 +1299,95 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     const bool use_null_move = !null_depth && !endgame && !q_depth && fd_depth >= NULL_MOVE_MIN_FD_DEPTH && !check_info.check_vectors 
         && bk_depth >= NULL_MOVE_MIN_LEFTOVER_BK_DEPTH + NULL_MOVE_CHANGE_BK_DEPTH 
         && bk_depth <= NULL_MOVE_MAX_LEFTOVER_BK_DEPTH + NULL_MOVE_CHANGE_BK_DEPTH;
+
+
+
+    
+    /* TRY A LOOKUP */
+
+    /* Try the ttable */
+    if ( use_ttable )
+    {
+        /* Try to find the state */
+        auto search_it = ab_working->ttable.find ( ab_state );
+
+        /* If an entry is found and we are at least as deep as the entry, either return its value or modify alpha and beta */
+        if ( search_it != ab_working->ttable.end () && bk_depth <= search_it->second.bk_depth )
+        {
+            /* If we are deeper than the value in the ttable, then don't store new values in it */
+            if ( bk_depth < search_it->second.bk_depth ) use_ttable = false;
+
+            /* If the bound is exact, return the entry's value.
+            * If it is a lower bound, modify alpha.
+            * If it is an upper bound, modify beta.
+            */
+            if ( search_it->second.bound == ab_ttable_entry_t::bound_t::exact ) return search_it->second.value;
+            if ( search_it->second.bound == ab_ttable_entry_t::bound_t::lower ) alpha = std::max ( alpha, search_it->second.value ); else
+            if ( search_it->second.bound == ab_ttable_entry_t::bound_t::upper ) beta  = std::min ( beta,  search_it->second.value );
+
+            /* Possibly return now on an alpha-beta cutoff */
+            if ( alpha >= beta ) return alpha; 
+        }
+    }
+
+    /* If we are outside the specified fd_depth range, set use_ttable to false to stop storing new values in the ttable */
+    if ( fd_depth > TTABLE_MAX_STORE_FD_DEPTH || fd_depth < TTABLE_MIN_STORE_FD_DEPTH ) use_ttable = false;
+
+
+
+    /* CHECK FOR LEAF */
+
+    /* If at bk_depth zero, start or continue with quiescence */
+    int static_eval = 0;
+    if ( bk_depth == 0 )
+    {
+        /* Set q_depth if not already */
+        if ( !q_depth ) q_depth = 1;
+
+        /* Get static evaluation */
+        static_eval = evaluate ( pc );
+
+        /* If in check increase the bk_depth by 1 */
+        if ( check_info.check_vectors ) bk_depth++; else 
+        {
+            /* Else return now if exceeding the max quiescence depth */
+            if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return static_eval;
+
+            /* Find the quiescence delta */
+            const unsigned quiescence_delta = std::max 
+            ( { 20,
+                bb ( pcolor::white, ptype::queen  ).popcount () * 38, bb ( pcolor::black, ptype::queen  ).popcount () * 38, 
+                bb ( pcolor::white, ptype::rook   ).popcount () * 20, bb ( pcolor::black, ptype::rook   ).popcount () * 20,
+            } ) * 1.5 + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 38;
+
+            /* Or return on delta pruning if allowed */
+            if ( use_delta_pruning && static_eval + quiescence_delta < alpha ) return static_eval;
+        }
+
+        /* Return if static evaluation is greater than beta */
+        if ( static_eval >= beta ) return beta;
+
+        /* Tune alpha to the static evaluation */
+        alpha = std::max ( alpha, static_eval );
+    }
+
+
+
+    /* TRY NULL MOVE */
+
+    /* If null move is possible, try it */
+    if ( use_null_move )
+    {
+        /* Apply the null move */
+        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_point, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
+
+        /* If proved successful, return beta.
+         * Don't return score, since the null move will cause extremes of values otherwise.
+         */
+        if ( score >= beta ) return beta;
+    }
+
+
 
 
 
@@ -1340,18 +1430,27 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             alpha = std::max ( alpha, best_value );
             if ( alpha >= beta )
             {
-                /* If the most recent killer move is not correct, swap the pair */
-                if ( killer_moves.first != move )
+                /* If the most recent killer move is similar, update its capture type, otherwise update the killer moves */
+                if ( access_killer_move ( 0 ).is_similar ( move ) ) 
                 {
-                    /* Swap */
-                    std::swap ( killer_moves.first, killer_moves.second );
+                    /* Only update the capture type if it was not previously a non-capture.
+                     * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
+                     */
+                    if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
+                } else
+                {
+                    /* Swap the killer moves */
+                    std::swap ( access_killer_move ( 0 ), access_killer_move ( 1 ) );
 
-                    /* If the most recent killer move is still not correct, replace the most recent killer move */
-                    if ( killer_moves.first != move ) killer_moves.first = move;
-
-                    /* Copy over the new killer moves */
-                    ab_working->killer_moves.at ( fd_depth ) = killer_moves; 
-                }                   
+                    /* If the most recent killer move is now similar, update the capture type, else replace it */
+                    if ( access_killer_move ( 0 ).is_similar ( move ) ) 
+                    {
+                        /* Only update the capture type if it was not previously a non-capture.
+                         * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
+                         */
+                        if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
+                    } else access_killer_move ( 0 ) = move;
+                }    
 
                 /* If is flagged to do so, add to the transposition table as a lower bound */
                 if ( use_ttable ) ab_working->ttable.insert_or_assign ( ab_state, ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower } );
@@ -1409,227 +1508,78 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
 
 
 
-    /* ACCESS MOVES FUNCTOR */
+    /* COLLATE MOVE SETS */
 
-    /** @name  access_move_sets
-     * 
-     * @brief  Returns a reference to the array of moves for this depth
-     * @param  pt: The piece to get the move array for
-     * @return A reference to that array
-     */
-    auto access_move_sets = [ & ] ( ptype pt ) -> auto& { return ab_working->move_sets.at ( fd_depth ).at ( cast_penum ( pt ) ); };
-
-
-    
-    /* TRY A LOOKUP */
-
-    /* Try the ttable */
-    if ( use_ttable )
+    /* Iterate through the pieces */
     {
-        /* Try to find the state */
-        auto search_it = ab_working->ttable.find ( ab_state );
-
-        /* If an entry is found and we are at least as deep as the entry, either return its value or modify alpha and beta */
-        if ( search_it != ab_working->ttable.end () && bk_depth <= search_it->second.bk_depth )
+        ptype pt = ptype_start ();
+        #pragma clang loop unroll ( full )
+        #pragma GCC unroll 6
+        for ( unsigned i = 0; i < 6; ++i ) 
         {
-            /* If we are deeper than the value in the ttable, then don't store new values in it */
-            if ( bk_depth < search_it->second.bk_depth ) use_ttable = false;
+            /* Get the pieces */
+            bitboard pieces = bb ( pc, pt ); 
 
-            /* If the bound is exact, return the entry's value.
-            * If it is a lower bound, modify alpha.
-            * If it is an upper bound, modify beta.
-            */
-            if ( search_it->second.bound == ab_ttable_entry_t::bound_t::exact ) return search_it->second.value;
-            if ( search_it->second.bound == ab_ttable_entry_t::bound_t::lower ) alpha = std::max ( alpha, search_it->second.value ); else
-            if ( search_it->second.bound == ab_ttable_entry_t::bound_t::upper ) beta  = std::min ( beta,  search_it->second.value );
+            /* Remove any killer moves */
+            if ( access_killer_move ( 0 ).pt == pt ) pieces.reset ( access_killer_move ( 0 ).from );
+            if ( access_killer_move ( 1 ).pt == pt ) pieces.reset ( access_killer_move ( 1 ).from );
 
-            /* Possibly return now on an alpha-beta cutoff */
-            if ( alpha >= beta ) return alpha; 
-        }
-    }
-
-    /* If we are outside the specified fd_depth range, set use_ttable to false to stop storing new values in the ttable */
-    if ( fd_depth > TTABLE_MAX_STORE_FD_DEPTH || fd_depth < TTABLE_MIN_STORE_FD_DEPTH ) use_ttable = false;
-
-
-
-    /* CHECK FOR LEAF */
-
-    /* If at bk_depth zero, start or continue with quiescence */
-    int static_eval = 0;
-    if ( bk_depth == 0 )
-    {
-        /* Set q_depth if not already */
-        if ( !q_depth ) q_depth = 1;
-
-        /* Get static evaluation */
-        static_eval = evaluate ( pc );
-
-        /* If in check increase the bk_depth by 1 */
-        if ( check_info.check_vectors ) bk_depth++; else 
-        {
-            /* Else return now if exceeding the max quiescence depth */
-            if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return static_eval;
-
-            /* Or return on delta pruning if allowed */
-            if ( use_delta_pruning && static_eval + quiescence_delta < alpha ) return static_eval;
-        }
-
-        /* Return if static evaluation is greater than beta */
-        if ( static_eval >= beta ) return beta;
-
-        /* Tune alpha to the static evaluation */
-        alpha = std::max ( alpha, static_eval );
-    }
-
-
-
-    /* TRY NULL MOVE */
-
-    /* If null move is possible, try it */
-    if ( use_null_move )
-    {
-        /* Apply the null move */
-        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_point, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
-
-        /* If proved successful, return beta.
-         * Don't return score, since the null move will cause extremes of values otherwise.
-         */
-        if ( score >= beta ) return beta;
-    }
-
-
-
-
-
-    /* CASTLING */
-
-    /* If can kingside castle, try immediately */
-    if ( can_kingside_castle ( pc ) ) if ( apply_move ( move_t { pc, ptype::king, ptype::no_piece, ptype::no_piece, king_pos, king_pos + 2 } ) ) return best_value;
-
-    /* If can queenside castle, try immediately */
-    if ( can_queenside_castle ( pc ) ) if ( apply_move ( move_t { pc, ptype::king, ptype::no_piece, ptype::no_piece, king_pos, king_pos - 2 } ) ) return best_value;
-
-
-
-    /* PAWNS */
-    {
-        /* Get the pawns */
-        bitboard pawns = bb ( pc, ptype::pawn ); 
-
-        /* Iterate through the pawns */
-        while ( pawns )
-        {
-            /* Get the position and singleton bitboard of the next pawn and reset that bit.
-             * Favour the further away pawns to encourage them to move towards the other color.
-             */
-            const unsigned pos = ( opposing_conc ? pawns.trailing_zeros_nocheck () : 63 - pawns.leading_zeros_nocheck () );
-            pawns.reset ( pos );
-
-            /* Get the move set */
-            const bitboard move_set = get_pawn_move_set ( pc, pos, check_info );
-
-            /* If the move set is empty, continue, else store the pawn moves */
-            if ( move_set ) access_move_sets ( ptype::pawn ).push_back ( std::make_pair ( pos, move_set ) );
-        }
-    }
-
-
-
-    /* KNIGHTS */
-    {
-        /* Get the knights */
-        bitboard knights = bb ( pc, ptype::knight );
-
-        /* Iterate through the knights */
-        while ( knights )
-        {
-            /* Get the position and singleton bitboard of the next knight and reset that bit.
-             * Favour the further away knights to encourage them to move towards the other color.
-             */
-            const unsigned pos = ( opposing_conc ? knights.trailing_zeros_nocheck () : 63 - knights.leading_zeros_nocheck () );
-            knights.reset ( pos ); 
-
-            /* Get the move set */
-            const bitboard move_set = get_knight_move_set ( pc, pos, check_info );
-
-            /* If the move set is empty, continue, else store the knight moves */
-            if ( move_set ) access_move_sets ( ptype::knight ).push_back ( std::make_pair ( pos, move_set ) );
-        }
-    }
-
-
-
-    /* SLIDING PIECES */
-
-    /* Iterate through the different types of sliding piece */
-    for ( unsigned i = 0; i < 3; ++i )
-    {
-        /* Get the ptype */
-        const ptype pt = sliding_pts [ i ];
-
-        /* Get a temporary version of the bitboard for this type */
-        bitboard pt_set_bb = bb ( pc, pt );
-
-        /* Loop through each piece while there are any left */
-        while ( pt_set_bb )
-        {
-            /* Get the position and singleton bitboard of the next piece and unset that bit */
-            const unsigned pos = pt_set_bb.trailing_zeros_nocheck ();
-            pt_set_bb.reset ( pos );
-
-            /* Get the move set */
-            const bitboard move_set = get_sliding_move_set ( pc, pt, pos, check_info );
-
-            /* If the move set is empty, continue, else store the sliding moves */
-            if ( move_set ) access_move_sets ( pt ).push_back ( std::make_pair ( pos, move_set ) );
-        }
-    }
-
-
-
-    /* KING */
-    {
-        /* Get the move set */
-        const bitboard move_set = get_king_move_set ( pc, check_info );
-
-        /* If the move set is empty, continue, else store the sliding moves */
-        if ( move_set ) access_move_sets ( ptype::king ).push_back ( std::make_pair ( king_pos, move_set ) );
-    }
-
-
-
-
-
-    /* SEARCH THROUGH MOVES */
-
-    /* Look for killer moves */
-    for ( const move_t& killer_move : { killer_moves.first, killer_moves.second } )
-    {
-        /* If the killer move is not set, continue */
-        if ( killer_move.pt == ptype::no_piece ) continue;
-
-        /* Loop through the pieces of this killer move's type */
-        for ( unsigned i = 0; i < access_move_sets ( killer_move.pt ).size (); ++i )
-        {
-            /* Test if this piece has the same position as that of the killer move */
-            if ( access_move_sets ( killer_move.pt ).at ( i ).first == killer_move.from ) 
+            /* Iterate through pieces */
+            while ( pieces )
             {
-                /* Test whether the killer move should be tried, which is true if:
-                 * The killer move is actually legal, even if the move is now a capture, but not if the move is now not a capture.
-                 */
-                if ( access_move_sets ( killer_move.pt ).at ( i ).second.test ( killer_move.to ) && !( access_move_sets ( killer_move.pt ).at ( i ).second & pp && killer_move.capture_pt != ptype::no_piece ) )
+                /* Get the position of the next piece and reset that bit.
+                * Favour the further away pieces to encourage them to move towards the other color.
+                */
+                const unsigned pos = ( opposing_conc ? pieces.trailing_zeros_nocheck () : 63 - pieces.leading_zeros_nocheck () );
+                pieces.reset ( pos );
+
+                /* Get the move set */
+                const bitboard move_set = get_move_set ( pc, pt, pos, check_info );
+
+                /* If the move set is non-empty, store the moves */
+                if ( move_set ) access_move_sets ( pt ).push_back ( std::make_pair ( pos, move_set ) );
+            }
+        
+            /* Increment pt */
+            pt = ptype_next ( pt ); 
+        }
+    }
+
+
+
+    /* KILLER MOVES */
+
+    /* Iterate through the killer moves */
+    for ( unsigned i = 0; i < 2; ++i )
+    {
+        /* Look for the move */
+        if ( access_killer_move ( i ).pt != ptype::no_piece ) for ( unsigned j = 0; j < access_move_sets ( access_killer_move ( i ).pt ).size (); ++j )
+        {
+            /* Get the move set */
+            auto move_set = access_move_sets ( access_killer_move ( i ).pt ).at ( j );
+
+            /* See if this is the correct piece for the move */
+            if ( move_set.first == access_killer_move ( i ).from && move_set.second.test ( access_killer_move ( i ).to ) )
+            {
+                /* Check that the move is still a capture, or is a new capture */
+                if ( access_killer_move ( i ).capture_pt == ptype::no_piece || bb ( npc ).test ( access_killer_move ( i ).to ) )
                 {
-                    /* Try the move. Return on alpha-beta cutoff, otherwise remove this move from this piece's set */
-                    if ( apply_move_set ( killer_move.pt, killer_move.from, singleton_bitboard ( killer_move.to ) ) ) return best_value;
-                    access_move_sets ( killer_move.pt ).at ( i ).second.reset ( killer_move.to );
+                    /* Apply the killer move and return on alpha-beta cutoff */
+                    if ( apply_move_set ( access_killer_move ( i ).pt, move_set.first, singleton_bitboard ( access_killer_move ( i ).to ) ) ) return best_value;
+
+                    /* Unset that bit in the move set */
+                    access_move_sets ( access_killer_move ( i ).pt ).at ( j ).second.reset ( access_killer_move ( i ).to );
                 }
 
-                /* Break, since the killer move was found */
+                /* killer move found, so break */
                 break;
             }
         }
     }
+
+
+
+    /* SEARCH */
 
     /* Look for pawn moves that promite that pawn */
     for ( unsigned i = 0; i < access_move_sets ( ptype::pawn ).size (); ++i )
@@ -1640,26 +1590,33 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     }
 
     /* Loop through the most valuable pieces to capture */
-    for ( unsigned i = 0; i < 5; ++i ) 
     {
-        /* Get the captee type */
-        const ptype captee_pt = captee_order_pts [ i ];
-
-        /* Get this enemy type of piece */
-        const bitboard enemy_captees = bb ( npc, captee_pt );
-
-        /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them */
-        if ( enemy_captees ) for ( unsigned j = 0; j < 6; ++j ) 
+        ptype captee_pt = ptype::queen;
+        for ( unsigned i = 0; i < 5; ++i ) 
         {
-            /* Get the captor type */
-            const ptype captor_pt = captor_order_pts [ j ];
+            /* Get this enemy type of piece */
+            const bitboard enemy_captees = bb ( npc, captee_pt );
 
-            /* Look though the different captors of this type */
-            for ( unsigned k = 0; k < access_move_sets ( captor_pt ).size (); ++k )
+            /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them */
+            if ( enemy_captees ) 
             {
-                /* Try capturing, and return on alpha-beta cutoff */
-                if ( apply_move_set ( captor_pt, access_move_sets ( captor_pt ).at ( k ).first, access_move_sets ( captor_pt ).at ( k ).second & enemy_captees ) ) return best_value;
+                ptype captor_pt = ptype::pawn;
+                for ( unsigned j = 0; j < 6; ++j ) 
+                {
+                    /* Look though the different captors of this type */
+                    for ( unsigned k = 0; k < access_move_sets ( captor_pt ).size (); ++k )
+                    {
+                        /* Try capturing, and return on alpha-beta cutoff */
+                        if ( apply_move_set ( captor_pt, access_move_sets ( captor_pt ).at ( k ).first, access_move_sets ( captor_pt ).at ( k ).second & enemy_captees ) ) return best_value;
+                    }
+
+                    /* Increment the captor */
+                    captor_pt = ptype_inc_value ( captor_pt );
+                }
             }
+
+            /* Decrement the captee */
+            captee_pt = ptype_dec_value ( captee_pt );
         }
     }
 
@@ -1667,17 +1624,18 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     if ( bk_depth != 0 )
     {
         /* Look for non-captures. */
+        ptype pt = ptype::queen;
         for ( unsigned i = 0; i < 6; ++i ) 
         {
-            /* Get the type */
-            const ptype pt = non_capture_order_pts [ i ];
-            
             /* Loop though the pieces of this type */
             for ( unsigned j = 0; j < access_move_sets ( pt ).size (); ++j )
             {
                 /* Try the move, and return on alpha-beta cutoff */ 
                 if ( apply_move_set ( pt, access_move_sets ( pt ).at ( j ).first, access_move_sets ( pt ).at ( j ).second & pp ) ) return best_value;
             }
+
+            /* Decrement the captee */
+            pt = ptype_dec_value ( pt );
         }
     }
 

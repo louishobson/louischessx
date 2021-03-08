@@ -62,11 +62,11 @@ namespace chess
      */
     enum class ptype : unsigned
     {
-        queen,
-        rook,
-        bishop,
-        knight,
         pawn,
+        knight,
+        bishop,
+        rook,
+        queen,
         king,
         any_piece,
         no_piece
@@ -78,7 +78,7 @@ namespace chess
      * @param  pc: The piece color to cast. Undefined behavior if is no_piece.
      * @return bool
      */
-    constexpr bool bool_color ( pcolor pc ) chess_validate_throw;
+    constexpr bool bool_color ( pcolor pc ) noexcept;
 
     /** @name  other_color
      * 
@@ -86,7 +86,7 @@ namespace chess
      * @param  pc: The piece color to switch. Undefined behavior if is no_piece.
      * @return The other color of piece
      */
-    constexpr pcolor other_color ( pcolor pc ) chess_validate_throw;
+    constexpr pcolor other_color ( pcolor pc ) noexcept;
 
     /** @name  cast_penum
      * 
@@ -105,13 +105,15 @@ namespace chess
      */
     constexpr ptype ptype_start () noexcept;
 
-    /** @name  ptype_next
+    /** @name  ptype_next, ptype_inc_value, ptype_dec_value
      * 
      * @brief  Gives the next ptype, looping to the beginning before any_piece.
      * @param  pt: The type to increment.
      * @return ptype
      */
     constexpr ptype ptype_next ( ptype pt ) noexcept;
+    constexpr ptype ptype_inc_value ( ptype pt ) noexcept;
+    constexpr ptype ptype_dec_value ( ptype pt ) noexcept;
 
     /** @name  check_penum
      * 
@@ -227,16 +229,6 @@ public:
     bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
     bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
 
-    /** @name  can_castle, can_kingside_castle, can_queenside_castle
-     * 
-     * @brief  Gets information as to whether a color can legally castle given the current state
-     * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
-     * @return boolean
-     */
-    bool can_kingside_castle  ( pcolor pc ) const chess_validate_throw;
-    bool can_queenside_castle ( pcolor pc ) const chess_validate_throw;
-    bool can_castle           ( pcolor pc ) const chess_validate_throw { return can_kingside_castle ( pc ) | can_queenside_castle ( pc ); }
-
     /** @name  set_castle_made, set_castle_lost, set_kingside_castle_lost, set_queenside_castle_lost 
      * 
      * @brief  Set information about castling for a color.
@@ -275,7 +267,7 @@ public:
      * @param  pc: The color whose king we will look at
      * @return check_info_t
      */
-    chess_hot check_info_t get_check_info ( pcolor pc ) const;
+    chess_hot check_info_t get_check_info ( pcolor pc ) const chess_validate_throw;
 
     /** @name  is_protected
      * 
@@ -295,6 +287,16 @@ public:
      */
     bool is_in_check ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros_nocheck () ); }
 
+    /** @name  can_castle, can_kingside_castle, can_queenside_castle
+     * 
+     * @brief  Gets information as to whether a color can legally castle given the current state
+     * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
+     * @return boolean
+     */
+    bool can_kingside_castle  ( pcolor pc ) const chess_validate_throw;
+    bool can_queenside_castle ( pcolor pc ) const chess_validate_throw;
+    bool can_castle           ( pcolor pc ) const chess_validate_throw { return can_kingside_castle ( pc ) | can_queenside_castle ( pc ); }
+
     /** @name  evaluate
      * 
      * @brief  Symmetrically evaluate the board state.
@@ -302,11 +304,22 @@ public:
      * @param  pc: The color whose move it is next
      * @return Integer value, positive for pc, negative for not pc
      */
-    chess_hot int evaluate ( pcolor pc );
+    chess_hot int evaluate ( pcolor pc ) chess_validate_throw;
 
 
 
     /* MOVE CALCULATIONS */
+
+    /** @name  get_move_set
+     * 
+     * @brief  Gets the move set for a given type and position of piece
+     * @param  pc: The color who owns the pawn
+     * @param  pt: The type of the piece
+     * @param  pos: The position of the pawn
+     * @param  check_info: The check info for pc
+     * @return A bitboard containing the possible moves for the piece in question
+     */
+    bitboard get_move_set ( pcolor pc, ptype pt, unsigned pos, const check_info_t& check_info ) chess_validate_throw;
 
     /** @name  get_pawn_move_set
      * 
@@ -447,11 +460,11 @@ private:
     /* 2D array of type and color bitboards */
     std::array<std::array<bitboard, 2>, 7> bbs
     { 
-        bitboard { 0x0000000000000008 }, bitboard { 0x0800000000000000 },
-        bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 },
-        bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 },
-        bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 },
         bitboard { 0x000000000000ff00 }, bitboard { 0x00ff000000000000 },
+        bitboard { 0x0000000000000042 }, bitboard { 0x4200000000000000 },
+        bitboard { 0x0000000000000024 }, bitboard { 0x2400000000000000 },
+        bitboard { 0x0000000000000081 }, bitboard { 0x8100000000000000 },
+        bitboard { 0x0000000000000008 }, bitboard { 0x0800000000000000 },
         bitboard { 0x0000000000000010 }, bitboard { 0x1000000000000000 },
         bitboard { 0x000000000000ffff }, bitboard { 0xffff000000000000 }
     };
@@ -474,7 +487,7 @@ private:
     /* STATIC ATTRIBUTES */
 
     /* The characters used for pieces based on ptype */
-    static constexpr char piece_chars [] = "QRBNPK#.";
+    static constexpr char piece_chars [] = "PNBRQK#.";
 
 
 
@@ -544,10 +557,19 @@ public:
 
 
 
-    /* OPERATORS */
+    /* OPERATORS AND COMPARISON */
 
     /* Default comparison operator */
     bool operator== ( const move_t& other ) const noexcept = default;
+
+    /** @name  is_similar
+     * 
+     * @brief  Returns true if another move has the same pc, pt, from and to
+     * @param  other: The other move.
+     * @return boolean
+     */
+    bool is_similar ( const move_t& other ) const noexcept 
+        { return pc == other.pc && pt == other.pt && from == other.from && to == other.to; }
 
 
 
@@ -691,7 +713,7 @@ struct chess::chessboard::ab_working_t
     std::vector<std::pair<move_t, int>> root_moves;
 
     /* An array of the two most recent killer moves for each depth */
-    std::vector<std::pair<move_t, move_t>> killer_moves;
+    std::vector<std::array<move_t, 2>> killer_moves;
 
     /* The transposition table */
     std::unordered_map<ab_state_t, ab_ttable_entry_t, hash> ttable;

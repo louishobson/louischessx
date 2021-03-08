@@ -33,7 +33,7 @@
  * @param  pc: The piece color to cast. Undefined behavior if is no_piece.
  * @return bool
  */
-inline constexpr bool chess::bool_color ( const pcolor pc ) chess_validate_throw {  return static_cast<bool> ( pc ); }
+inline constexpr bool chess::bool_color ( const pcolor pc ) noexcept {  return static_cast<bool> ( pc ); }
 
 /** @name  other_color
  * 
@@ -41,7 +41,7 @@ inline constexpr bool chess::bool_color ( const pcolor pc ) chess_validate_throw
  * @param  pc: The piece color to switch. Undefined behavior if is no_piece.
  * @return The other color of piece
  */
-inline constexpr chess::pcolor chess::other_color ( const pcolor pc ) chess_validate_throw { return static_cast<pcolor> ( !static_cast<bool> ( pc ) ); }
+inline constexpr chess::pcolor chess::other_color ( const pcolor pc ) noexcept { return static_cast<pcolor> ( !static_cast<bool> ( pc ) ); }
 
 /** @name  cast_penum
  * 
@@ -58,15 +58,17 @@ inline constexpr unsigned chess::cast_penum ( ptype  pt ) noexcept { return stat
  * @brief  Gives the first ptype in order to iterate through them.
  * @return ptype
  */
-inline constexpr chess::ptype chess::ptype_start () noexcept { return ptype::queen; }
+inline constexpr chess::ptype chess::ptype_start () noexcept { return ptype::pawn; }
 
-/** @name  ptype_next
+/** @name  ptype_next, ptype_inc_value, ptype_dec_value
  * 
  * @brief  Gives the next ptype, looping to the beginning before any_piece.
  * @param  pt: The type to increment.
  * @return ptype
  */
 inline constexpr chess::ptype chess::ptype_next ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<unsigned> ( pt ) + 1 ) % 6 ); }
+inline constexpr chess::ptype chess::ptype_inc_value ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<unsigned> ( pt ) + 1 ) % 6 ); }
+inline constexpr chess::ptype chess::ptype_dec_value ( ptype pt ) noexcept { return static_cast<ptype> ( static_cast<unsigned> ( pt ) == 0 ? 5 : static_cast<unsigned> ( pt ) - 1 ); }
 
 /** @name  check_penum
  * 
@@ -90,6 +92,62 @@ inline void chess::check_penum ( const ptype pt ) chess_validate_throw
 #if CHESS_VALIDATE
     if ( pt == ptype::no_piece  ) throw std::range_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
 #endif
+}
+
+
+
+/* CHESSBOARD CONSTRUCTORS AND OPERATORS */
+
+
+
+/** @name  copy constructor
+ * 
+ * @brief  Copy constructs the chess board
+ */
+inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
+    /* Initialize values */
+    : bbs             { other.bbs }
+    , castling_rights { other.castling_rights }
+
+    /* Don't create ab_working, since it will be created if a search occured */
+    , ab_working { nullptr }
+{}
+
+/** @name  copy assignment operator
+ * 
+ * @brief  Copy assigns the chess board
+ */
+inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other ) noexcept
+{
+    /* Copy over values */
+    bbs             = other.bbs;
+    castling_rights = other.castling_rights;
+
+    /* Don't copy ab_working, since it will be created if a search occured */
+    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
+
+    /* Return this object */
+    return * this;
+}
+
+/** @name  destructor
+ * 
+ * @brief  Destructs the chessboard
+ */
+inline chess::chessboard::~chessboard () noexcept
+{
+    /* Destroy the working values, if not already */
+    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
+}
+
+/** @name  operator==
+ * 
+ * @brief  Compares if two chessboards are equal
+ */
+inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
+{
+    /* Compare and return */
+    return ( ( bbs == other.bbs ) && ( castling_rights == other.castling_rights ) );
 }
 
 
@@ -216,8 +274,8 @@ inline unsigned chess::chessboard::make_move ( const move_t& move ) chess_valida
         set_castle_made ( move.pc );
     }
 
-    /* Else set castling rights to be completely lost */
-    else set_castle_lost ( move.pc );
+    /* Else set castling rights to be completely lost if king moved */
+    else if ( move.pt == ptype::king ) set_castle_lost ( move.pc );
 
     /* Set lost castling rights */
     if ( has_kingside_castling_rights  ( pcolor::white ) && !bb ( pcolor::white, ptype::rook ).test (  7 ) ) set_kingside_castle_lost   ( pcolor::white );
@@ -295,6 +353,36 @@ inline void chess::chessboard::unmake_move ( const move_t& move, const unsigned 
 /* MOVE CALCULATIONS */
 
 
+
+/** @name  get_move_set
+ * 
+ * @brief  Gets the move set for a given type and position of piece
+ * @param  pc: The color who owns the pawn
+ * @param  pt: The type of the piece
+ * @param  pos: The position of the pawn
+ * @param  check_info: The check info for pc
+ * @return A bitboard containing the possible moves for the piece in question
+ */
+inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, unsigned pos, const check_info_t& check_info ) chess_validate_throw
+{
+    /* Switch depending on pt */
+    switch ( pt )
+    {
+    case ptype::pawn   : return get_pawn_move_set    ( pc, pos, check_info );
+    case ptype::knight : return get_knight_move_set  ( pc, pos, check_info );
+    case ptype::bishop : return get_sliding_move_set ( pc, ptype::bishop, pos, check_info );
+    case ptype::rook   : return get_sliding_move_set ( pc, ptype::rook,   pos, check_info );
+    case ptype::queen  : return get_sliding_move_set ( pc, ptype::queen,  pos, check_info );
+    case ptype::king   : return get_king_move_set    ( pc, check_info );
+    }
+
+    /* Throw if validation is enabled, otherwise return an empty bitboard */
+#if CHESS_VALIDATE
+    throw std::runtime_error { "Recieved invalid piece type in get_move_set" };
+#else
+    return bitboard {};
+#endif
+}
 
 /** @name  get_pawn_move_set
  * 
@@ -456,6 +544,10 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     get_bb ( pc )              |= king;
     get_bb ( pc, ptype::king ) |= king;
 
+    /* Add castling moves */
+    if ( can_kingside_castle  ( pc ) ) moves |= king.shift ( compass::e ).shift ( compass::e );
+    if ( can_queenside_castle ( pc ) ) moves |= king.shift ( compass::w ).shift ( compass::w );
+
     /* Return the moves */
     return moves;
 }
@@ -568,14 +660,14 @@ inline void chess::chessboard::sanity_check_bbs () const chess_validate_throw
  */
 inline chess::chessboard::ab_state_t::ab_state_t ( const chessboard& cb, pcolor pc ) chess_validate_throw : bbs 
 {
+    cb.bb ( ptype::pawn   ),
+    cb.bb ( ptype::knight ),
+    cb.bb ( ptype::bishop ),
+    cb.bb ( ptype::rook   ),
+    cb.bb ( ptype::queen  ),
+    cb.bb ( ptype::king   ),
     cb.bb ( pcolor::white ),
     cb.bb ( pcolor::black ),
-    cb.bb ( ptype::queen  ),
-    cb.bb ( ptype::rook   ),
-    cb.bb ( ptype::bishop ),
-    cb.bb ( ptype::knight ),
-    cb.bb ( ptype::pawn   ),
-    cb.bb ( ptype::king   )
 }, pc_and_castling_rights { cast_penum ( pc ) | cb.castling_rights << 1 } {}
 
 
@@ -630,61 +722,6 @@ inline std::size_t chess::chessboard::hash::operator () ( const move_t& mv ) con
     return mv.from ^ mv.to ^ cast_penum ( mv.pc ) ^ cast_penum ( mv.pt ) << 1 ^ cast_penum ( mv.capture_pt ) << 5 ^ cast_penum ( mv.promote_pt ) << 9;
 }
 
-
-
-/* CHESSBOARD CONSTRUCTORS AND OPERATORS */
-
-
-
-/** @name  copy constructor
- * 
- * @brief  Copy constructs the chess board
- */
-inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
-    /* Initialize values */
-    : bbs             { other.bbs }
-    , castling_rights { other.castling_rights }
-
-    /* Don't create ab_working, since it will be created if a search occured */
-    , ab_working { nullptr }
-{}
-
-/** @name  copy assignment operator
- * 
- * @brief  Copy assigns the chess board
- */
-inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other ) noexcept
-{
-    /* Copy over values */
-    bbs             = other.bbs;
-    castling_rights = other.castling_rights;
-
-    /* Don't copy ab_working, since it will be created if a search occured */
-    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
-
-    /* Return this object */
-    return * this;
-}
-
-/** @name  destructor
- * 
- * @brief  Destructs the chessboard
- */
-inline chess::chessboard::~chessboard () noexcept
-{
-    /* Destroy the working values, if not already */
-    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
-}
-
-/** @name  operator==
- * 
- * @brief  Compares if two chessboards are equal
- */
-inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
-{
-    /* Compare and return */
-    return ( ( bbs == other.bbs ) && ( castling_rights == other.castling_rights ) );
-}
 
 
 
