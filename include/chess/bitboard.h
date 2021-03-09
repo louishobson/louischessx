@@ -114,8 +114,8 @@ namespace chess
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    constexpr bitboard singleton_bitboard ( unsigned pos ) noexcept;
-    constexpr bitboard singleton_bitboard ( unsigned rank, unsigned file ) noexcept;
+    constexpr bitboard singleton_bitboard ( int pos ) noexcept;
+    constexpr bitboard singleton_bitboard ( int rank, int file ) noexcept;
 }
 
 
@@ -673,12 +673,12 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return void
      */
-    constexpr void set    ( unsigned pos ) noexcept { bits |=  singleton_bitset ( pos ); }
-    constexpr void reset  ( unsigned pos ) noexcept { bits &= ~singleton_bitset ( pos ); }
-    constexpr void toggle ( unsigned pos ) noexcept { bits ^=  singleton_bitset ( pos ); }
-    constexpr void set    ( unsigned rank, unsigned file ) noexcept { bits |=  singleton_bitset ( rank, file ); }
-    constexpr void reset  ( unsigned rank, unsigned file ) noexcept { bits &= ~singleton_bitset ( rank, file ); }
-    constexpr void toggle ( unsigned rank, unsigned file ) noexcept { bits ^=  singleton_bitset ( rank, file ); }
+    constexpr void set    ( int pos ) noexcept { bits |=  singleton_bitset ( pos ); }
+    constexpr void reset  ( int pos ) noexcept { bits &= ~singleton_bitset ( pos ); }
+    constexpr void toggle ( int pos ) noexcept { bits ^=  singleton_bitset ( pos ); }
+    constexpr void set    ( int rank, int file ) noexcept { bits |=  singleton_bitset ( rank, file ); }
+    constexpr void reset  ( int rank, int file ) noexcept { bits &= ~singleton_bitset ( rank, file ); }
+    constexpr void toggle ( int rank, int file ) noexcept { bits ^=  singleton_bitset ( rank, file ); }
 
     /** @name  set_if, reset_if, toggle_if
      * 
@@ -689,12 +689,12 @@ public:
      * @param  cond: The condition under which the change should be made
      * @return void
      */
-    constexpr void set_if    ( unsigned pos, bool cond ) noexcept { bits |=    singleton_bitset ( pos ) * cond;   }
-    constexpr void reset_if  ( unsigned pos, bool cond ) noexcept { bits &= ~( singleton_bitset ( pos ) * cond ); }
-    constexpr void toggle_if ( unsigned pos, bool cond ) noexcept { bits ^=    singleton_bitset ( pos ) * cond;   }
-    constexpr void set_if    ( unsigned rank, unsigned file, bool cond ) noexcept { bits |=    singleton_bitset ( rank, file ) * cond;   }
-    constexpr void reset_if  ( unsigned rank, unsigned file, bool cond ) noexcept { bits &= ~( singleton_bitset ( rank, file ) * cond ); }
-    constexpr void toggle_if ( unsigned rank, unsigned file, bool cond ) noexcept { bits ^=    singleton_bitset ( rank, file ) * cond;   }
+    constexpr void set_if    ( int pos, bool cond ) noexcept { bits |=    singleton_bitset ( pos ) * cond;   }
+    constexpr void reset_if  ( int pos, bool cond ) noexcept { bits &= ~( singleton_bitset ( pos ) * cond ); }
+    constexpr void toggle_if ( int pos, bool cond ) noexcept { bits ^=    singleton_bitset ( pos ) * cond;   }
+    constexpr void set_if    ( int rank, int file, bool cond ) noexcept { bits |=    singleton_bitset ( rank, file ) * cond;   }
+    constexpr void reset_if  ( int rank, int file, bool cond ) noexcept { bits &= ~( singleton_bitset ( rank, file ) * cond ); }
+    constexpr void toggle_if ( int rank, int file, bool cond ) noexcept { bits ^=    singleton_bitset ( rank, file ) * cond;   }
 
     /** @name  test
      * 
@@ -704,8 +704,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return boolean
      */
-    constexpr bool test ( unsigned pos ) const noexcept { return bits & singleton_bitset ( pos ); }
-    constexpr bool test ( unsigned rank, unsigned file ) const noexcept { return bits & singleton_bitset ( rank, file ); }
+    constexpr bool test ( int pos ) const noexcept { return bits & singleton_bitset ( pos ); }
+    constexpr bool test ( int rank, int file ) const noexcept { return bits & singleton_bitset ( rank, file ); }
 
     /** @name  empty
      * 
@@ -726,10 +726,10 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard king_attack_lookup   ( unsigned pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
-    static constexpr bitboard knight_attack_lookup ( unsigned pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
-    static constexpr bitboard king_attack_lookup   ( unsigned rank, unsigned file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
-    static constexpr bitboard knight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard king_attack_lookup   ( int pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
+    static constexpr bitboard knight_attack_lookup ( int pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
+    static constexpr bitboard king_attack_lookup   ( int rank, int file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
+    static constexpr bitboard knight_attack_lookup ( int rank, int file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
 
     /** @name  straight_attack_lookup, diagonal_attack_lookup, queen_attack_lookup
      * 
@@ -739,12 +739,12 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard straight_attack_lookup ( unsigned pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
-    static constexpr bitboard diagonal_attack_lookup ( unsigned pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
-    static constexpr bitboard queen_attack_lookup    ( unsigned pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
-    static constexpr bitboard straight_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard diagonal_attack_lookup ( unsigned rank, unsigned file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard queen_attack_lookup    ( unsigned rank, unsigned file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
+    static constexpr bitboard straight_attack_lookup ( int pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
+    static constexpr bitboard diagonal_attack_lookup ( int pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
+    static constexpr bitboard queen_attack_lookup    ( int pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
+    static constexpr bitboard straight_attack_lookup ( int rank, int file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard diagonal_attack_lookup ( int rank, int file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard queen_attack_lookup    ( int rank, int file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
 
     /** @name  omnidir_attack_lookup
      * 
@@ -755,8 +755,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard omnidir_attack_lookup ( compass dir, unsigned pos ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ pos ] }; }
-    static constexpr bitboard omnidir_attack_lookup ( compass dir, unsigned rank, unsigned file ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ rank * 8 + file ] }; }
+    static constexpr bitboard omnidir_attack_lookup ( compass dir, int pos ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ pos ] }; }
+    static constexpr bitboard omnidir_attack_lookup ( compass dir, int rank, int file ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ rank * 8 + file ] }; }
 
 
 
@@ -779,8 +779,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return string
      */
-    static std::string name_cell ( unsigned pos ) { return name_cell ( pos / 8, pos % 8 ); }
-    static std::string name_cell ( unsigned rank, unsigned file ) { return std::string { { static_cast<char> ( 'a' + file ), static_cast<char> ( '1' + rank ) } }; };
+    static std::string name_cell ( int pos ) { return name_cell ( pos / 8, pos % 8 ); }
+    static std::string name_cell ( int rank, int file ) { return std::string { { static_cast<char> ( 'a' + file ), static_cast<char> ( '1' + rank ) } }; };
 
 
 
@@ -1052,8 +1052,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return 64-bit integer
      */
-    static constexpr unsigned long long singleton_bitset ( unsigned pos ) noexcept { return 1ull << pos; }
-    static constexpr unsigned long long singleton_bitset ( unsigned rank, unsigned file ) noexcept { return 1ull << ( rank * 8 + file ); }
+    static constexpr unsigned long long singleton_bitset ( int pos ) noexcept { return 1ull << pos; }
+    static constexpr unsigned long long singleton_bitset ( int rank, int file ) noexcept { return 1ull << ( rank * 8 + file ); }
 
 };
 

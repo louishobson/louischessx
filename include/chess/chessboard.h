@@ -277,7 +277,7 @@ public:
      * @param  pos: The position of the cell to check the defence of.
      * @return boolean
      */
-    chess_hot bool is_protected ( pcolor pc, unsigned pos ) const chess_validate_throw;  
+    chess_hot bool is_protected ( pcolor pc, int pos ) const chess_validate_throw;  
 
     /** @name  is_in_check
      * 
@@ -319,7 +319,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the piece in question
      */
-    bitboard get_move_set ( pcolor pc, ptype pt, unsigned pos, const check_info_t& check_info ) chess_validate_throw;
+    bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) chess_validate_throw;
 
     /** @name  get_pawn_move_set
      * 
@@ -329,7 +329,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the pawn in question
      */
-    bitboard get_pawn_move_set ( pcolor pc, unsigned pos, const check_info_t& check_info ) const chess_validate_throw;
+    bitboard get_pawn_move_set ( pcolor pc, int pos, const check_info_t& check_info ) const chess_validate_throw;
 
     /** @name  get_knight_move_set
      * 
@@ -339,7 +339,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the knight in question
      */
-    bitboard get_knight_move_set ( pcolor pc, unsigned pos, const check_info_t& check_info ) const chess_validate_throw;
+    bitboard get_knight_move_set ( pcolor pc, int pos, const check_info_t& check_info ) const chess_validate_throw;
 
     /** @name  get_sliding_move_set
      * 
@@ -350,7 +350,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the sliding in question
      */
-    bitboard get_sliding_move_set ( pcolor pc, ptype pt, unsigned pos, const check_info_t& check_info ) const chess_validate_throw;
+    bitboard get_sliding_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) const chess_validate_throw;
 
     /** @name  get_king_move_set
      * 
@@ -400,7 +400,7 @@ public:
      * @param  pos: Board position
      * @return One of pcolor
      */
-    pcolor find_color ( unsigned pos ) const chess_validate_throw;
+    pcolor find_color ( int pos ) const chess_validate_throw;
 
     /** @name  find_type
      * 
@@ -411,7 +411,7 @@ public:
      * @param  pos_bb: Singleton bitboard
      * @return One of ptype
      */
-    ptype find_type ( pcolor pc, unsigned pos ) const chess_validate_throw;
+    ptype find_type ( pcolor pc, int pos ) const chess_validate_throw;
     ptype find_type ( pcolor pc, bitboard pos_bb ) const chess_validate_throw;
 
 
@@ -560,7 +560,7 @@ public:
      * 
      * @brief  Construct with all the requied information
      */
-    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, unsigned _from, unsigned _to )
+    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to )
         : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }
     {}
 
@@ -591,7 +591,7 @@ public:
     ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
 
     /* Store the initial and final positions */
-    unsigned from, to;
+    int from, to;
 
 
 
@@ -728,7 +728,7 @@ struct chess::chessboard::ab_ttable_entry_t
 struct chess::chessboard::ab_working_t
 {
     /* Array of sets of moves */
-    std::vector<std::array<std::vector<std::pair<unsigned, bitboard>>, 6>> move_sets;
+    std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
 
     /* An array of root moves and their values */
     std::vector<std::pair<move_t, int>> root_moves;

@@ -142,7 +142,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
 
     /* Get the king and position of the colored king */
     const bitboard king = bb ( pc, ptype::king );
-    const unsigned king_pos = king.trailing_zeros ();
+    const int king_pos = king.trailing_zeros ();
 
     /* Get the positions of the opposing straight and diagonal pieces */
     const bitboard op_straight = bb ( npc, ptype::queen ) | bb ( npc, ptype::rook   );
@@ -263,7 +263,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
  * @param  pos: The position of the cell to check the defence of.
  * @return boolean
  */
-bool chess::chessboard::is_protected ( pcolor pc, unsigned pos ) const chess_validate_throw
+bool chess::chessboard::is_protected ( pcolor pc, int pos ) const chess_validate_throw
 {
     /* SETUP */
 
@@ -450,8 +450,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 #endif
 
     /* Get king positions */
-    const unsigned white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros ();
-    const unsigned black_king_pos = bb ( pcolor::black, ptype::king ).trailing_zeros ();
+    const int white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros ();
+    const int black_king_pos = bb ( pcolor::black, ptype::king ).trailing_zeros ();
 
     /* Get the king spans */
     const bitboard white_king_span = bitboard::king_attack_lookup ( white_king_pos );
@@ -765,7 +765,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         while ( white_knights )
         {
             /* Get the position of the next knight and its general attacks */
-            const unsigned pos = white_knights.trailing_zeros ();
+            const int pos = white_knights.trailing_zeros ();
             bitboard knight_attacks = bitboard::knight_attack_lookup ( pos );
 
             /* Union defence */
@@ -791,7 +791,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         while ( black_knights )
         {
             /* Get the position of the next knight and its general attacks */
-            const unsigned pos = black_knights.trailing_zeros ();
+            const int pos = black_knights.trailing_zeros ();
             bitboard knight_attacks = bitboard::knight_attack_lookup ( pos );
 
             /* Union defence */
@@ -975,7 +975,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             /* Loop through the white king attacks to validate they don't lead to check */
             do {
                 /* Get the position of the next king attack then use the position to determine if it is defended by the opponent */
-                unsigned pos = white_king_attacks_temp.trailing_zeros ();
+                int pos = white_king_attacks_temp.trailing_zeros ();
                 white_king_attacks.reset_if ( pos, is_protected ( pcolor::black, pos ) );
                 white_king_attacks_temp.reset ( pos );
             } while ( white_king_attacks_temp );
@@ -999,7 +999,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             /* Loop through the white king attacks to validate they don't lead to check */
             do {
                 /* Get the position of the next king attack then use the position to determine if it is defended by the opponent */
-                unsigned pos = black_king_attacks_temp.trailing_zeros ();
+                int pos = black_king_attacks_temp.trailing_zeros ();
                 black_king_attacks.reset_if ( pos, is_protected ( pcolor::white, pos ) );
                 black_king_attacks_temp.reset ( pos );
             } while ( black_king_attacks_temp );
@@ -1251,7 +1251,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
 #endif
 
     /* Get king position */
-    const unsigned king_pos = bb ( pc, ptype::king ).trailing_zeros ();
+    const int king_pos = bb ( pc, ptype::king ).trailing_zeros ();
 
     /* Get the primary and secondary propagator sets */
     const bitboard pp = ~bb (), sp = ~bb ( pc );
@@ -1484,7 +1484,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
      * @param  move_set: The possible moves for that piece (not necessarily a singleton)
      * @return boolean, true for an alpha-beta cutoff, false otherwise
      */
-    auto apply_move_set = [ & ] ( ptype pt, unsigned from, bitboard move_set ) -> bool
+    auto apply_move_set = [ & ] ( ptype pt, int from, bitboard move_set ) -> bool
     {
         /* Iterate through the individual moves */
         while ( move_set )
@@ -1492,7 +1492,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             /* Get the position and singleton bitboard of the next move.
              * Choose motion towards the opposing color.
              */
-            const unsigned to = ( opposing_conc ? 63 - move_set.leading_zeros () : move_set.trailing_zeros () );
+            const int to = ( opposing_conc ? 63 - move_set.leading_zeros () : move_set.trailing_zeros () );
 
             /* Unset this bit in the set of moves */
             move_set.reset ( to );
@@ -1534,7 +1534,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
                 /* Get the position of the next piece and reset that bit.
                 * Favour the further away pieces to encourage them to move towards the other color.
                 */
-                const unsigned pos = ( opposing_conc ? pieces.trailing_zeros () : 63 - pieces.leading_zeros () );
+                const int pos = ( opposing_conc ? pieces.trailing_zeros () : 63 - pieces.leading_zeros () );
                 pieces.reset ( pos );
 
                 /* Get the move set */

@@ -177,7 +177,7 @@ inline bool chess::chessboard::can_kingside_castle ( const pcolor pc ) const che
     /* Iterate through the safe squares and return if in check on any of them */
     while ( safe_squares )
     {
-        const unsigned pos = safe_squares.trailing_zeros ();
+        const int pos = safe_squares.trailing_zeros ();
         safe_squares.reset ( pos );
         if ( is_protected ( other_color ( pc ), pos ) ) return false;
     }
@@ -200,7 +200,7 @@ inline bool chess::chessboard::can_queenside_castle ( const pcolor pc ) const ch
     /* Iterate through the safe squares and return if in check on any of them */
     while ( safe_squares )
     {
-        const unsigned pos = safe_squares.trailing_zeros ();
+        const int pos = safe_squares.trailing_zeros ();
         safe_squares.reset ( pos );
         if ( is_protected ( other_color ( pc ), pos ) ) return false;
     }
@@ -363,7 +363,7 @@ inline void chess::chessboard::unmake_move ( const move_t& move, const unsigned 
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the piece in question
  */
-inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, unsigned pos, const check_info_t& check_info ) chess_validate_throw
+inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) chess_validate_throw
 {
     /* Switch depending on pt */
     switch ( pt )
@@ -392,7 +392,7 @@ inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, un
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the pawn in question
  */
-inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const unsigned pos, const check_info_t& check_info ) const chess_validate_throw
+inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const int pos, const check_info_t& check_info ) const chess_validate_throw
 {
     /* Get the pawn in question */
     const bitboard pawn { singleton_bitboard ( pos ) };
@@ -438,7 +438,7 @@ inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, c
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the knight in question
  */
-inline chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const unsigned pos, const check_info_t& check_info ) const chess_validate_throw
+inline chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const int pos, const check_info_t& check_info ) const chess_validate_throw
 {
     /* Get the knight in question */
     const bitboard knight = singleton_bitboard ( pos );
@@ -459,7 +459,7 @@ inline chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc,
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the sliding in question
  */
-inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const ptype pt, const unsigned pos, const check_info_t& check_info ) const chess_validate_throw
+inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const ptype pt, const int pos, const check_info_t& check_info ) const chess_validate_throw
 {
     /* Get the piece in question */
     const bitboard pt_bb = singleton_bitboard ( pos );
@@ -565,7 +565,7 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
  * @param  pos: Board position
  * @return One of pcolor
  */
-inline chess::pcolor chess::chessboard::find_color ( const unsigned pos ) const chess_validate_throw
+inline chess::pcolor chess::chessboard::find_color ( const int pos ) const chess_validate_throw
 {
     if ( bb ( pcolor::white ).test ( pos ) ) return pcolor::white; else
     if ( bb ( pcolor::black ).test ( pos ) ) return pcolor::black; else
@@ -580,7 +580,7 @@ inline chess::pcolor chess::chessboard::find_color ( const unsigned pos ) const 
  * @param  pos: Board position
  * @return One of ptype
  */
-inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const unsigned pos ) const chess_validate_throw
+inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const int pos ) const chess_validate_throw
 {
     /* First detect if there is a piece, then find what type it is */
     if ( !bb ( pc ).test ( pos ) ) return ptype::no_piece;

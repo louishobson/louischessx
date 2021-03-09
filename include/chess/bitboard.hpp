@@ -80,8 +80,8 @@ inline constexpr chess::diagonal_compass chess::compass_next ( const diagonal_co
  * @param  file: The file of the bit [0,7]
  * @return bitboard
  */
-inline constexpr chess::bitboard chess::singleton_bitboard ( unsigned pos ) noexcept { return bitboard { 1ull << pos }; }
-inline constexpr chess::bitboard chess::singleton_bitboard ( unsigned rank, unsigned file ) noexcept { return bitboard { 1ull << ( rank * 8 + file ) }; }
+inline constexpr chess::bitboard chess::singleton_bitboard ( int pos ) noexcept { return bitboard { 1ull << pos }; }
+inline constexpr chess::bitboard chess::singleton_bitboard ( int rank, int file ) noexcept { return bitboard { 1ull << ( rank * 8 + file ) }; }
 
 
 
@@ -630,7 +630,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( const bitb
         /* The position of the next set bit in temp is given by the number of trailing zeros.
          * Lookup the knight attacks at pos and union them with x, then reset the bit in temp.
          */
-        const unsigned pos = temp.trailing_zeros (); 
+        const int pos = temp.trailing_zeros (); 
         x |= knight_attack_lookup ( pos );        
         temp.reset ( pos );                       
     }
@@ -657,7 +657,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( const bit
          * Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
          * Union the attacked cells with once then reset the bit in temp.
          */
-        const unsigned pos = temp.trailing_zeros ();   
+        const int pos = temp.trailing_zeros ();   
         mult |= knight_attack_lookup ( pos ) & once;
         once |= knight_attack_lookup ( pos );       
         temp.reset ( pos );                         
