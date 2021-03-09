@@ -33,7 +33,7 @@ std::string chess::bitboard::format_board ( const char zero, const char one ) co
      * Multiplying by 2 skips the spaces inbetween cells.
      */
     std::string out ( 128, ' ' );
-    for ( unsigned i = 0; i < 64; ++i ) 
+    for ( int i = 0; i < 64; ++i ) 
     { 
         out [ i * 2 ] = ( test ( i ^ 56 ) ? one : zero );
         if ( ( i & 7 ) == 7 ) out [ i * 2 + 1 ] = '\n';

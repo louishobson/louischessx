@@ -31,12 +31,12 @@
  * 
  * @brief  Cast a compass to an integer
  * @param  dir: The compass to cast
- * @return unsigned
+ * @return int
  */
-inline constexpr unsigned chess::cast_compass ( compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
-inline constexpr unsigned chess::cast_compass ( knight_compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
-inline constexpr unsigned chess::cast_compass ( straight_compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
-inline constexpr unsigned chess::cast_compass ( diagonal_compass dir ) noexcept { return static_cast<unsigned> ( dir ); }
+inline constexpr int chess::cast_compass ( compass dir ) noexcept { return static_cast<int> ( dir ); }
+inline constexpr int chess::cast_compass ( knight_compass dir ) noexcept { return static_cast<int> ( dir ); }
+inline constexpr int chess::cast_compass ( straight_compass dir ) noexcept { return static_cast<int> ( dir ); }
+inline constexpr int chess::cast_compass ( diagonal_compass dir ) noexcept { return static_cast<int> ( dir ); }
 
 /** @name  compass_start, knight/straight/diagonal_compass_start
  *
@@ -118,26 +118,26 @@ inline constexpr int chess::bitboard::hamming_dist ( const bitboard other ) cons
 #endif
 }
 
-/** @name  leading/trailing_zeros_nocheck
+/** @name  leading/trailing_zeros
  * 
  * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
  */
-inline constexpr int chess::bitboard::leading_zeros_nocheck  () const noexcept
+inline constexpr int chess::bitboard::leading_zeros () const noexcept
 {
     /* Use builtin if availible, otherwise use the checking method */
 #ifdef CHESS_BUILTIN_CLZ64
     return CHESS_BUILTIN_CLZ64 ( bits );
 #else
-    return leading_zeros ();
+    return std::countl_zero ();
 #endif
 }
-inline constexpr int chess::bitboard::trailing_zeros_nocheck () const noexcept
+inline constexpr int chess::bitboard::trailing_zeros () const noexcept
 {
     /* Use builtin if availible, otherwise use the checking method */
 #ifdef CHESS_BUILTIN_CTZ64
     return CHESS_BUILTIN_CTZ64 ( bits );
 #else
-    return trailing_zeros ();
+    return std::countr_zero ();
 #endif
 }
 
@@ -513,7 +513,7 @@ inline constexpr chess::bitboard chess::bitboard::pawn_push_s ( const bitboard p
 inline constexpr chess::bitboard chess::bitboard::king_any_attack ( const bitboard p, const bool single ) const noexcept
 {
     /* If was declared as a singleton set, simply look up and return the attacks of the king */
-    if ( single ) return king_attack_lookup ( trailing_zeros_nocheck () ) & p; else
+    if ( single ) return king_attack_lookup ( trailing_zeros () ) & p; else
     {
         /* x will store the output, t will help form the output.
          * Set the east and west shifts to x, then union them back to t.
@@ -553,7 +553,7 @@ inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( const bitb
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( unsigned i = 0; i < 4; ++i )
+    for ( int i = 0; i < 4; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
         x |= rook_attack ( dir, pp, sp );
@@ -574,7 +574,7 @@ inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( const bitb
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( unsigned i = 0; i < 4; ++i )
+    for ( int i = 0; i < 4; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
         x |= bishop_attack ( dir, pp, sp );
@@ -595,7 +595,7 @@ inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( const bitb
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 8
-    for ( unsigned i = 0; i < 8; ++i )
+    for ( int i = 0; i < 8; ++i )
     {
         /* Union the attacks in this direction to x, and increment dir */
         x |= queen_attack ( dir, pp, sp );
@@ -630,7 +630,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_any_attack ( const bitb
         /* The position of the next set bit in temp is given by the number of trailing zeros.
          * Lookup the knight attacks at pos and union them with x, then reset the bit in temp.
          */
-        const unsigned pos = temp.trailing_zeros_nocheck (); 
+        const unsigned pos = temp.trailing_zeros (); 
         x |= knight_attack_lookup ( pos );        
         temp.reset ( pos );                       
     }
@@ -657,7 +657,7 @@ inline constexpr chess::bitboard chess::bitboard::knight_mult_attack ( const bit
          * Lookup the knight attacks at pos, and union them with mult only if any of the cells have alreay been attacked once.
          * Union the attacked cells with once then reset the bit in temp.
          */
-        const unsigned pos = temp.trailing_zeros_nocheck ();   
+        const unsigned pos = temp.trailing_zeros ();   
         mult |= knight_attack_lookup ( pos ) & once;
         once |= knight_attack_lookup ( pos );       
         temp.reset ( pos );                         

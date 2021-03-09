@@ -36,32 +36,32 @@ namespace chess
      *
      * Enum for compass directions
      */
-    enum class compass : unsigned { sw, s, se, w, e, nw, n, ne };
+    enum class compass { sw, s, se, w, e, nw, n, ne };
 
     /* enum knight_compass
      *
      * Enum for knight compass directions
      */
-    enum class knight_compass : unsigned { ssw, sse, sww, see, nww, nee, nnw, nne };
+    enum class knight_compass { ssw, sse, sww, see, nww, nee, nnw, nne };
 
     /* enum straight/diag_compass
      *
      * Enums for straight and diagonal compasses.
      * Can be cast to a normal compass.
      */
-    enum straight_compass : unsigned { s  = 1, w  = 3, e  = 4, n  = 6 };
-    enum diagonal_compass : unsigned { sw = 0, se = 2, nw = 5, ne = 7 };
+    enum straight_compass { s  = 1, w  = 3, e  = 4, n  = 6 };
+    enum diagonal_compass { sw = 0, se = 2, nw = 5, ne = 7 };
 
     /** @name  cast_compass
      * 
      * @brief  Cast a compass to an integer
      * @param  dir: The compass to cast
-     * @return unsigned
+     * @return int
      */
-    constexpr unsigned cast_compass ( compass dir ) noexcept;
-    constexpr unsigned cast_compass ( knight_compass dir ) noexcept;
-    constexpr unsigned cast_compass ( straight_compass dir ) noexcept;
-    constexpr unsigned cast_compass ( diagonal_compass dir ) noexcept;
+    constexpr int cast_compass ( compass dir ) noexcept;
+    constexpr int cast_compass ( knight_compass dir ) noexcept;
+    constexpr int cast_compass ( straight_compass dir ) noexcept;
+    constexpr int cast_compass ( diagonal_compass dir ) noexcept;
 
     /** @name  compass_start, knight/straight/diagonal_compass_start
      * 
@@ -325,17 +325,10 @@ public:
 
     /** @name  leading/trailing_zeros
      * 
-     * @return The number of leading/trailing zeros, 64 if the bitboard is empty
-     */
-    constexpr int leading_zeros  () const noexcept { return std::countl_zero ( bits ); }
-    constexpr int trailing_zeros () const noexcept { return std::countr_zero ( bits ); }
-
-    /** @name  leading/trailing_zeros_nocheck
-     * 
      * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
      */
-    constexpr int leading_zeros_nocheck  () const noexcept;
-    constexpr int trailing_zeros_nocheck () const noexcept;
+    constexpr int leading_zeros  () const noexcept;
+    constexpr int trailing_zeros () const noexcept;
 
     /** @name  bit_rotl/r
      * 
@@ -791,7 +784,7 @@ public:
 
 
 
-//private:
+private:
 
     /* TYPES */
 

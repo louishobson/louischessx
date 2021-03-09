@@ -49,7 +49,7 @@ namespace chess
      *
      * Enum values for different colors of piece (not types)
      */
-    enum class pcolor : unsigned
+    enum class pcolor
     {
         white,
         black,
@@ -60,7 +60,7 @@ namespace chess
      *
      * Enum values for different types of piece (not colors)
      */
-    enum class ptype : unsigned
+    enum class ptype
     {
         pawn,
         knight,
@@ -93,10 +93,10 @@ namespace chess
      * @brief  Casts a penum to its underlying type
      * @param  pc: The piece color to cast
      * @param  pt: The piece type to cast
-     * @return unsigned
+     * @return int
      */
-    constexpr unsigned cast_penum ( pcolor pc ) noexcept;
-    constexpr unsigned cast_penum ( ptype  pt ) noexcept;
+    constexpr int cast_penum ( pcolor pc ) noexcept;
+    constexpr int cast_penum ( ptype  pt ) noexcept;
 
     /** @name  ptype_start
      * 
@@ -285,7 +285,7 @@ public:
      * @param  pc: The color whose king we will look at
      * @return boolean
      */
-    bool is_in_check ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros_nocheck () ); }
+    bool is_in_check ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros () ); }
 
     /** @name  can_castle, can_kingside_castle, can_queenside_castle
      * 
@@ -428,12 +428,21 @@ public:
 
     /** @name  serialize_move
      * 
-     * @brief  Creates a FIDE standard move description from a move. Assumes that the move is possible and legal.
+     * @brief  Creates a move description from a move. Assumes that the move is possible and legal.
      *         Note that although is non-const, a call to this function will leave the board unmodified.
      * @param  move: The move to serialize
      * @return string
      */
     std::string serialize_move ( const move_t& move );
+
+    /** @name  deserialize_move
+     * 
+     * @brief  Creates a move from a description
+     * @param  pc: The color who's move it is
+     * @param  desc: The description of the move
+     * @return move_t
+     */
+    move_t deserialize_move ( pcolor pc, const std::string& desc );
 
 
 
@@ -583,6 +592,18 @@ public:
 
     /* Store the initial and final positions */
     unsigned from, to;
+
+
+
+    /* OTHER METHODS */
+
+    /** @name  is_kingside/queenside_castle
+     * 
+     * @brief  Returns true if this move refers to a kingside or queenside castle
+     * @return boolean
+     */
+    bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
+    bool is_queenside_castle () const noexcept { return pt == ptype::king && from == to + 2; }
 
 };
 

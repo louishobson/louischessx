@@ -48,10 +48,10 @@ inline constexpr chess::pcolor chess::other_color ( const pcolor pc ) noexcept {
  * @brief  Casts a penum to its underlying type
  * @param  pc: The piece color to cast
  * @param  pt: The piece type to cast
- * @return unsigned
+ * @return int
  */
-inline constexpr unsigned chess::cast_penum ( pcolor pc ) noexcept { return static_cast<unsigned> ( pc ); }
-inline constexpr unsigned chess::cast_penum ( ptype  pt ) noexcept { return static_cast<unsigned> ( pt ); }
+inline constexpr int chess::cast_penum ( pcolor pc ) noexcept { return static_cast<int> ( pc ); }
+inline constexpr int chess::cast_penum ( ptype  pt ) noexcept { return static_cast<int> ( pt ); }
 
 /** @name  ptype_start
  * 
@@ -66,9 +66,9 @@ inline constexpr chess::ptype chess::ptype_start () noexcept { return ptype::paw
  * @param  pt: The type to increment.
  * @return ptype
  */
-inline constexpr chess::ptype chess::ptype_next ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<unsigned> ( pt ) + 1 ) % 6 ); }
-inline constexpr chess::ptype chess::ptype_inc_value ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<unsigned> ( pt ) + 1 ) % 6 ); }
-inline constexpr chess::ptype chess::ptype_dec_value ( ptype pt ) noexcept { return static_cast<ptype> ( static_cast<unsigned> ( pt ) == 0 ? 5 : static_cast<unsigned> ( pt ) - 1 ); }
+inline constexpr chess::ptype chess::ptype_next ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<int> ( pt ) + 1 ) % 6 ); }
+inline constexpr chess::ptype chess::ptype_inc_value ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<int> ( pt ) + 1 ) % 6 ); }
+inline constexpr chess::ptype chess::ptype_dec_value ( ptype pt ) noexcept { return static_cast<ptype> ( static_cast<int> ( pt ) == 0 ? 5 : static_cast<int> ( pt ) - 1 ); }
 
 /** @name  check_penum
  * 
@@ -177,7 +177,7 @@ inline bool chess::chessboard::can_kingside_castle ( const pcolor pc ) const che
     /* Iterate through the safe squares and return if in check on any of them */
     while ( safe_squares )
     {
-        const unsigned pos = safe_squares.trailing_zeros_nocheck ();
+        const unsigned pos = safe_squares.trailing_zeros ();
         safe_squares.reset ( pos );
         if ( is_protected ( other_color ( pc ), pos ) ) return false;
     }
@@ -200,7 +200,7 @@ inline bool chess::chessboard::can_queenside_castle ( const pcolor pc ) const ch
     /* Iterate through the safe squares and return if in check on any of them */
     while ( safe_squares )
     {
-        const unsigned pos = safe_squares.trailing_zeros_nocheck ();
+        const unsigned pos = safe_squares.trailing_zeros ();
         safe_squares.reset ( pos );
         if ( is_protected ( other_color ( pc ), pos ) ) return false;
     }
@@ -249,7 +249,7 @@ inline unsigned chess::chessboard::make_move ( const move_t& move ) chess_valida
     }
 
     /* Check for if the move is a kingside castle */
-    if ( move.pt == ptype::king && move.from + 2 == move.to )
+    if ( move.is_kingside_castle () )
     {
         /* Move the appropriate rook */
         get_bb ( move.pc ).reset              ( move.pc == pcolor::white ? 7 : 63 );
@@ -262,7 +262,7 @@ inline unsigned chess::chessboard::make_move ( const move_t& move ) chess_valida
     } else
 
     /* Check for if the move is a queenside castle */
-    if ( move.pt == ptype::king && move.from == move.to + 2 )
+    if ( move.is_queenside_castle () )
     {
         /* Move the appropriate rook */
         get_bb ( move.pc ).reset              ( move.pc == pcolor::white ? 0 : 56 );
@@ -303,7 +303,7 @@ inline void chess::chessboard::unmake_move ( const move_t& move, const unsigned 
     castling_rights = c_rights;
 
     /* Check for if the move was a kingside castle */
-    if ( move.pt == ptype::king && move.from + 2 == move.to )
+    if ( move.is_kingside_castle () )
     {
         /* Unmove the appropriate rook */
         get_bb ( move.pc ).reset              ( move.pc == pcolor::white ? 5 : 61 );
@@ -313,7 +313,7 @@ inline void chess::chessboard::unmake_move ( const move_t& move, const unsigned 
     } else
 
     /* Check for if the move is a queenside castle */
-    if ( move.pt == ptype::king && move.from == move.to + 2 )
+    if ( move.is_queenside_castle () )
     {
         /* Unmove the appropriate rook */
         get_bb ( move.pc ).reset              ( move.pc == pcolor::white ? 3 : 59 );
@@ -522,7 +522,7 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     const bitboard king = bb ( pc, ptype::king );
 
     /* Lookup the king moves */
-    bitboard moves = bitboard::king_attack_lookup ( king.trailing_zeros_nocheck () ) & ~bb ( pc ) & ~check_info.check_vectors;
+    bitboard moves = bitboard::king_attack_lookup ( king.trailing_zeros () ) & ~bb ( pc ) & ~check_info.check_vectors;
 
     /* Unset the king */
     get_bb ( pc ) &= ~king;
@@ -533,7 +533,7 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     while ( moves_temp )
     {
         /* Get the next test position */
-        const unsigned test_pos = moves_temp.trailing_zeros_nocheck ();
+        const unsigned test_pos = moves_temp.trailing_zeros ();
         moves_temp.reset ( test_pos );
 
         /* If is protected, reset in attacks */
@@ -615,7 +615,7 @@ inline void chess::chessboard::sanity_check_bbs () const chess_validate_throw
     pcolor pc = pcolor::white;
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 2
-    for ( unsigned i = 0; i < 2; ++i )
+    for ( int i = 0; i < 2; ++i )
     {
         /* Get the bitboard for this color */
         bitboard all = bb ( pc );
@@ -624,7 +624,7 @@ inline void chess::chessboard::sanity_check_bbs () const chess_validate_throw
         ptype pt = ptype_start ();
         #pragma clang loop unroll ( full )
         #pragma GCC unroll 6
-        for ( unsigned j = 0; j < 6; ++j )
+        for ( int j = 0; j < 6; ++j )
         {
             /* Switch the bits in all */
             all ^= bb ( pc, pt );
@@ -691,7 +691,7 @@ inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb )
     /* Combine all bitboards into the hash */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 6
-    for ( unsigned i = 0; i < 6; ++i ) hash_value ^= ( cb.bbs [ i ] [ 0 ] | cb.bbs [ i ] [ 1 ] ).bit_rotl ( i * 8 );
+    for ( int i = 0; i < 6; ++i ) hash_value ^= ( cb.bbs [ i ] [ 0 ] | cb.bbs [ i ] [ 1 ] ).bit_rotl ( i * 8 );
     hash_value ^= cb.bbs [ 6 ] [ 0 ].bit_rotl ( 48 ) ^ cb.bbs [ 6 ] [ 1 ].bit_rotl ( 56 );
 
     /* Incorporate castling rights into hash */
@@ -708,7 +708,7 @@ inline std::size_t chess::chessboard::hash::operator () ( const ab_state_t& cb )
     /* Combine all bitboards into the hash */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 8
-    for ( unsigned i = 0; i < 8; ++i ) hash_value ^= cb.bbs [ i ].bit_rotl ( i * 8 );
+    for ( int i = 0; i < 8; ++i ) hash_value ^= cb.bbs [ i ].bit_rotl ( i * 8 );
 
     /* Incorporate pc_and_check_info into hash */
     hash_value ^= bitboard { cb.pc_and_castling_rights };
