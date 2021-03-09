@@ -1520,10 +1520,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             /* Get the pieces */
             bitboard pieces = bb ( pc, pt ); 
 
-            /* Remove any killer moves */
-            if ( access_killer_move ( 0 ).pt == pt ) pieces.reset ( access_killer_move ( 0 ).from );
-            if ( access_killer_move ( 1 ).pt == pt ) pieces.reset ( access_killer_move ( 1 ).from );
-
             /* Iterate through pieces */
             while ( pieces )
             {
@@ -1549,6 +1545,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
 
     /* KILLER MOVES */
 
+    /* Boolean as to whether a killer move was used */
+    bool used_killer_move = false;
+
     /* Iterate through the killer moves */
     for ( unsigned i = 0; i < 2; ++i )
     {
@@ -1561,11 +1560,14 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             /* See if this is the correct piece for the move */
             if ( move_set.first == access_killer_move ( i ).from && move_set.second.test ( access_killer_move ( i ).to ) )
             {
-                /* Check that the move is still a capture, or is a new capture */
-                if ( access_killer_move ( i ).capture_pt == ptype::no_piece || bb ( npc ).test ( access_killer_move ( i ).to ) )
+                /* Check that the move is the same capture, or is now a capture when previously it wasn't */
+                if ( access_killer_move ( i ).capture_pt == ptype::no_piece || bb ( npc, access_killer_move ( i ).capture_pt ).test ( access_killer_move ( i ).to ) )
                 {
                     /* Apply the killer move and return on alpha-beta cutoff */
                     if ( apply_move_set ( access_killer_move ( i ).pt, move_set.first, singleton_bitboard ( access_killer_move ( i ).to ) ) ) return best_value;
+
+                    /* Set used_killer_move to true */
+                    used_killer_move = true;
 
                     /* Unset that bit in the move set */
                     access_move_sets ( access_killer_move ( i ).pt ).at ( j ).second.reset ( access_killer_move ( i ).to );
