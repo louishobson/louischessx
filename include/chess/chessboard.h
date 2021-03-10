@@ -240,23 +240,6 @@ public:
     void set_kingside_castle_lost  ( pcolor pc ) chess_validate_throw { check_penum ( pc ); castling_rights &= ~( 0b00010000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_queenside_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); castling_rights &= ~( 0b01000000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) castling_rights |= 0b00000100 << cast_penum ( pc ); }
 
-    /** @name  make_move
-     * 
-     * @brief  Apply a move. Assumes all the information about the move is correct and legal.
-     * @param  move: The move to apply
-     * @return The castling rights before the move
-     */
-    unsigned make_move ( const move_t& move ) chess_validate_throw;
-
-    /** @name  unmake_move
-     * 
-     * @brief  Unmake a move. Assumes that the move was made immediately before this undo function.
-     * @param  move: The move to undo
-     * @param  c_rights: The castling rights before the move
-     * @return void
-     */
-    void unmake_move ( const move_t& move, unsigned c_rights ) chess_validate_throw;
-
 
 
     /* BOARD EVALUATION */
@@ -309,6 +292,14 @@ public:
 
 
     /* MOVE CALCULATIONS */
+
+    /** @name  make_move
+     * 
+     * @brief  Check a move is valid then apply it
+     * @param  move: The move to apply
+     * @return void
+     */
+    void make_move ( const move_t& move );
 
     /** @name  get_move_set
      * 
@@ -374,7 +365,7 @@ public:
      * @param  end_point: The time point at which the search should be ended, never by default.
      * @return An array of moves and their values
      */
-    ab_result_t alpha_beta_search ( pcolor pc, unsigned depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () );
+    ab_result_t alpha_beta_search ( pcolor pc, int depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () ) const;
 
     /** @name  alpha_beta_iterative_deepening
      * 
@@ -387,7 +378,7 @@ public:
      * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
      * @return An array of moves and their values
      */
-    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, unsigned min_depth, unsigned max_depth, std::chrono::steady_clock::time_point end_point, unsigned threads = 0, bool finish_first = false );
+    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, std::chrono::steady_clock::time_point end_point, int threads = 0, bool finish_first = false ) const;
 
 
 
@@ -425,24 +416,6 @@ public:
      * @return string
      */
     std::string simple_format_board () const;
-
-    /** @name  serialize_move
-     * 
-     * @brief  Creates a move description from a move. Assumes that the move is possible and legal.
-     *         Note that although is non-const, a call to this function will leave the board unmodified.
-     * @param  move: The move to serialize
-     * @return string
-     */
-    std::string serialize_move ( const move_t& move );
-
-    /** @name  deserialize_move
-     * 
-     * @brief  Creates a move from a description
-     * @param  pc: The color who's move it is
-     * @param  desc: The description of the move
-     * @return move_t
-     */
-    move_t deserialize_move ( pcolor pc, const std::string& desc );
 
 
 
@@ -500,6 +473,27 @@ private:
 
 
 
+    /* MAKING AND UNMAKING MOVES */
+
+    /** @name  make_move_internal
+     * 
+     * @brief  Apply a move. Assumes all the information about the move is correct and legal.
+     * @param  move: The move to apply
+     * @return The castling rights before the move
+     */
+    unsigned make_move_internal ( const move_t& move ) chess_validate_throw;
+
+    /** @name  unmake_move
+     * 
+     * @brief  Unmake a move. Assumes that the move was made immediately before this undo function.
+     * @param  move: The move to undo
+     * @param  c_rights: The castling rights before the move
+     * @return void
+     */
+    void unmake_move_internal ( const move_t& move, unsigned c_rights ) chess_validate_throw;
+
+
+
     /* SEARCH */
 
     /** @name  alpha_beta_search_internal
@@ -516,12 +510,12 @@ private:
      * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search_internal ( pcolor pc, unsigned bk_depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (),
+    chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (),
         int alpha           = -20000, 
         int beta            = +20000, 
-        unsigned fd_depth   = 0, 
-        unsigned null_depth = 0, 
-        unsigned q_depth    = 0
+        int fd_depth   = 0, 
+        int null_depth = 0, 
+        int q_depth    = 0
     );
 
 
@@ -560,9 +554,17 @@ public:
      * 
      * @brief  Construct with all the requied information
      */
-    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to )
-        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }
+    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, int _check_count ) noexcept
+        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, check_count { _check_count }
     {}
+
+    /** @name  deserialize constructor
+     * 
+     * @brief  Take a serialized move and deserialize it
+     * @param  pc: The color who is making the move
+     * @param  desc: The serialized move
+     */
+    move_t ( pcolor pc, const std::string& desc ) { deserialize ( pc, desc ); }
 
 
 
@@ -590,8 +592,8 @@ public:
     /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
     ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
 
-    /* Store the initial and final positions */
-    int from, to;
+    /* Store the initial and final positions, as well as the check count */
+    int from, to, check_count;
 
 
 
@@ -603,7 +605,23 @@ public:
      * @return boolean
      */
     bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
-    bool is_queenside_castle () const noexcept { return pt == ptype::king && from == to + 2; }
+    bool is_queenside_castle () const noexcept { return pt == ptype::king && from - 2 == to; }
+
+    /** @name  serialize
+     * 
+     * @brief  Creates a string from the move
+     * @return string
+     */
+    std::string serialize () const;
+
+    /** @name  deserialize
+     * 
+     * @brief  Sets the move from a string
+     * @param  _pc: The color that is to make the move
+     * @param  desc: The serialization of the move
+     * @return A reference to this move
+     */
+    move_t& deserialize ( pcolor _pc, const std::string& desc );
 
 };
 
@@ -666,7 +684,7 @@ struct chess::chessboard::check_info_t
     bitboard pin_vectors;
 
     /* The number of times this color is in check */
-    unsigned check_count = 0;
+    int check_count = 0;
 
     /* Versions of check and pin vectors but on straights and diagonals */
     bitboard straight_check_vectors, diagonal_check_vectors;
@@ -714,7 +732,7 @@ struct chess::chessboard::ab_ttable_entry_t
     int value;
 
     /* The bk_depth that the entry was made */
-    unsigned bk_depth;
+    int bk_depth;
 
     /* The bound of the ttable entry */
     bound_t bound;

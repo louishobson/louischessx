@@ -17,6 +17,49 @@
 
 
 
+/* MAKING MOVES */
+
+
+
+/** @name  make_move
+ * 
+ * @brief  Check a move is valid then apply it
+ * @param  move: The move to apply
+ * @return void
+ */
+void chess::chessboard::make_move ( const move_t& move )
+{
+    /* Check that the piece the move refers to exists */
+    if ( !bb ( move.pc, move.pt ).test ( move.from ) ) throw std::runtime_error { "Invalid move initial position or type in make_move ()." };
+
+    /* Check that the move is legal */
+    if ( !get_move_set ( move.pc, move.pt, move.from, get_check_info ( move.pc ) ).test ( move.to ) ) throw std::runtime_error { "Illegal move final position in make_move ()." };
+
+    /* Check that the capture piece is correct */
+    if ( move.capture_pt != ptype::no_piece && !bb ( other_color ( move.pc ), move.capture_pt ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." };
+    if ( move.capture_pt == ptype::no_piece &&  bb ( other_color ( move.pc )                  ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." };
+
+    /* Test if the move should be a pawn promotion and hence check the promote_pt is valid */
+    if ( move.pt == ptype::pawn && ( move.pc == pcolor::white ? move.to >= 56 : move.to < 8 ) )
+    {
+        /* Move should promote, so check the promotion type is valid */
+        if ( move.promote_pt != ptype::knight && move.promote_pt != ptype::bishop && move.promote_pt != ptype::rook && move.promote_pt != ptype::queen ) 
+            throw std::runtime_error { "Invalid promotion type (move should promote) in make_move ()." };
+    } else
+    {
+        /* Move should not promote, so check the promotion type is no_piece */
+        if ( move.promote_pt != ptype::no_piece ) throw std::runtime_error { "Invalid promotion type (move should not promote) in make_move ()." };
+    }
+
+    /* Make the move */
+    make_move_internal ( move );
+
+    /* Make sure the check count was what was expected */
+    if ( move.check_count != get_check_info ( other_color ( move.pc ) ).check_count ) throw std::runtime_error { "Invalid check count in make_move ()." };
+}
+
+
+
 /* FORMATTING */
 
 /** @name  simple_format_board
@@ -54,61 +97,6 @@ std::string chess::chessboard::simple_format_board () const
 
     /* Return the formatted string */
     return out;
-}
-
-/** @name  serialize_move
- * 
- * @brief  Creates a move description from a move. Assumes that the move is possible and legal.
- *         Note that although is non-const, a call to this function will leave the board unmodified.
- * @param  move: The move to serialize
- * @return string
- */
-std::string chess::chessboard::serialize_move ( const move_t& move )
-{
-    /* Check if the move is a castling move */
-    if ( move.is_kingside_castle  () ) return "O-O"; 
-    if ( move.is_queenside_castle () ) return "O-O-O"; 
-
-    /* Get the check info after the move application */
-    const unsigned c_rights = make_move ( move );
-    const check_info_t check_info = get_check_info ( other_color ( move.pc ) );
-    unmake_move ( move, c_rights );
-
-    /* Create the string for the move */
-    std::string out = 
-        /* The initial position */
-        bitboard::name_cell ( move.from ) + 
-        /* The piece that is moving */
-        piece_chars [ cast_penum ( move.pt ) ] + 
-        /* An 'x' if a capture is occuring */
-        ( move.capture_pt != ptype::no_piece ? "x" : "" ) +
-        /* The final position */
-        bitboard::name_cell ( move.to ) +
-        /* A '+' for single check or '++' for double check */
-        ( check_info.check_count == 1 ? "+" : "" ) +
-        ( check_info.check_count == 2 ? "++" : "" );
-
-    /* If promoting a pawn, add a slash and the promotion character */
-    if ( move.promote_pt != ptype::no_piece ) out += "/" + piece_chars [ cast_penum ( move.promote_pt ) ];
-
-    /* Return the string */
-    return out;
-}
-
-/** @name  deserialize_move
- * 
- * @brief  Creates a move from a description
- * @param  pc: The color who's move it is
- * @param  desc: The description of the move
- * @return move_t
- */
-chess::chessboard::move_t chess::chessboard::deserialize_move ( const pcolor pc, const std::string& desc )
-{
-    /* Look for a castling move */
-    if ( desc == "O-O"   ) return move_t { pc, ptype::king, ptype::no_piece, ptype::no_piece, ( pc == pcolor::white ? 4 : 60 ), ( pc == pcolor::white ? 6 : 62 ) };
-    if ( desc == "O-O-O" ) return move_t { pc, ptype::king, ptype::no_piece, ptype::no_piece, ( pc == pcolor::white ? 4 : 60 ), ( pc == pcolor::white ? 2 : 58 ) };
-
-
 }
 
 
@@ -383,11 +371,11 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr bitboard white_knight_initial_cells { 0x0000000000000042 }, black_knight_initial_cells { 0x4200000000000000 };
 
     /* Material values */
-    constexpr int QUEEN  { 38 }; // 19
-    constexpr int ROOK   { 20 }; // 10
-    constexpr int BISHOP { 14 }; //  7
-    constexpr int KNIGHT { 14 }; //  7
-    constexpr int PAWN   {  4 }; //  2
+    constexpr int QUEEN  { 950 }; // 19
+    constexpr int ROOK   { 500 }; // 10
+    constexpr int BISHOP { 350 }; //  7
+    constexpr int KNIGHT { 350 }; //  7
+    constexpr int PAWN   { 100 }; //  2
 
     /* Pawns */
     constexpr int PAWN_GENERAL_ATTACKS             {   1 }; // For every generally attacked cell
@@ -399,6 +387,9 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr int PAWN_GENERAL_ATTACKS_ADJ_OP_KING {  20 }; // For every generally attacked cell
     constexpr int PHALANGA                         {  20 }; // Tripple pawn counts as 40 etc.
     constexpr int BLOCKED_PASSED_PAWNS             { -15 }; // For each blocked passed pawn
+    constexpr int STRONG_SQUARES                   {  20 }; // For each strong square (one attacked by a friendly pawn and not an enemy pawn)
+    constexpr int BACKWARD_PAWNS                   {  10 }; // For each pawn behind a strong square (see above)
+
 
     /* Sliding pieces */
     constexpr int STRAIGHT_PIECES_ON_7TH_RANK                      { 30 }; // For each piece
@@ -417,6 +408,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     /* Bishops and knights */
     constexpr int BISHOP_OR_KNIGHT_INITIAL_CELL                 { -15 }; // For every bishop/knight
     constexpr int DIAGONAL_OR_KNIGHT_CAPTURE_ON_STRAIGHT_PIECES {  10 }; // For every capture
+    constexpr int BISHOP_OR_KNIGHT_ON_STRONG_SQUARE           {  20 }; // For each piece
 
     /* Mobility and king queen mobility, for every move */
     constexpr int MOBILITY            {  1 }; // For every legal move
@@ -877,6 +869,12 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         const bitboard black_pawn_captures_e = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::se ) & black_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
         const bitboard black_pawn_captures_w = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::sw ) & black_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
 
+        /* Get the strong squares.
+         * These are the squares attacked by a friendly pawn, but not by an enemy pawn.
+         */
+        const bitboard white_strong_squares = white_pawn_attacks & ~black_pawn_attacks;
+        const bitboard black_strong_squares = black_pawn_attacks & ~white_pawn_attacks;
+
 
 
         /* Union defence */
@@ -892,6 +890,9 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
         /* Incorporate the number of cells generally attacked by pawns into value */
         value += PAWN_GENERAL_ATTACKS * ( white_pawn_attacks.popcount () - black_pawn_attacks.popcount () );
+
+        /* Incorporate strong squares into value */
+        value += STRONG_SQUARES * ( white_strong_squares.popcount () - black_strong_squares.popcount () );
 
         /* Incorperate the number of pawns in the center to value */
         {
@@ -942,6 +943,20 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             const bitboard black_blocked_passed_pawns = black_behind_passed_pawns.shift ( compass::s ).shift ( compass::s ) & bb ( pcolor::white );
             value += BLOCKED_PASSED_PAWNS * ( white_blocked_passed_pawns.popcount () - black_blocked_passed_pawns.popcount () );
         }
+
+        /* Incorporate backwards pawns into value */
+        {
+            const bitboard white_backward_pawns = white_strong_squares.shift ( compass::s ) & bb ( pcolor::white, ptype::pawn );
+            const bitboard black_backward_pawns = black_strong_squares.shift ( compass::n ) & bb ( pcolor::black, ptype::pawn );
+            value += BACKWARD_PAWNS * ( white_backward_pawns.popcount () - black_backward_pawns.popcount () );
+        }
+
+        /* Incorporate bishops or knights on strong squares into value */
+        {
+            const bitboard white_bishop_or_knight_strong_squares = white_strong_squares & ( bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::knight ) );
+            const bitboard black_bishop_or_knight_strong_squares = black_strong_squares & ( bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::knight ) );
+            value += BISHOP_OR_KNIGHT_ON_STRONG_SQUARE * ( white_bishop_or_knight_strong_squares.popcount () - black_bishop_or_knight_strong_squares.popcount () );
+        }
     }
 
 
@@ -958,8 +973,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
          * The empty space must not be protected by the opponent, and the kings must not be left adjacent.
          * Note that some illegal attacks may be included here, if there are any opposing pinned sliding pieces.
          */
-        bitboard white_king_attacks = white_king_span & ~black_king_span & ~bb ( pcolor::white ) & ~black_partial_defence_union & ~white_check_info.check_vectors;
-        bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union & ~black_check_info.check_vectors;
+        bitboard white_king_attacks = white_king_span & ~black_king_span & ~bb ( pcolor::white ) & ~black_partial_defence_union;
+        bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union;
 
         /* Validate the remaining white king moves */
         if ( white_king_attacks.is_nonempty () ) 
@@ -1077,33 +1092,45 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
  * @param  end_point: The time point at which the search should be ended, never by default.
  * @return An array of moves and their values
  */
-chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcolor pc, const unsigned depth, const std::chrono::steady_clock::time_point end_point )
+chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const std::chrono::steady_clock::time_point end_point ) const
 {
+    /* Create a copy of the chessboard */
+    chessboard cb { * this };
+
     /* Allocate new memory */
-    if ( ab_working ) delete ab_working;
-    ab_working = new ab_working_t;
+    cb.ab_working = new ab_working_t;
 
     /* Allocate excess memory  */
-    ab_working->move_sets.resize ( 128 );
-    ab_working->killer_moves.resize ( 128 );
+    cb.ab_working->move_sets.resize ( 128 );
+    cb.ab_working->killer_moves.resize ( 128 );
 
     /* Reserve excess memory for root moves */
-    ab_working->root_moves.reserve ( 128 );
+    cb.ab_working->root_moves.reserve ( 128 );
 
     /* Call the internal method */
-    alpha_beta_search_internal ( pc, depth, end_point );
+    cb.alpha_beta_search_internal ( pc, depth, end_point );
 
     /* Extract the move list */
-    ab_result_t moves = std::move ( ab_working->root_moves );
+    ab_result_t moves = std::move ( cb.ab_working->root_moves );
 
     /* Shrink to fit */
     moves.shrink_to_fit ();
 
     /* Order the moves */
     std::sort ( moves.begin (), moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
-    
-    /* Delete the memory */
-    delete ab_working; ab_working = nullptr;
+
+    /* Set the check count for each move */
+    std::for_each ( moves.begin (), moves.end (), [ & ] ( auto& move ) 
+    { 
+        /* Make the move */
+        const unsigned c_rights = cb.make_move_internal ( move.first ); 
+        
+        /* Get the check cound */
+        move.first.check_count = cb.get_check_info ( other_color ( pc ) ).check_count;
+
+        /* Unmake the move */
+        cb.unmake_move_internal ( move.first, c_rights );
+    } );
 
     /* Return the moves */
     return moves;
@@ -1120,18 +1147,17 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
  * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
  * @return An array of moves and their values
  */
-chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const unsigned min_depth, const unsigned max_depth, const std::chrono::steady_clock::time_point end_point, unsigned threads, bool finish_first )
+chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, const std::chrono::steady_clock::time_point end_point, int threads, bool finish_first ) const
 {
     /* If threads == 0, increase it to 1 */
     if ( threads == 0 ) threads = 1;
 
     /* Create an array of chessboards and futures for each depth */
-    std::vector<chessboard> cbs { max_depth - min_depth + 1, * this };
-    std::vector<std::future<ab_result_t>> fts { max_depth - min_depth + 1 };
+    std::vector<std::future<ab_result_t>> fts { max_depth - min_depth + 1u };
 
     /* Set of the first set of futures */
     for ( int i = 0; i < threads && min_depth + i <= max_depth; ++i ) 
-        fts.at ( i ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, &cbs.at ( i ), pc, min_depth + i, ( i == 0 && finish_first ? std::chrono::steady_clock::time_point::max () : end_point ) );
+        fts.at ( i ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, this, pc, min_depth + i, ( i == 0 && finish_first ? std::chrono::steady_clock::time_point::max () : end_point ) );
 
     /* The running moves list */
     ab_result_t deepest_moves;
@@ -1153,7 +1179,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
 
             /* Possibly start the next thread */
             if ( min_depth + i + threads <= max_depth ) 
-                fts.at ( i + threads ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, &cbs.at ( i + threads ), pc, min_depth + i + threads, end_point );
+                fts.at ( i + threads ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, this, pc, min_depth + i + threads, end_point );
         }
 
         /* Howevever still accept the new moves if this is the first search, and finish_first is true */
@@ -1178,7 +1204,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
  * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
  * @return alpha_beta_t
  */
-int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk_depth, std::chrono::steady_clock::time_point end_point, int alpha, int beta, unsigned fd_depth, unsigned null_depth, unsigned q_depth )
+int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, std::chrono::steady_clock::time_point end_point, int alpha, int beta, int fd_depth, int null_depth, int q_depth )
 {
 
     /* CONSTANTS */
@@ -1186,25 +1212,25 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     /* Set the fd_depth range in which the transposition table will be used.
      * Increased memory usage due to exponential growth of the search tree make using the ttable at higher fd_depths undesirable.
      */
-    constexpr unsigned TTABLE_MIN_SEARCH_FD_DEPTH = 3, TTABLE_MAX_SEARCH_FD_DEPTH = 6;
-    constexpr unsigned TTABLE_MIN_STORE_FD_DEPTH  = 3, TTABLE_MAX_STORE_FD_DEPTH  = 6;
+    constexpr int TTABLE_MIN_SEARCH_FD_DEPTH = 3, TTABLE_MAX_SEARCH_FD_DEPTH = 6;
+    constexpr int TTABLE_MIN_STORE_FD_DEPTH  = 3, TTABLE_MAX_STORE_FD_DEPTH  = 6;
 
     /* Set the maximum depth quiescence search can go to.
      * This is important as it stops rare infinite loops relating to check in quiescence search.
      */
-    constexpr unsigned QUIESCENCE_MAX_Q_DEPTH = 12;
+    constexpr int QUIESCENCE_MAX_Q_DEPTH = 12;
 
     /* The mimumum fd_depth that a null move may be tried */
-    constexpr unsigned NULL_MOVE_MIN_FD_DEPTH = 2;
+    constexpr int NULL_MOVE_MIN_FD_DEPTH = 2;
 
     /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth */
-    constexpr unsigned NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
+    constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
 
     /* The number of pieces such that if any player has less than this, the game is considered endgame */
-    constexpr unsigned ENDGAME_PIECES = 8;
+    constexpr int ENDGAME_PIECES = 8;
 
     /* The maximum fd_depth at which an endpoint cutoff is noticed */
-    constexpr unsigned END_POINT_CUTOFF_MAX_FD_DEPTH = 5;
+    constexpr int END_POINT_CUTOFF_MAX_FD_DEPTH = 5;
 
 
 
@@ -1224,7 +1250,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
      * @param  index: The index of the killer move (0 or 1)
      * @return The killer move
      */
-    auto access_killer_move = [ & ] ( unsigned index ) -> auto& { return ab_working->killer_moves.at ( fd_depth ).at ( index ); };
+    auto access_killer_move = [ & ] ( int index ) -> auto& { return ab_working->killer_moves.at ( fd_depth ).at ( index ); };
  
 
 
@@ -1285,8 +1311,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
      * There must be pieces other than the king and pawns.
      */
     const bool endgame = bb ( pcolor::white ).popcount () < ENDGAME_PIECES || bb ( pcolor::black ).popcount () < ENDGAME_PIECES
-        || !( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) | bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::knight ) )
-        || !( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) | bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::knight ) );
+        || ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) | bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::knight ) ).popcount () <= 2
+        || ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) | bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::knight ) ).popcount () <= 2;
 
     /* Get whether the ttable should be used. All of:
      * Must not be trying a null move.
@@ -1365,11 +1391,13 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return static_eval;
 
             /* Find the quiescence delta */
-            const unsigned quiescence_delta = std::max 
-            ( { 20,
-                bb ( pcolor::white, ptype::queen  ).popcount () * 38, bb ( pcolor::black, ptype::queen  ).popcount () * 38, 
-                bb ( pcolor::white, ptype::rook   ).popcount () * 20, bb ( pcolor::black, ptype::rook   ).popcount () * 20,
-            } ) * 1.5 + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 38;
+            const int quiescence_delta = std::max 
+            ( { 100,
+                bb ( npc, ptype::queen  ).is_nonempty () * 950,
+                bb ( npc, ptype::rook   ).is_nonempty () * 500,
+                bb ( npc, ptype::bishop ).is_nonempty () * 350,
+                bb ( npc, ptype::knight ).is_nonempty () * 350
+            } ) + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 950;
 
             /* Or return on delta pruning if allowed */
             if ( use_delta_pruning && static_eval + quiescence_delta < alpha ) return static_eval;
@@ -1411,7 +1439,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
     auto apply_move = [ & ] ( const move_t& move ) -> bool
     {
         /* Apply the move */
-        const int c_rights = make_move ( move );
+        const int c_rights = make_move_internal ( move );
 
         /* Recursively call to get the value for this move.
         * Switch around and negate alpha and beta, since it is the other player's turn.
@@ -1420,7 +1448,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
         const int new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), end_point, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake the move */
-        unmake_move ( move, c_rights ); 
+        unmake_move_internal ( move, c_rights ); 
 
         /* If past the end point, return */
         if ( fd_depth <= END_POINT_CUTOFF_MAX_FD_DEPTH && std::chrono::steady_clock::now () > end_point ) return true;
@@ -1501,12 +1529,12 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
             if ( pt == ptype::pawn && rank_8.test ( to ) )
             {
                 /* Try the move with a queen and a knight as the promotion type, returning on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to } ) ) return true;
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to, 0 } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to, 0 } ) ) return true;
             } else
             {
                 /* Try the move and return on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to, 0 } ) ) return true;
             }
         }
 
@@ -1675,4 +1703,171 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, unsigned bk
 
     /* Return the best value */
     return best_value;
+}
+
+
+
+/* MOVE SERIALIZATION */
+
+/** @name  serialize
+ * 
+ * @brief  Creates a string from the move
+ * @return string
+ */
+std::string chess::chessboard::move_t::serialize () const
+{
+    /* Check if the move is a castling move */
+    if ( is_kingside_castle  () ) return "O-O"; 
+    if ( is_queenside_castle () ) return "O-O-O"; 
+
+    /* Create the string for the move */
+    std::string out = 
+        /* The initial position */
+        bitboard::name_cell ( from ) + 
+        /* The piece that is moving and a colon */
+        piece_chars [ cast_penum ( pt ) ] + ":" +
+        /* The final position */
+        bitboard::name_cell ( to ) +
+        /* The capture type */
+        piece_chars [ cast_penum ( capture_pt ) ] +
+        /* A '+' for single check or '++' for double check */
+        ( check_count == 1 ? "+"  : "" ) +
+        ( check_count == 2 ? "++" : "" );
+
+    /* If promoting a pawn, add a slash and the promotion character */
+    if ( promote_pt != ptype::no_piece ) out += std::string ( "/" ) + piece_chars [ cast_penum ( promote_pt ) ];
+
+    /* Return the string */
+    return out;
+}
+
+/** @name  deserialize
+ * 
+ * @brief  Sets the move from a string
+ * @param  _pc: The color that is to make the move
+ * @param  desc: The serialization of the move
+ * @return A reference to this move
+ */
+chess::chessboard::move_t& chess::chessboard::move_t::deserialize ( const pcolor _pc, const std::string& desc )
+{
+    /* Set the color */
+    pc = _pc;
+
+    /* Look for a castling move */
+    if ( desc == "O-O"   ) { pt = ptype::king; capture_pt = ptype::no_piece; promote_pt = ptype::no_piece; from = ( pc == pcolor::white ? 4 : 60 ); to = ( pc == pcolor::white ? 6 : 62 ); check_count = 0; return * this; };
+    if ( desc == "O-O-O" ) { pt = ptype::king; capture_pt = ptype::no_piece; promote_pt = ptype::no_piece; from = ( pc == pcolor::white ? 4 : 60 ); to = ( pc == pcolor::white ? 2 : 58 ); check_count = 0; return * this; };
+
+    /* Store the running string position */
+    int desc_pos = 0;
+
+    /* Get if the input is too short */
+    if ( desc.size () < 7 ) throw std::runtime_error { "Input too short in deserialize_move ()." };
+
+
+
+    /* FROM */
+    {
+        /* Check the cell name is valid */
+        if ( desc.at ( desc_pos ) < 'a' || desc.at ( desc_pos ) > 'h' ) throw std::runtime_error { "Invalid from position in deserialize_move ()." };
+        if ( desc.at ( desc_pos + 1 ) < '1' || desc.at ( desc_pos + 1 ) > '8' ) throw std::runtime_error { "Invalid from position in deserialize_move ()." };
+
+        /* Extract the cell pos and increase desc_pos */
+        from = bitboard::cell_pos ( desc.substr ( desc_pos, 2 ) );
+        desc_pos += 2;
+    }
+    
+    /* PT */
+    {
+        /* Look for the ptype index from the character for pt. Note that the type cannot be any_piece or no_piece, hence the 6. */
+        const char * pt_ptr = std::find ( piece_chars, piece_chars + 6, desc.at ( desc_pos ) );
+
+        /* If the character for pt was invalid, throw */
+        if ( pt_ptr == piece_chars + 6 ) throw std::runtime_error { "Invalid piece type in deserialize_move ()." };
+
+        /* Set the piece type and increase desc_pos */
+        pt = static_cast<ptype> ( pt_ptr - piece_chars );
+        desc_pos += 1;
+    }
+
+    /* SEPARATING COLON */  
+    {
+        /* If the colon is not there, throw */
+        if ( desc.at ( desc_pos ) != ':' ) throw std::runtime_error { "Invalid format (expected separating ':') in deserialize_move ()." };
+
+        /* Increase desc_pos */
+        desc_pos += 1;
+    }
+
+    /* TO */
+    {
+        /* Check the cell name is valid */
+        if ( desc.at ( desc_pos ) < 'a' || desc.at ( desc_pos ) > 'h' ) throw std::runtime_error { "Invalid to position in deserialize_move ()." };
+        if ( desc.at ( desc_pos + 1 ) < '1' || desc.at ( desc_pos + 1 ) > '8' ) throw std::runtime_error { "Invalid to position in deserialize_move ()." };
+
+        /* Extract the cell pos and increase desc_pos */
+        to = bitboard::cell_pos ( desc.substr ( desc_pos, 2 ) );
+        desc_pos += 2;
+    }
+
+    /* CAPTURE_PT */
+    {
+        /* Look for the ptype index from the character for capture_pt. Note that the capture type can be no_piece, hence the 8. */
+        const char * pt_ptr = std::find ( piece_chars, piece_chars + 8, desc.at ( desc_pos ) );
+
+        /* If the character for capture_pt was invalid, throw */
+        if ( pt_ptr == piece_chars + 8 ) throw std::runtime_error { "Invalid capture type in deserialize_move ()." };
+
+        /* Set the piece type and increase desc_pos */
+        capture_pt = static_cast<ptype> ( pt_ptr - piece_chars );
+        desc_pos += 1;
+
+        /* Check that the capture type is not the king or any_piece */
+        if ( capture_pt == ptype::king || capture_pt == ptype::any_piece ) throw std::runtime_error { "Invalid capture type in deserialize_move ()." };
+    }
+
+    /* CHECK_COUNT */
+    {
+        /* Set the check count to zero */
+        check_count = 0;
+
+        /* If there are any '+'s, add up the check count and increment desc_pos */
+        if ( desc_pos != desc.size () && desc.at ( desc_pos ) == '+' ) { ++check_count; ++desc_pos; }
+        if ( desc_pos != desc.size () && desc.at ( desc_pos ) == '+' ) { ++check_count; ++desc_pos; }
+    }
+
+    /* PROMOTE_PT */
+    {
+        /* Detect if there should be a promotion type */
+        if ( pt == ptype::pawn && ( pc == pcolor::white ? to >= 56 : to < 8 ) )
+        {
+            /* Check desc is long enough to include the promotion type information */
+            if ( desc_pos + 1 >= desc.size () ) throw std::runtime_error { "No promotion type in deserialize_move ()." };
+
+            /* Check that the next character is a '/' and increment desc_pos */
+            if ( desc.at ( desc_pos ) != '/' ) throw std::runtime_error { "Invalid promotion type in deserialize_move ()." };
+            desc_pos += 1;
+
+            /* Look for the ptype index from the character for promote_pt */
+            const char * pt_ptr = std::find ( piece_chars, piece_chars + 6, desc.at ( desc_pos ) );
+
+            /* If the character for promote_pt was invalid, throw */
+            if ( pt_ptr == piece_chars + 6 ) throw std::runtime_error { "Invalid promotion type in deserialize_move ()." };
+
+            /* Set the piece type and increase desc_pos */
+            promote_pt = static_cast<ptype> ( pt_ptr - piece_chars );
+            desc_pos += 1;
+            
+            /* Check that the promotion type is not a pawn or king */
+            if ( promote_pt == ptype::pawn || promote_pt == ptype::king ) throw std::runtime_error { "Invalid promotion type in deserialize_move ()." };
+        } 
+        
+        /* Otherwise set promotion type to no_piece */
+        else promote_pt == ptype::no_piece;
+    }
+    
+    /* Check if there are any extra characters */
+    if ( desc_pos != desc.size () ) throw std::runtime_error { "Input too long in deserialize_move ()." };
+
+    /* Return this */
+    return * this;
 }

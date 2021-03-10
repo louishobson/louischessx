@@ -82,15 +82,15 @@ inline void chess::check_penum ( const pcolor pc, const ptype pt ) chess_validat
 {
     /* Only if validation is enabled */
 #if CHESS_VALIDATE
-    if ( pc == pcolor::no_piece ) throw std::range_error { "Recieved a piece color of no_piece where no_piece is not acceptable" };
-    if ( pt == ptype::no_piece  ) throw std::range_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
+    if ( pc == pcolor::no_piece ) throw std::runtime_error { "Recieved a piece color of no_piece where no_piece is not acceptable" };
+    if ( pt == ptype::no_piece  ) throw std::runtime_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
 #endif
 }
 inline void chess::check_penum ( const ptype pt ) chess_validate_throw
 {
     /* Only if validation is enabled */
 #if CHESS_VALIDATE
-    if ( pt == ptype::no_piece  ) throw std::range_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
+    if ( pt == ptype::no_piece  ) throw std::runtime_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
 #endif
 }
 
@@ -211,17 +211,17 @@ inline bool chess::chessboard::can_queenside_castle ( const pcolor pc ) const ch
 
 
 
-/* MOVE METHODS IMPLEMENTATION */
+/* MAKE AND UNMAKE MOVES IMPLEMENTATION */
 
 
 
-/** @name  make_move
+/** @name  make_move_internal
  * 
  * @brief  Apply a move. Assumes all the information about the move is correct and legal.
  * @param  move: The move to apply
  * @return The castling rights before the move
  */
-inline unsigned chess::chessboard::make_move ( const move_t& move ) chess_validate_throw
+inline unsigned chess::chessboard::make_move_internal ( const move_t& move ) chess_validate_throw
 {
     /* Get the castling rights */
     const unsigned c_rights = castling_rights;
@@ -290,14 +290,14 @@ inline unsigned chess::chessboard::make_move ( const move_t& move ) chess_valida
     return c_rights;
 }
 
-/** @name  unmake_move
+/** @name  unmake_move_internal
  * 
  * @brief  Unmake a move. Assumes that the move was made immediately before this undo function.
  * @param  move: The move to undo
  * @param  c_rights: The castling rights before the move
  * @return void
  */
-inline void chess::chessboard::unmake_move ( const move_t& move, const unsigned c_rights ) chess_validate_throw
+inline void chess::chessboard::unmake_move_internal ( const move_t& move, const unsigned c_rights ) chess_validate_throw
 {
     /* Reset castling rights */
     castling_rights = c_rights;
@@ -522,7 +522,7 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     const bitboard king = bb ( pc, ptype::king );
 
     /* Lookup the king moves */
-    bitboard moves = bitboard::king_attack_lookup ( king.trailing_zeros () ) & ~bb ( pc ) & ~check_info.check_vectors;
+    bitboard moves = bitboard::king_attack_lookup ( king.trailing_zeros () ) & ~bb ( pc );
 
     /* Unset the king */
     get_bb ( pc ) &= ~king;
@@ -533,7 +533,7 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     while ( moves_temp )
     {
         /* Get the next test position */
-        const unsigned test_pos = moves_temp.trailing_zeros ();
+        const int test_pos = moves_temp.trailing_zeros ();
         moves_temp.reset ( test_pos );
 
         /* If is protected, reset in attacks */
