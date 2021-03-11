@@ -384,7 +384,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr bitboard white_knight_initial_cells { 0x0000000000000042 }, black_knight_initial_cells { 0x4200000000000000 };
 
     /* Material values */
-    constexpr int QUEEN  { 1200 }; // 19
+    constexpr int QUEEN  { 1100 }; // 19
     constexpr int ROOK   {  600 }; // 10
     constexpr int BISHOP {  400 }; //  7
     constexpr int KNIGHT {  400 }; //  7
@@ -1255,7 +1255,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     constexpr int QUIESCENCE_MAX_Q_DEPTH = 16;
 
     /* The mimumum fd_depth that a null move may be tried */
-    constexpr int NULL_MOVE_MIN_FD_DEPTH = 2;
+    constexpr int NULL_MOVE_MIN_FD_DEPTH = 3;
 
     /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth */
     constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
@@ -1427,11 +1427,11 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             /* Find the quiescence delta */
             const int quiescence_delta = std::max 
             ( { 100,
-                bb ( npc, ptype::queen  ).is_nonempty () * 950,
-                bb ( npc, ptype::rook   ).is_nonempty () * 500,
-                bb ( npc, ptype::bishop ).is_nonempty () * 350,
-                bb ( npc, ptype::knight ).is_nonempty () * 350
-            } ) + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 950;
+                bb ( npc, ptype::queen  ).is_nonempty () * 1100,
+                bb ( npc, ptype::rook   ).is_nonempty () *  600,
+                bb ( npc, ptype::bishop ).is_nonempty () *  400,
+                bb ( npc, ptype::knight ).is_nonempty () *  400
+            } ) + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 550;
 
             /* Or return on delta pruning if allowed */
             if ( use_delta_pruning && static_eval + quiescence_delta < alpha ) return static_eval;
