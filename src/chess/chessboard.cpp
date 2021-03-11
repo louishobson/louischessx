@@ -891,30 +891,24 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         /* Look for en passant captures (one bitboard for pc, rather than white and black individually) */
         const bitboard en_passant_double_push = singleton_bitboard ( aux_info.double_push_pos ).only_if ( aux_info.double_push_pos );
         bitboard en_passant_captors = bb ( pc, ptype::pawn ) & ( en_passant_double_push.shift ( compass::e ) | en_passant_double_push.shift ( compass::w ) );
+        bitboard en_passant_captors_temp = en_passant_captors;
 
         /* Test each of the en passant captures to ensure the king is not left in check */
-        if ( en_passant_captors )
+        while ( en_passant_captors_temp )
         {
-            /* Create a temporary variable */
-            bitboard en_passant_captors_temp = en_passant_captors;
+            /* Get the next captor and unset that bit */
+            const int pos = en_passant_captors_temp.trailing_zeros ();
+            en_passant_captors_temp.reset ( pos );
 
-            /* Iterate through them */
-            while ( en_passant_captors_temp )
-            {
-                /* Get the next captor and unset that bit */
-                const int pos = en_passant_captors_temp.trailing_zeros ();
-                en_passant_captors_temp.reset ( pos );
+            /* Create and make the move */
+            const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos, 0 };
+            const aux_info_t aux = make_move_internal ( ep_move );
 
-                /* Create and make the move */
-                const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos, 0 };
-                const aux_info_t aux = make_move_internal ( ep_move );
+            /* If in check or the pawn leaves a pin vector, remove this captor */
+            if ( is_in_check ( pc ) ) en_passant_captors.reset ( pos );
 
-                /* If in check or the pawn leaves a pin vector, remove this captor */
-                if ( is_in_check ( pc ) ) en_passant_captors.reset ( pos );
-
-                /* Undo the move */
-                unmake_move_internal ( ep_move, aux );
-            }
+            /* Undo the move */
+            unmake_move_internal ( ep_move, aux );
         }
 
 
