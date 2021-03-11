@@ -1258,7 +1258,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     constexpr int NULL_MOVE_MIN_FD_DEPTH = 3;
 
     /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth */
-    constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 3, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
+    constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 2, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
 
     /* The number of pieces such that if any player has less than this, the game is considered endgame */
     constexpr int ENDGAME_PIECES = 8;
