@@ -611,7 +611,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
      */
 
     /* White pinned pieces */
-    if ( white_check_info.check_count == 0 )
+    if ( white_check_info.pin_vectors.is_nonempty () & white_check_info.check_count == 0 )
     {
         /* Get the straight and diagonal pinned pieces which can move.
          * Hence the straight pinned pieces are all on straight pin vectors, and diagonal pinned pieces are all on diagonal pin vectors.
@@ -657,7 +657,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     }
 
     /* Black pinned pieces */
-    if ( black_check_info.check_count == 0 )
+    if ( black_check_info.pin_vectors.is_nonempty () & black_check_info.check_count == 0 )
     {
         /* Get the straight and diagonal pinned pieces which can move.
          * Hence the straight pinned pieces are all on straight pin vectors, and diagonal pinned pieces are all on diagonal pin vectors.
@@ -888,6 +888,35 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         const bitboard white_strong_squares = white_pawn_attacks & ~black_pawn_attacks;
         const bitboard black_strong_squares = black_pawn_attacks & ~white_pawn_attacks;
 
+        /* Look for en passant captures (one bitboard for pc, rather than white and black individually) */
+        const bitboard en_passant_double_push = singleton_bitboard ( aux_info.double_push_pos ).only_if ( aux_info.double_push_pos );
+        bitboard en_passant_captors = bb ( pc, ptype::pawn ) & ( en_passant_double_push.shift ( compass::e ) | en_passant_double_push.shift ( compass::w ) );
+
+        /* Test each of the en passant captures to ensure the king is not left in check */
+        if ( en_passant_captors )
+        {
+            /* Create a temporary variable */
+            bitboard en_passant_captors_temp = en_passant_captors;
+
+            /* Iterate through them */
+            while ( en_passant_captors_temp )
+            {
+                /* Get the next captor and unset that bit */
+                const int pos = en_passant_captors_temp.trailing_zeros ();
+                en_passant_captors_temp.reset ( pos );
+
+                /* Create and make the move */
+                const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos, 0 };
+                const aux_info_t aux = make_move_internal ( ep_move );
+
+                /* If in check or the pawn leaves a pin vector, remove this captor */
+                if ( is_in_check ( pc ) ) en_passant_captors.reset ( pos );
+
+                /* Undo the move */
+                unmake_move_internal ( ep_move, aux );
+            }
+        }
+
 
 
         /* Union defence */
@@ -895,8 +924,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         black_partial_defence_union |= black_pawn_attacks;
 
         /* Sum mobility */
-        white_mobility += white_pawn_pushes.popcount () + white_pawn_captures_e.popcount () + white_pawn_captures_w.popcount ();
-        black_mobility += black_pawn_pushes.popcount () + black_pawn_captures_e.popcount () + black_pawn_captures_w.popcount ();
+        white_mobility += white_pawn_pushes.popcount () + white_pawn_captures_e.popcount () + white_pawn_captures_w.popcount () + en_passant_captors.only_if ( pc == pcolor::white ).popcount ();
+        black_mobility += black_pawn_pushes.popcount () + black_pawn_captures_e.popcount () + black_pawn_captures_w.popcount () + en_passant_captors.only_if ( pc == pcolor::black ).popcount ();
 
         /* Incorporate the number of pawns into value */
         value += PAWN * ( bb ( pcolor::white, ptype::pawn ).popcount () - bb ( pcolor::black, ptype::pawn ).popcount () );
@@ -990,15 +1019,14 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         bitboard black_king_attacks = black_king_span & ~white_king_span & ~bb ( pcolor::black ) & ~white_partial_defence_union;
 
         /* Validate the remaining white king moves */
-        if ( white_king_attacks.is_nonempty () ) 
+        if ( white_king_attacks ) 
         {
             /* Create a temporary bitboard */
             bitboard white_king_attacks_temp = white_king_attacks;
 
             /* Temporarily unset the king */
-            const bitboard white_king = bb ( pcolor::white, ptype::king );
-            get_bb ( pcolor::white )              &= ~white_king;
-            get_bb ( pcolor::white, ptype::king ) &= ~white_king;
+            get_bb ( pcolor::white ).reset              ( white_king_pos );
+            get_bb ( pcolor::white, ptype::king ).reset ( white_king_pos );
 
             /* Loop through the white king attacks to validate they don't lead to check */
             do {
@@ -1009,20 +1037,19 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             } while ( white_king_attacks_temp );
 
             /* Reset the king */
-            get_bb ( pcolor::white )              |= white_king;
-            get_bb ( pcolor::white, ptype::king ) |= white_king;
+            get_bb ( pcolor::white ).set              ( white_king_pos );
+            get_bb ( pcolor::white, ptype::king ).set ( white_king_pos );
         }
 
         /* Validate the remaining black king moves */
-        if ( black_king_attacks.is_nonempty () ) 
+        if ( black_king_attacks ) 
         {
             /* Create a temporary bitboard */
             bitboard black_king_attacks_temp = black_king_attacks;
 
             /* Temporarily unset the king */
-            const bitboard black_king = bb ( pcolor::black, ptype::king );
-            get_bb ( pcolor::black )              &= ~black_king;
-            get_bb ( pcolor::black, ptype::king ) &= ~black_king;
+            get_bb ( pcolor::black ).reset              ( black_king_pos );
+            get_bb ( pcolor::black, ptype::king ).reset ( black_king_pos );
 
             /* Loop through the white king attacks to validate they don't lead to check */
             do {
@@ -1033,8 +1060,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             } while ( black_king_attacks_temp );
 
             /* Reset the king */
-            get_bb ( pcolor::black )              |= black_king;
-            get_bb ( pcolor::black, ptype::king ) |= black_king;
+            get_bb ( pcolor::black ).set              ( black_king_pos );
+            get_bb ( pcolor::black, ptype::king ).set ( black_king_pos );
         }
 
         /* Calculate king queen fill. Flood fill using pp and queen attack lookup as a propagator. */
@@ -1046,8 +1073,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
 
         /* Sum mobility */
-        white_mobility += white_king_attacks.popcount ();
-        black_mobility += black_king_attacks.popcount ();
+        white_mobility += white_king_attacks.popcount () + can_kingside_castle ( pcolor::white ) + can_queenside_castle ( pcolor::white );
+        black_mobility += black_king_attacks.popcount () + can_kingside_castle ( pcolor::black ) + can_queenside_castle ( pcolor::black ); 
 
         /* Incorporate the king queen mobility into value.
          * It does not matter that we are using the fills instead of spans, since the fact both the fills include their kings will cancel out.
@@ -1558,9 +1585,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
              */
             if ( pt == ptype::pawn && ( to - from ) % 8 != 0 && !bb ( npc ).test ( to ) )
             {
-                /* Work out the position of the captured pawn and apply the move.
-                 * The position of the captured pawn is the rank of from and the file of to.
-                 */
+                /* Apply the move and return on alpha-beta cutoff */
                 if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, ( from / 8 ) * 8 + ( to % 8 ), 0 } ) ) return true;
             } else
             
