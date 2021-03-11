@@ -418,11 +418,12 @@ public:
      * 
      * @brief  Gets information as to whether a color can legally castle given the current state
      * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
+     * @param  check_info: The check info for the king in its current position
      * @return boolean
      */
-    bool can_kingside_castle  ( pcolor pc ) const chess_validate_throw;
-    bool can_queenside_castle ( pcolor pc ) const chess_validate_throw;
-    bool can_castle           ( pcolor pc ) const chess_validate_throw { return can_kingside_castle ( pc ) | can_queenside_castle ( pc ); }
+    bool can_kingside_castle  ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
+    bool can_queenside_castle ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
+    bool can_castle           ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw { return can_kingside_castle ( pc, check_info ) | can_queenside_castle ( pc, check_info ); }
 
     /** @name  evaluate
      * 

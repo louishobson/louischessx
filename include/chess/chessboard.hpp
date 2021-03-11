@@ -325,19 +325,23 @@ inline void chess::chessboard::unmake_move_internal ( const move_t& move, const 
  * 
  * @brief  Gets information as to whether a color can legally castle given the current state
  * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
+ * @param  check_info: The check info for the king in its current position
  * @return boolean
  */
-inline bool chess::chessboard::can_kingside_castle ( const pcolor pc ) const chess_validate_throw
+inline bool chess::chessboard::can_kingside_castle ( const pcolor pc, const check_info_t& check_info ) const chess_validate_throw
 {
     /* Return false if castling is not availible */
     if ( !has_kingside_castling_rights ( pc ) ) return false;
+
+    /* Return if is in check */
+    if ( check_info.check_count ) return false;
 
     /* Return if the space inbetween the king and rook is not empty */
     const bitboard empty_squares { bitboard::masks::kingside_castle_empty_squares & ( pc == pcolor::white ? bitboard::masks::rank_1 : bitboard::masks::rank_8 ) };
     if ( bb () & empty_squares ) return false;
 
     /* Get the squares that must be safe */
-    bitboard safe_squares { bitboard::masks::kingside_castle_safe_squares & ( pc == pcolor::white ? bitboard::masks::rank_1 : bitboard::masks::rank_8 ) };
+    bitboard safe_squares { bitboard::masks::kingside_castle_safe_squares & ~bitboard::masks::king_opening & ( pc == pcolor::white ? bitboard::masks::rank_1 : bitboard::masks::rank_8 ) };
 
     /* Iterate through the safe squares and return if in check on any of them */
     while ( safe_squares )
@@ -350,17 +354,20 @@ inline bool chess::chessboard::can_kingside_castle ( const pcolor pc ) const che
     /* Castle is possible, so return true */
     return true;
 }
-inline bool chess::chessboard::can_queenside_castle ( const pcolor pc ) const chess_validate_throw
+inline bool chess::chessboard::can_queenside_castle ( const pcolor pc, const check_info_t& check_info ) const chess_validate_throw
 {
     /* Return false if castling is not availible */
     if ( !has_queenside_castling_rights ( pc ) ) return false;
+
+    /* Return if is in check */
+    if ( check_info.check_count ) return false;
 
     /* Return if the space inbetween the king and rook is not empty */
     const bitboard empty_squares { bitboard::masks::queenside_castle_empty_squares & ( pc == pcolor::white ? bitboard::masks::rank_1 : bitboard::masks::rank_8 ) };
     if ( bb () & empty_squares ) return false;
 
     /* Get the squares that must be safe */
-    bitboard safe_squares { bitboard::masks::queenside_castle_safe_squares & ( pc == pcolor::white ? bitboard::masks::rank_1 : bitboard::masks::rank_8 ) };
+    bitboard safe_squares { bitboard::masks::queenside_castle_safe_squares & ~bitboard::masks::king_opening & ( pc == pcolor::white ? bitboard::masks::rank_1 : bitboard::masks::rank_8 ) };
 
     /* Iterate through the safe squares and return if in check on any of them */
     while ( safe_squares )
@@ -515,7 +522,7 @@ inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc
     if ( pt_bb & check_info.straight_pin_vectors ) [[ unlikely ]]
     {
         /* If in check, or is a bishop, return an empty move set */
-        if ( check_info.check_vectors || ( pt == ptype::bishop ) ) return bitboard {};
+        if ( check_info.check_count || ( pt == ptype::bishop ) ) return bitboard {};
 
         /* Now we know the pinned piece can move, restrict the propagators accordingly */
         straight_attack_lookup &= check_info.straight_pin_vectors;
@@ -526,7 +533,7 @@ inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc
     if ( pt_bb & check_info.diagonal_pin_vectors ) [[ unlikely ]]
     {
         /* If in check, or is a rook, return an empty move set */
-        if ( check_info.check_vectors || ( pt == ptype::rook ) ) return bitboard {};
+        if ( check_info.check_count || ( pt == ptype::rook ) ) return bitboard {};
 
         /* Now we know the pinned piece can move, restrict the propagators accordingly */
         diagonal_attack_lookup &= check_info.diagonal_pin_vectors;
@@ -586,8 +593,8 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     get_bb ( pc, ptype::king ) |= king;
 
     /* Add castling moves */
-    if ( can_kingside_castle  ( pc ) ) moves |= king.shift ( compass::e ).shift ( compass::e );
-    if ( can_queenside_castle ( pc ) ) moves |= king.shift ( compass::w ).shift ( compass::w );
+    if ( can_kingside_castle  ( pc, check_info ) ) moves |= king.shift ( compass::e ).shift ( compass::e );
+    if ( can_queenside_castle ( pc, check_info ) ) moves |= king.shift ( compass::w ).shift ( compass::w );
 
     /* Return the moves */
     return moves;

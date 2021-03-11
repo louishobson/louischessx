@@ -451,7 +451,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
     /* Throw if opposing color is in check */
 #if CHESS_VALIDATE
-    if ( pc == pcolor::white ? black_check_info.check_vectors : white_check_info.check_vectors ) [[ unlikely ]] throw std::runtime_error { "Opposing color is in check in evaluate ()." };
+    if ( pc == pcolor::white ? black_check_info.check_count : white_check_info.check_count ) [[ unlikely ]] throw std::runtime_error { "Opposing color is in check in evaluate ()." };
 #endif
 
     /* Get king positions */
@@ -1073,8 +1073,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
 
         /* Sum mobility */
-        white_mobility += white_king_attacks.popcount () + can_kingside_castle ( pcolor::white ) + can_queenside_castle ( pcolor::white );
-        black_mobility += black_king_attacks.popcount () + can_kingside_castle ( pcolor::black ) + can_queenside_castle ( pcolor::black ); 
+        white_mobility += white_king_attacks.popcount () + can_kingside_castle ( pcolor::white, white_check_info ) + can_queenside_castle ( pcolor::white, white_check_info );
+        black_mobility += black_king_attacks.popcount () + can_kingside_castle ( pcolor::black, black_check_info ) + can_queenside_castle ( pcolor::black, black_check_info ); 
 
         /* Incorporate the king queen mobility into value.
          * It does not matter that we are using the fills instead of spans, since the fact both the fills include their kings will cancel out.
@@ -1425,7 +1425,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         static_eval = evaluate ( pc );
 
         /* If in check increase the bk_depth by 1 */
-        if ( check_info.check_vectors ) bk_depth++; else 
+        if ( check_info.check_count ) bk_depth++; else 
         {
             /* Else return now if exceeding the max quiescence depth */
             if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return static_eval;
