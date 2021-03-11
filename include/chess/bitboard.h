@@ -806,6 +806,15 @@ private:
         static constexpr unsigned long long black_squares   { 0xaa55aa55aa55aa55 };
         static constexpr unsigned long long center_squares  { 0x0000001818000000 };
 
+        static constexpr unsigned long long white_opening  { 0x000000000000ffff };
+        static constexpr unsigned long long black_opening  { 0xffff000000000000 };
+        static constexpr unsigned long long pawn_opening   { 0x00ff00000000ff00 };
+        static constexpr unsigned long long knight_opening { 0x4200000000000042 };
+        static constexpr unsigned long long bishop_opening { 0x2400000000000024 };
+        static constexpr unsigned long long rook_opening   { 0x8100000000000081 };
+        static constexpr unsigned long long queen_openeing { 0x0800000000000008 };
+        static constexpr unsigned long long king_opening   { 0x1000000000000010 };
+
         static constexpr unsigned long long kingside_castle_empty_squares  { 0x6000000000000060 };
         static constexpr unsigned long long queenside_castle_empty_squares { 0x0e0000000000000e };
         static constexpr unsigned long long kingside_castle_safe_squares   { 0x7000000000000070 };
