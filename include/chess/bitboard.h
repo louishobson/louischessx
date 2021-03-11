@@ -782,7 +782,13 @@ public:
     static std::string name_cell ( int pos ) { return name_cell ( pos / 8, pos % 8 ); }
     static std::string name_cell ( int rank, int file ) { return std::string { { static_cast<char> ( 'a' + file ), static_cast<char> ( '1' + rank ) } }; };
 
-
+    /** @name  cell_pos
+     * 
+     * @brief  Take a cell name and return the position of that cell
+     * @param  name: The cell name
+     * @return integer
+     */
+    static int cell_pos ( const std::string& name ) { return ( name.at ( 0 ) - 'a' ) + ( name.at ( 1 ) - '1' ) * 8;  } 
 
 private:
 

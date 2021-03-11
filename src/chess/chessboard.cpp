@@ -35,9 +35,17 @@ void chess::chessboard::make_move ( const move_t& move )
     /* Check that the move is legal */
     if ( !get_move_set ( move.pc, move.pt, move.from, get_check_info ( move.pc ) ).test ( move.to ) ) throw std::runtime_error { "Illegal move final position in make_move ()." };
 
-    /* Check that the capture piece is correct */
-    if ( move.capture_pt != ptype::no_piece && !bb ( other_color ( move.pc ), move.capture_pt ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." };
-    if ( move.capture_pt == ptype::no_piece &&  bb ( other_color ( move.pc )                  ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." };
+    /* If this is an en passant capture, ensure the captee is the most recent pawn to double push */
+    if ( move.en_passant_pos )
+    {
+        if ( move.capture_pt != ptype::pawn || move.en_passant_pos != aux_info.double_push_pos || !bb ( other_color ( move.pc ), ptype::pawn ).test ( move.en_passant_pos ) ) throw std::runtime_error { "Invalid en passant position in make_move ()." };
+    } else
+
+    /* Else if this is a capture, ensure that the capture piece exists */
+    if ( move.capture_pt != ptype::no_piece && !bb ( other_color ( move.pc ), move.capture_pt ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." }; else
+
+    /* If this is a non-capture, ensure that there is no enemy piece in the final position */
+    if ( move.capture_pt == ptype::no_piece &&  bb ( other_color ( move.pc ) ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." };
 
     /* Test if the move should be a pawn promotion and hence check the promote_pt is valid */
     if ( move.pt == ptype::pawn && ( move.pc == pcolor::white ? move.to >= 56 : move.to < 8 ) )
@@ -52,10 +60,15 @@ void chess::chessboard::make_move ( const move_t& move )
     }
 
     /* Make the move */
-    make_move_internal ( move );
+    aux_info_t aux = make_move_internal ( move );
 
     /* Make sure the check count was what was expected */
-    if ( move.check_count != get_check_info ( other_color ( move.pc ) ).check_count ) throw std::runtime_error { "Invalid check count in make_move ()." };
+    if ( move.check_count != get_check_info ( other_color ( move.pc ) ).check_count )
+    {
+        /* Unmake the move then throw */
+        unmake_move_internal ( move, aux );
+        throw std::runtime_error { "Invalid check count in make_move ()." };
+    } 
 }
 
 
@@ -371,11 +384,11 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr bitboard white_knight_initial_cells { 0x0000000000000042 }, black_knight_initial_cells { 0x4200000000000000 };
 
     /* Material values */
-    constexpr int QUEEN  { 950 }; // 19
-    constexpr int ROOK   { 500 }; // 10
-    constexpr int BISHOP { 350 }; //  7
-    constexpr int KNIGHT { 350 }; //  7
-    constexpr int PAWN   { 100 }; //  2
+    constexpr int QUEEN  { 1200 }; // 19
+    constexpr int ROOK   {  600 }; // 10
+    constexpr int BISHOP {  400 }; //  7
+    constexpr int KNIGHT {  400 }; //  7
+    constexpr int PAWN   {  100 }; //  2
 
     /* Pawns */
     constexpr int PAWN_GENERAL_ATTACKS             {   1 }; // For every generally attacked cell
@@ -408,7 +421,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     /* Bishops and knights */
     constexpr int BISHOP_OR_KNIGHT_INITIAL_CELL                 { -15 }; // For every bishop/knight
     constexpr int DIAGONAL_OR_KNIGHT_CAPTURE_ON_STRAIGHT_PIECES {  10 }; // For every capture
-    constexpr int BISHOP_OR_KNIGHT_ON_STRONG_SQUARE           {  20 }; // For each piece
+    constexpr int BISHOP_OR_KNIGHT_ON_STRONG_SQUARE             {  20 }; // For each piece
 
     /* Mobility and king queen mobility, for every move */
     constexpr int MOBILITY            {  1 }; // For every legal move
@@ -423,7 +436,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr int CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES { 10 }; // For every attack (not including pawns or kings)
 
     /* Checkmate */
-    constexpr int CHECKMATE { 10000 }; // If true
+    constexpr int CHECKMATE { 10000 }; // If on the enemy, -10000 if on self
 
 
     
@@ -1123,13 +1136,13 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
     std::for_each ( moves.begin (), moves.end (), [ & ] ( auto& move ) 
     { 
         /* Make the move */
-        const unsigned c_rights = cb.make_move_internal ( move.first ); 
+        const aux_info_t aux = cb.make_move_internal ( move.first ); 
         
         /* Get the check cound */
         move.first.check_count = cb.get_check_info ( other_color ( pc ) ).check_count;
 
         /* Unmake the move */
-        cb.unmake_move_internal ( move.first, c_rights );
+        cb.unmake_move_internal ( move.first, aux );
     } );
 
     /* Return the moves */
@@ -1218,7 +1231,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Set the maximum depth quiescence search can go to.
      * This is important as it stops rare infinite loops relating to check in quiescence search.
      */
-    constexpr int QUIESCENCE_MAX_Q_DEPTH = 12;
+    constexpr int QUIESCENCE_MAX_Q_DEPTH = 16;
 
     /* The mimumum fd_depth that a null move may be tried */
     constexpr int NULL_MOVE_MIN_FD_DEPTH = 2;
@@ -1417,8 +1430,14 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* If null move is possible, try it */
     if ( use_null_move )
     {
+        /* Make a null move */
+        const aux_info_t aux = make_move_internal ( move_t {} );
+
         /* Apply the null move */
         int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_point, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
+
+        /* Unmake a null move */
+        unmake_move_internal ( move_t {}, aux );
 
         /* If proved successful, return beta.
          * Don't return score, since the null move will cause extremes of values otherwise.
@@ -1439,7 +1458,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     auto apply_move = [ & ] ( const move_t& move ) -> bool
     {
         /* Apply the move */
-        const int c_rights = make_move_internal ( move );
+        const aux_info_t aux = make_move_internal ( move );
 
         /* Recursively call to get the value for this move.
         * Switch around and negate alpha and beta, since it is the other player's turn.
@@ -1448,7 +1467,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         const int new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), end_point, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake the move */
-        unmake_move_internal ( move, c_rights ); 
+        unmake_move_internal ( move, aux ); 
 
         /* If past the end point, return */
         if ( fd_depth <= END_POINT_CUTOFF_MAX_FD_DEPTH && std::chrono::steady_clock::now () > end_point ) return true;
@@ -1529,13 +1548,24 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             if ( pt == ptype::pawn && rank_8.test ( to ) )
             {
                 /* Try the move with a queen and a knight as the promotion type, returning on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to, 0 } ) ) return true;
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to, 0 } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to, 0, 0 } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to, 0, 0 } ) ) return true;
             } else
+
+            /* Detect if this is an en passant capture. 
+             * "( to - from ) % 8" is non-zero if the pawn move is a capture. 
+             * bb ( npc ).test ( to ) is false if the move does not land on an enemy piece.
+             */
+            if ( pt == ptype::pawn && ( to - from ) % 8 != 0 && !bb ( npc ).test ( to ) )
             {
-                /* Try the move and return on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to, 0 } ) ) return true;
-            }
+                /* Work out the position of the captured pawn and apply the move.
+                 * The position of the captured pawn is the rank of from and the file of to.
+                 */
+                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, ( from / 8 ) * 8 + ( to % 8 ), 0 } ) ) return true;
+            } else
+            
+            /* Else this is an ordinary move, so try it and return on alpha-beta cutoff */
+            if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to, 0, 0 } ) ) return true;
         }
 
         /* Return false */
@@ -1732,10 +1762,11 @@ std::string chess::chessboard::move_t::serialize () const
         piece_chars [ cast_penum ( capture_pt ) ] +
         /* A '+' for single check or '++' for double check */
         ( check_count == 1 ? "+"  : "" ) +
-        ( check_count == 2 ? "++" : "" );
-
-    /* If promoting a pawn, add a slash and the promotion character */
-    if ( promote_pt != ptype::no_piece ) out += std::string ( "/" ) + piece_chars [ cast_penum ( promote_pt ) ];
+        ( check_count == 2 ? "++" : "" ) +
+        /* A 'ep' if the move is an en passant capture */
+        ( en_passant_pos ? "ep" : "" ) +
+        /* If promoting a pawn, add a slash and the promotion type */
+        ( promote_pt != ptype::no_piece ? std::string ( "/" ) + piece_chars [ cast_penum ( promote_pt ) ] : "" );
 
     /* Return the string */
     return out;
@@ -1833,6 +1864,22 @@ chess::chessboard::move_t& chess::chessboard::move_t::deserialize ( const pcolor
         /* If there are any '+'s, add up the check count and increment desc_pos */
         if ( desc_pos != desc.size () && desc.at ( desc_pos ) == '+' ) { ++check_count; ++desc_pos; }
         if ( desc_pos != desc.size () && desc.at ( desc_pos ) == '+' ) { ++check_count; ++desc_pos; }
+    }
+
+    /* EN_PASSANT_POS */
+    {
+        /* Set the position to 0 */
+        en_passant_pos = 0;
+
+        /* Check desc is long enough and the next characters are 'ep' */
+        if ( desc_pos + 1 < desc.size () && desc.substr ( desc_pos, 2 ) == "ep" )
+        {
+            /* Calculate the position and set it */
+            en_passant_pos = ( from / 8 ) * 8 + ( to % 8 );
+
+            /* Increase desc_pos */
+            desc_pos += 2;
+        }
     }
 
     /* PROMOTE_PT */
