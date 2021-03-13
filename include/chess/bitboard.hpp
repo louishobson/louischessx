@@ -522,7 +522,7 @@ inline constexpr chess::bitboard chess::bitboard::rook_all_attack ( const bitboa
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( straight_compass dir : straight_compass_array )
+    for ( const straight_compass dir : straight_compass_array )
     {
         /* Union the attacks in this direction to x */
         x |= rook_attack ( dir, pp, sp );
@@ -541,7 +541,7 @@ inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( const bitb
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( diagonal_compass dir : diagonal_compass_array )
+    for ( const diagonal_compass dir : diagonal_compass_array )
     {
         /* Union the attacks in this direction to x */
         x |= bishop_attack ( dir, pp, sp );
@@ -560,7 +560,7 @@ inline constexpr chess::bitboard chess::bitboard::queen_all_attack ( const bitbo
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 8
-    for ( compass dir : compass_array )
+    for ( const compass dir : compass_array )
     {
         /* Union the attacks in this direction to x */
         x |= queen_attack ( dir, pp, sp );

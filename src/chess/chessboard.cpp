@@ -164,7 +164,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
     if ( bitboard::straight_attack_lookup ( king_pos ) & op_straight )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( straight_compass dir : straight_compass_array )
+    for ( const straight_compass dir : straight_compass_array )
     {
         /* Only continue if this is a possibly valid direction */
         if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), king_pos ) & op_straight )
@@ -186,7 +186,7 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
     if ( bitboard::diagonal_attack_lookup ( king_pos ) & op_diagonal )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( diagonal_compass dir : diagonal_compass_array )
+    for ( const diagonal_compass dir : diagonal_compass_array )
     {
         /* Only continue if this is a possibly valid direction */
         if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), king_pos ) & op_diagonal ) 
@@ -302,7 +302,7 @@ bool chess::chessboard::is_protected ( pcolor pc, int pos ) const chess_validate
     if ( bitboard::straight_attack_lookup ( pos ).has_common ( adj_open_cells ) & bitboard::straight_attack_lookup ( pos ).has_common ( fr_straight ) )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( straight_compass dir : straight_compass_array )
+    for ( const straight_compass dir : straight_compass_array )
     {
         /* Only continue if this is a possibly valid direction, then return if is protected */
         if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( fr_straight ) )
@@ -313,7 +313,7 @@ bool chess::chessboard::is_protected ( pcolor pc, int pos ) const chess_validate
     if ( bitboard::diagonal_attack_lookup ( pos ).has_common ( adj_open_cells ) & bitboard::diagonal_attack_lookup ( pos ).has_common ( fr_diagonal ) )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( diagonal_compass dir : diagonal_compass_array )
+    for ( const diagonal_compass dir : diagonal_compass_array )
     {
         /* Only continue if this is a possibly valid direction, then return if is protected  */
         if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( fr_diagonal ) )
@@ -1304,6 +1304,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Get the 7th and 8th ranks */
     const bitboard rank_8 { pc == pcolor::white ? bitboard::masks::rank_8 : bitboard::masks::rank_1 };
     const bitboard rank_7 { pc == pcolor::white ? bitboard::masks::rank_7 : bitboard::masks::rank_2 };
+    const bitboard rank_7_and_8 = rank_7 | rank_8;
 
     /* Alpha-beta info */
 
@@ -1581,7 +1582,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         /* Iterate through the pieces */
         #pragma clang loop unroll ( full )
         #pragma GCC unroll 6
-        for ( ptype pt : ptype_inc_value ) 
+        for ( const ptype pt : ptype_inc_value ) 
         {
             /* Iterate through pieces */
             for ( bitboard pieces = bb ( pc, pt ); pieces; )
@@ -1643,22 +1644,19 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Loop through the most valuable pieces to capture.
      * Look at the captures on pieces not protected by pawns first.
      */
-    for ( ptype captee_pt : ptype_dec_value ) 
+    for ( const ptype captee_pt : ptype_dec_value ) 
     {
         /* Get this enemy type of piece */
         const bitboard enemy_captees = bb ( npc, captee_pt );
 
-        /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them.
-         * Also apply some move ordering.
-         */
-        if ( enemy_captees ) for ( ptype captor_pt : ptype_inc_value ) for ( bitboard order_mask : { ~bitboard {} } )
+        /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them */
+        if ( enemy_captees ) for ( const ptype captor_pt : ptype_inc_value )
         {
             /* Look though the different captors of this type */
-            for ( auto& move_set : access_move_sets ( captor_pt ) )
+            for ( const auto& move_set : access_move_sets ( captor_pt ) )
             {
                 /* Try capturing, and return on alpha-beta cutoff */
-                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees & order_mask ) ) return best_value;
-                move_set.second &= ~( enemy_captees & order_mask );
+                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees ) ) return best_value;
             }
         }
     }
@@ -1683,33 +1681,21 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos - 2 );
     }
 
-    /* Get some unsafe squares. Start of with those that pawns are attacking */
-    bitboard unsafe_squares = ( pc == pcolor::white ? bb ( npc, ptype::pawn ).pawn_any_attack_s () : bb ( npc, ptype::pawn ).pawn_any_attack_n () );
-
-    /* Iterate through the knights to get their defended squares */
-    for ( bitboard knights_temp = bb ( npc, ptype::knight ); knights_temp; )
-    {
-        /* Get the next position, look up the attacks and unset that bit */
-        const int pos = knights_temp.trailing_zeros ();
-        unsafe_squares |= bitboard::knight_attack_lookup ( pos );
-        knights_temp.reset ( pos );
-    }
-
     /* Look for non-captures, unless quiescing */
     if ( bk_depth != 0 )
     {
-        /* Iterate through all pieces, and apply some ordering via masking specific moves first */
-        for ( ptype pt : ptype_dec_move_value ) for ( bitboard order_mask : { ~unsafe_squares, ~bitboard {} } )
+        /* Iterate through all pieces */
+        for ( const ptype pt : ptype_dec_move_value )
         {
             /* Loop though the pieces of this type */
-            for ( auto& move_set : access_move_sets ( pt ) )
+            for ( const auto& move_set : access_move_sets ( pt ) )
             {
                 /* Try the move, and return on alpha-beta cutoff */ 
-                if ( apply_move_set ( pt, move_set.first, move_set.second & pp & order_mask ) ) return best_value;
-                move_set.second &= ~order_mask;
+                if ( apply_move_set ( pt, move_set.first, move_set.second & pp ) ) return best_value;
             }
         }
     }
+
 
 
     /* FINALLY */
