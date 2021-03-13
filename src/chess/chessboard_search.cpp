@@ -85,8 +85,8 @@ void chess::chessboard::make_move ( const move_t& move )
  *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
  * @param  pc: The color whose move it is next.
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
- * @param  end_flag: An atomic boolean, which when set to true, will end the search.
- * @return An array of moves and their values.
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
+ * @return A future to an ab_result_t struct.
  */
 std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const std::atomic_bool& end_flag ) const
 {
@@ -105,20 +105,34 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
         /* Reserve excess memory for root moves */
         cb.ab_working->root_moves.reserve ( 128 );
 
-        /* Call the internal method */
+        /* Call and time the internal method */
+        const auto t0 = std::chrono::steady_clock::now ();
         cb.alpha_beta_search_internal ( pc, depth, end_flag );
+        const auto t1 = std::chrono::steady_clock::now ();
+
+        /* Create the ab result struct */
+        ab_result_t ab_result;
+
+        /* Set the simple information */
+        ab_result.depth       = depth; 
+        ab_result.num_nodes   = cb.ab_working->num_nodes;
+        ab_result.num_q_nodes = cb.ab_working->num_q_nodes;
+        ab_result.av_q_depth  = cb.ab_working->sum_q_depth / static_cast<double> ( cb.ab_working->num_q_nodes );
+        ab_result.av_moves    = cb.ab_working->sum_moves   / static_cast<double> ( cb.ab_working->num_nodes   );
+        ab_result.av_q_moves  = cb.ab_working->sum_q_moves / static_cast<double> ( cb.ab_working->num_q_nodes );
+        ab_result.duration    = t1 - t0;
 
         /* Extract the move list */
-        ab_result_t moves = std::move ( cb.ab_working->root_moves );
+        ab_result.moves = std::move ( cb.ab_working->root_moves );
 
         /* Shrink to fit */
-        moves.shrink_to_fit ();
+        ab_result.moves.shrink_to_fit ();
 
         /* Order the moves */
-        std::sort ( moves.begin (), moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
+        std::sort ( ab_result.moves.begin (), ab_result.moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
 
         /* Set the check count for each move */
-        std::for_each ( moves.begin (), moves.end (), [ & ] ( auto& move ) 
+        std::for_each ( ab_result.moves.begin (), ab_result.moves.end (), [ & ] ( auto& move ) 
         { 
             /* Make the move */
             const aux_info_t aux = cb.make_move_internal ( move.first ); 
@@ -130,8 +144,8 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
             cb.unmake_move_internal ( move.first, aux );
         } );
 
-        /* Return the moves */
-        return moves;
+        /* Return the alpha beta result */
+        return ab_result;
     } );
 }
 
@@ -139,15 +153,18 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
  * 
  * @brief  Apply an alpha-beta search over a range of depths asynchronously.
  *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+ *         Specifying an end point with a depth range of at least 3 will could to an early return.
+ *         The method will predict the time for the 3rd and beyond depth using an exponential model, and return if will exceed the end point.
  * @param  pc: The color whose move it is next.
  * @param  min_depth: The lower bound of the depths to try.
  * @param  max_depth: The upper bound of the depths to try.
- * @param  end_flag: An atomic boolean, which when set to true, will end the search.
- * @param  threads: The number of threads to run simultaneously, 0 by default.
- * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
- * @return A future which will resolve to an array of moves and their values.
+ * @param  threads: The number of threads to run simultaneously.
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search
+ * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
+ * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
+ * @return A future to an ab_result_t struct.
  */
-std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, const std::atomic_bool& end_flag, int threads, bool finish_first ) const
+std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, int threads, std::atomic_bool& end_flag, const std::chrono::steady_clock::time_point end_point, const bool finish_first ) const
 {
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
@@ -157,16 +174,22 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
         /* If threads == 0, increase it to 1 */
         if ( threads == 0 ) threads = 1;
 
-        /* Create an array of chessboards and futures for each depth */
+        /* Create an array of futures for each depth, and the times that they were started */
         std::vector<std::future<ab_result_t>> fts { max_depth - min_depth + 1u };
+        std::vector<std::chrono::steady_clock::time_point> tps { max_depth - min_depth + 1u };
 
         /* Set of the first set of futures */
-        for ( int i = 0; i < threads && min_depth + i <= max_depth; ++i ) if ( i == 0 && end_flag ) 
-            fts.at ( i ) = alpha_beta_search ( pc, min_depth + i, false ); else
-            fts.at ( i ) = alpha_beta_search ( pc, min_depth + i, end_flag );
+        for ( int i = 0; i < threads && min_depth + i <= max_depth; ++i ) 
+        {
+            /* Don't pass the lowest depth search end_flag if finish_first is set */
+            if ( i == 0 && finish_first ) fts.at ( i ) = alpha_beta_search ( pc, min_depth + i, false ); else fts.at ( i ) = alpha_beta_search ( pc, min_depth + i, end_flag );
 
-        /* The running moves list */
-        ab_result_t deepest_moves;
+            /* Set the start point */
+            tps.at ( i ) = std::chrono::steady_clock::now ();
+        }
+
+        /* The result of the highest depth complete search */
+        ab_result_t ab_result;
 
         /* Wait for each future in turn */
         for ( int i = 0; min_depth + i <= max_depth; ++i )
@@ -174,25 +197,48 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
             /* If the future is invalid, break */
             if ( !fts.at ( i ).valid () ) break;
 
-            /* Get the next future */
-            ab_result_t new_moves = fts.at ( i ).get ();
+            /* Wait until the time point for the next result */
+            if ( i == 0 && finish_first ) fts.at ( i ).wait (); else fts.at ( i ).wait_until ( end_point );
 
-            /* Only accept the new moves if the end flag is unset */
-            if ( !end_flag ) 
+            /* Only accept the new moves if not past the end point and the end flag is unset */
+            if ( std::chrono::steady_clock::now () < end_point && !end_flag ) 
             {
-                /* Set the deepest moves */
-                deepest_moves = std::move ( new_moves );
+                /* Get the new alpha beta result */
+                ab_result_t new_ab_result = fts.at ( i ).get ();
 
-                /* Possibly start the next thread */
-                if ( min_depth + i + threads <= max_depth ) fts.at ( i + threads ) = alpha_beta_search ( pc, min_depth + i + threads, end_flag );
+                /* Start the next search if there are any left to start */
+                if ( min_depth + i + threads <= max_depth ) 
+                {
+                    fts.at ( i + threads ) = alpha_beta_search ( pc, min_depth + i + threads, end_flag );
+                    tps.at ( i + threads ) = std::chrono::steady_clock::now ();
+                }
+
+                /* If this is not the last search, predict when the next thread will finish */
+                if ( min_depth + i != max_depth )
+                {
+                    /* Get the predicted duration */
+                    const std::chrono::steady_clock::duration pred_duration = std::chrono::duration_cast<std::chrono::steady_clock::duration> ( ( new_ab_result.duration / std::chrono::duration<double, std::nano> { ab_result.duration } ) * 0.9 * new_ab_result.duration );
+
+                    /* Force end the search now if this exceeds the end point */
+                    if ( tps.at ( i + 1 ) + pred_duration > end_point ) end_flag = true;
+                }
+
+                /* Set the latest result */
+                ab_result = new_ab_result;
+            } else
+
+            /* Else if the search has exceeded the end point or has otherwise been cancelled */ 
+            {
+                /* If this is the lowest depth search and finish_first is set, still accept the result */
+                if ( i == 0 && finish_first ) ab_result = fts.at ( i ).get ();
+
+                /* Set the end flag to true */
+                end_flag = true;
             }
-
-            /* Howevever still accept the new moves if this is the first search, and finish_first is true */
-            else if ( i == 0 && finish_first ) deepest_moves = std::move ( new_moves );
         }
         
-        /* Return the moves from the deepest complete search */
-        return deepest_moves;
+        /* Return the result deepest complete search */
+        return ab_result;
     } );
 }
 
@@ -308,6 +354,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* Get the current alpha-beta state */
     const ab_state_t ab_state { * this, pc };
+
+    /* add to the number of nodes visited */
+    if ( bk_depth ) ++ab_working->num_nodes; else { ab_working->sum_q_depth += fd_depth; ++ab_working->num_q_nodes; }
 
 
 
@@ -462,6 +511,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
         /* Unmake the move */
         unmake_move_internal ( move, aux ); 
+
+        /* Add to the number of moves made */
+        if ( !q_depth ) ++ab_working->sum_moves; else ++ab_working->sum_q_moves;
 
         /* If past the end point, return */
         if ( fd_depth <= END_FLAG_CUTOFF_MAX_FD_DEPTH && end_flag ) return true;

@@ -328,10 +328,26 @@ public:
 
 
 
-    /* TYPEDEFS */
+    /* ALPHA BETA RESULT STRUCT */
 
-    /* Typedef for a the result of an alpha beta search */
-    typedef std::vector<std::pair<move_t, int>> ab_result_t;
+    /* Alpha beta result struct */
+    struct ab_result_t
+    {
+        /* An array of move value pairs */
+        std::vector<std::pair<move_t, int>> moves;
+
+        /* The depth before quiescence */
+        int depth = 0; 
+        
+        /* Number of nodes visited */
+        int num_nodes = 0, num_q_nodes = 0;
+
+        /* Average quiescence depth and moves per node */
+        double av_q_depth = 0.0, av_moves = 0.0, av_q_moves = 0.0;
+
+        /* The time taken for the search */
+        std::chrono::steady_clock::duration duration;          
+    };
 
 
 
@@ -503,8 +519,8 @@ public:
      *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
      * @param  pc: The color whose move it is next.
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
-     * @param  end_flag: An atomic boolean, which when set to true, will end the search.
-     * @return An array of moves and their values.
+     * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
+     * @return A future to an ab_result_t struct
      */
     std::future<chess::chessboard::ab_result_t> alpha_beta_search ( pcolor pc, int depth, const std::atomic_bool& end_flag = false ) const;
 
@@ -512,15 +528,18 @@ public:
      * 
      * @brief  Apply an alpha-beta search over a range of depths asynchronously.
      *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+     *         Specifying an end point with a depth range of at least 3 will could to an early return.
+     *         The method will predict the time for the 3rd and beyond depth using an exponential model, and return if will exceed the end point.
      * @param  pc: The color whose move it is next.
      * @param  min_depth: The lower bound of the depths to try.
      * @param  max_depth: The upper bound of the depths to try.
-     * @param  end_flag: An atomic boolean, which when set to true, will end the search.
-     * @param  threads: The number of threads to run simultaneously, 0 by default.
-     * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
-     * @return A future which will resolve to an array of moves and their values.
+     * @param  threads: The number of threads to run simultaneously.
+     * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
+     * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
+     * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
+     * @return A future to an ab_result_t struct.
      */
-    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, const std::atomic_bool& end_flag = false, int threads = 0, bool finish_first = false ) const;
+    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, int threads, std::atomic_bool& end_flag, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (), bool finish_first = true ) const;
 
 
 
@@ -762,6 +781,12 @@ struct chess::chessboard::ab_ttable_entry_t
 /* A structure containing temporary alpha-beta search data */
 struct chess::chessboard::ab_working_t
 {
+    /* Accumulate the sum of quiescence depth and moves made */
+    unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
+    
+    /* Accumulate the number of full nodes and quiescence nodes visited */
+    int num_nodes = 0, num_q_nodes = 0;
+
     /* Array of sets of moves */
     std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
 
