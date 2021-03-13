@@ -779,6 +779,7 @@ struct chess::chessboard::ab_working_t
 
 /* INCLUDE INLINE IMPLEMENTATION */
 #include <chess/chessboard.hpp>
+#include <chess/chessboard_moves.hpp>
 
 
 
