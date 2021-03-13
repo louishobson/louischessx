@@ -72,6 +72,19 @@ namespace chess
         no_piece
     };
 
+    /* ptype_inc/dec_value
+     *
+     * Arrays of ptypes of increasing and decreasing value
+     */
+    inline constexpr std::array<ptype, 6> ptype_inc_value { ptype::pawn, ptype::knight, ptype::bishop, ptype::rook, ptype::queen, ptype::king };
+    inline constexpr std::array<ptype, 6> ptype_dec_value { ptype::king, ptype::queen, ptype::rook, ptype::bishop, ptype::knight, ptype::pawn };
+
+    /* ptype_dec_move_value
+     *
+     * Array of ptypes of decreasing value of moving
+     */
+    inline constexpr std::array<ptype, 6> ptype_dec_move_value { ptype::queen, ptype::rook, ptype::bishop, ptype::knight, ptype::pawn, ptype::king };
+
     /** @name  bool_color
      * 
      * @brief  cast a piece color to a bool
@@ -97,23 +110,6 @@ namespace chess
      */
     constexpr int cast_penum ( pcolor pc ) noexcept;
     constexpr int cast_penum ( ptype  pt ) noexcept;
-
-    /** @name  ptype_start
-     * 
-     * @brief  Gives the first ptype in order to iterate through them.
-     * @return ptype
-     */
-    constexpr ptype ptype_start () noexcept;
-
-    /** @name  ptype_next, ptype_inc_value, ptype_dec_value
-     * 
-     * @brief  Gives the next ptype, looping to the beginning before any_piece.
-     * @param  pt: The type to increment.
-     * @return ptype
-     */
-    constexpr ptype ptype_next ( ptype pt ) noexcept;
-    constexpr ptype ptype_inc_value ( ptype pt ) noexcept;
-    constexpr ptype ptype_dec_value ( ptype pt ) noexcept;
 
     /** @name  check_penum
      * 
@@ -503,26 +499,28 @@ public:
 
     /** @name  alpha_beta_search
      * 
-     * @brief  Set up and apply the alpha-beta search
-     * @param  pc: The color whose move it is next
+     * @brief  Set up and apply the alpha-beta search asynchronously.
+     *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+     * @param  pc: The color whose move it is next.
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
-     * @param  end_point: The time point at which the search should be ended, never by default.
-     * @return An array of moves and their values
+     * @param  end_flag: An atomic boolean, which when set to true, will end the search.
+     * @return An array of moves and their values.
      */
-    ab_result_t alpha_beta_search ( pcolor pc, int depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max () ) const;
+    std::future<chess::chessboard::ab_result_t> alpha_beta_search ( pcolor pc, int depth, const std::atomic_bool& end_flag = false ) const;
 
     /** @name  alpha_beta_iterative_deepening
      * 
-     * @brief  Apply an alpha-beta search over a range of depths
-     * @param  pc: The color whose move it is next
-     * @param  min_depth: The lower bound of the depths to try
-     * @param  max_depth: The upper bound of the depths to try
-     * @param  end_point: The time point at which the search should be ended
-     * @param  threads: The number of threads to run simultaneously, 0 by default
+     * @brief  Apply an alpha-beta search over a range of depths asynchronously.
+     *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+     * @param  pc: The color whose move it is next.
+     * @param  min_depth: The lower bound of the depths to try.
+     * @param  max_depth: The upper bound of the depths to try.
+     * @param  end_flag: An atomic boolean, which when set to true, will end the search.
+     * @param  threads: The number of threads to run simultaneously, 0 by default.
      * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
-     * @return An array of moves and their values
+     * @return A future which will resolve to an array of moves and their values.
      */
-    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, std::chrono::steady_clock::time_point end_point, int threads = 0, bool finish_first = false ) const;
+    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, const std::atomic_bool& end_flag = false, int threads = 0, bool finish_first = false ) const;
 
 
 
@@ -629,8 +627,6 @@ private:
      */
     void unmake_move_internal ( const move_t& move, aux_info_t aux_info ) chess_validate_throw;
 
-
-
     /* SEARCH */
 
     /** @name  alpha_beta_search_internal
@@ -639,7 +635,7 @@ private:
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color whose move it is next
      * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search
-     * @param  end_point: The time point at which the search should be ended, never by default.
+     * @param  end_flag: An atomic boolean, which when set to true, will end the search.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
@@ -647,9 +643,9 @@ private:
      * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
      * @return alpha_beta_t
      */
-    chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (),
-        int alpha           = -20000, 
-        int beta            = +20000, 
+    chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, const std::atomic_bool& end_flag = false,
+        int alpha      = -20000, 
+        int beta       = +20000, 
         int fd_depth   = 0, 
         int null_depth = 0, 
         int q_depth    = 0

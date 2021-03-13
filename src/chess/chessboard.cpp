@@ -160,21 +160,17 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
 
     /* SLIDING PIECES */
 
-    /* Get the start of the compasses */
-    straight_compass straight_dir = straight_compass_start ();
-    diagonal_compass diagonal_dir = diagonal_compass_start ();
-
     /* Iterate through the straight compass to see if those sliding pieces could be attacking */
     if ( bitboard::straight_attack_lookup ( king_pos ) & op_straight )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( straight_compass dir : straight_compass_array )
     {
         /* Only continue if this is a possibly valid direction */
-        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( straight_dir ), king_pos ) & op_straight )
+        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), king_pos ) & op_straight )
         {
             /* Span the king in the current direction */
-            const bitboard king_span = king.rook_attack ( straight_dir, pp, sp );
+            const bitboard king_span = king.rook_attack ( dir, pp, sp );
 
             /* Get the checking and blocking pieces */
             const bitboard checking = king_span & op_straight;
@@ -184,22 +180,19 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
             check_info.check_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_empty () );
             check_info.pin_vectors   |= king_span.only_if ( checking.is_nonempty () & blocking.is_singleton () );
         }
-
-        /* Increment compass */
-        straight_dir = compass_next ( straight_dir );
     }
 
     /* Iterate through the diagonal compass to see if those sliding pieces could be attacking */
     if ( bitboard::diagonal_attack_lookup ( king_pos ) & op_diagonal )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( diagonal_compass dir : diagonal_compass_array )
     {
         /* Only continue if this is a possibly valid direction */
-        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( diagonal_dir ), king_pos ) & op_diagonal ) 
+        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), king_pos ) & op_diagonal ) 
         {
             /* Span the king in the current direction */
-            const bitboard king_span = king.bishop_attack ( diagonal_dir, pp, sp );
+            const bitboard king_span = king.bishop_attack ( dir, pp, sp );
 
             /* Get the checking and blocking pieces */
             const bitboard checking = king_span & op_diagonal;
@@ -209,9 +202,6 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
             check_info.check_vectors |= king_span.only_if ( checking.is_nonempty () & blocking.is_empty () );
             check_info.pin_vectors   |= king_span.only_if ( checking.is_nonempty () & blocking.is_singleton () );
         }
-        
-        /* Increment compass */
-        diagonal_dir = compass_next ( diagonal_dir );
     }
 
 
@@ -308,36 +298,26 @@ bool chess::chessboard::is_protected ( pcolor pc, int pos ) const chess_validate
 
     /* SLIDING PIECES */
 
-    /* Get the start of the compasses */
-    straight_compass straight_dir = straight_compass_start ();
-    diagonal_compass diagonal_dir = diagonal_compass_start ();
-
     /* Iterate through the straight compass to see if those sliding pieces could be defending */
     if ( bitboard::straight_attack_lookup ( pos ).has_common ( adj_open_cells ) & bitboard::straight_attack_lookup ( pos ).has_common ( fr_straight ) )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( straight_compass dir : straight_compass_array )
     {
         /* Only continue if this is a possibly valid direction, then return if is protected */
-        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( straight_dir ), pos ).has_common ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( straight_dir ), pos ).has_common ( fr_straight ) )
-            if ( pos_bb.rook_attack ( straight_dir, pp, sp ) & fr_straight ) return true;      
-
-        /* Increment compass */
-        straight_dir = compass_next ( straight_dir );
+        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( fr_straight ) )
+            if ( pos_bb.rook_attack ( dir, pp, sp ) & fr_straight ) return true;      
     }
 
     /* Iterate through the diagonal compass to see if those sliding pieces could be defending */
     if ( bitboard::diagonal_attack_lookup ( pos ).has_common ( adj_open_cells ) & bitboard::diagonal_attack_lookup ( pos ).has_common ( fr_diagonal ) )
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( diagonal_compass dir : diagonal_compass_array )
     {
         /* Only continue if this is a possibly valid direction, then return if is protected  */
-        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( diagonal_dir ), pos ).has_common ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( diagonal_dir ), pos ).has_common ( fr_diagonal ) )
-            if ( pos_bb.bishop_attack ( diagonal_dir, pp, sp ) & fr_diagonal ) return true;
-
-        /* Increment compass */
-        diagonal_dir = compass_next ( diagonal_dir );
+        if ( bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( adj_open_cells ) & bitboard::omnidir_attack_lookup ( static_cast<compass> ( dir ), pos ).has_common ( fr_diagonal ) )
+            if ( pos_bb.bishop_attack ( dir, pp, sp ) & fr_diagonal ) return true;
     }
 
 
@@ -541,14 +521,18 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         const bitboard black_diagonal_pieces = ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::bishop ) ) & ~black_check_info.pin_vectors;
 
         /* Start compasses */
-        straight_compass straight_dir = straight_compass_start ();
-        diagonal_compass diagonal_dir = diagonal_compass_start ();
+        straight_compass straight_dir;
+        diagonal_compass diagonal_dir;
 
         /* Iterate through the compass to get all queen, rook and bishop attacks */
         #pragma clang loop unroll ( full )
         #pragma GCC unroll 4
         for ( int i = 0; i < 4; ++i )
         {
+            /* Get the compasses */
+            straight_dir = straight_compass_array [ i ];
+            diagonal_dir = diagonal_compass_array [ i ];
+
             /* Apply all shifts to get straight and diagonal general attacks (note that sp is universe to get general attacks)
              * This allows us to union to the defence set first.
              */
@@ -594,10 +578,6 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             /* Sum the legal captures on enemy straight pieces by diagonal pieces */
             diagonal_or_knight_captures_on_straight_diff += ( white_diagonal_attacks & ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) ) ).popcount ();
             diagonal_or_knight_captures_on_straight_diff -= ( black_diagonal_attacks & ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) ) ).popcount ();
-
-            /* Increment compasses */
-            straight_dir = compass_next ( straight_dir );
-            diagonal_dir = compass_next ( diagonal_dir );
         }
     }
 
@@ -760,14 +740,10 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
     /* Scope new bitboards */
     {
-        /* Get the knights as temporary variables */
-        bitboard white_knights = bb ( pcolor::white, ptype::knight );
-        bitboard black_knights = bb ( pcolor::black, ptype::knight );
-
         /* Iterate through white knights to get attacks.
          * If in double check, white_check_info.check_vectors_dep_check_count will remove all moves. 
          */
-        while ( white_knights )
+        for ( bitboard white_knights = bb ( pcolor::white, ptype::knight ); white_knights; )
         {
             /* Get the position of the next knight and its general attacks */
             const int pos = white_knights.trailing_zeros ();
@@ -793,7 +769,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         }
 
         /* Iterate through black knights to get attacks */
-        while ( black_knights )
+        for ( bitboard black_knights = bb ( pcolor::black, ptype::knight ); black_knights; )
         {
             /* Get the position of the next knight and its general attacks */
             const int pos = black_knights.trailing_zeros ();
@@ -891,10 +867,9 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         /* Look for en passant captures (one bitboard for pc, rather than white and black individually) */
         const bitboard en_passant_double_push = singleton_bitboard ( aux_info.double_push_pos ).only_if ( aux_info.double_push_pos );
         bitboard en_passant_captors = bb ( pc, ptype::pawn ) & ( en_passant_double_push.shift ( compass::e ) | en_passant_double_push.shift ( compass::w ) );
-        bitboard en_passant_captors_temp = en_passant_captors;
 
         /* Test each of the en passant captures to ensure the king is not left in check */
-        while ( en_passant_captors_temp )
+        for ( bitboard en_passant_captors_temp  = en_passant_captors; en_passant_captors_temp; )
         {
             /* Get the next captor and unset that bit */
             const int pos = en_passant_captors_temp.trailing_zeros ();
@@ -1015,20 +990,18 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         /* Validate the remaining white king moves */
         if ( white_king_attacks ) 
         {
-            /* Create a temporary bitboard */
-            bitboard white_king_attacks_temp = white_king_attacks;
-
             /* Temporarily unset the king */
             get_bb ( pcolor::white ).reset              ( white_king_pos );
             get_bb ( pcolor::white, ptype::king ).reset ( white_king_pos );
 
             /* Loop through the white king attacks to validate they don't lead to check */
-            do {
+            for ( bitboard white_king_attacks_temp = white_king_attacks; white_king_attacks_temp; )
+            {
                 /* Get the position of the next king attack then use the position to determine if it is defended by the opponent */
                 int pos = white_king_attacks_temp.trailing_zeros ();
                 white_king_attacks.reset_if ( pos, is_protected ( pcolor::black, pos ) );
                 white_king_attacks_temp.reset ( pos );
-            } while ( white_king_attacks_temp );
+            }
 
             /* Reset the king */
             get_bb ( pcolor::white ).set              ( white_king_pos );
@@ -1038,20 +1011,18 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         /* Validate the remaining black king moves */
         if ( black_king_attacks ) 
         {
-            /* Create a temporary bitboard */
-            bitboard black_king_attacks_temp = black_king_attacks;
-
             /* Temporarily unset the king */
             get_bb ( pcolor::black ).reset              ( black_king_pos );
             get_bb ( pcolor::black, ptype::king ).reset ( black_king_pos );
 
             /* Loop through the white king attacks to validate they don't lead to check */
-            do {
+            for ( bitboard black_king_attacks_temp = black_king_attacks; black_king_attacks_temp; )
+            { 
                 /* Get the position of the next king attack then use the position to determine if it is defended by the opponent */
                 int pos = black_king_attacks_temp.trailing_zeros ();
                 black_king_attacks.reset_if ( pos, is_protected ( pcolor::white, pos ) );
                 black_king_attacks_temp.reset ( pos );
-            } while ( black_king_attacks_temp );
+            }
 
             /* Reset the king */
             get_bb ( pcolor::black ).set              ( black_king_pos );
@@ -1120,108 +1091,119 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
 /** @name  alpha_beta_search
  * 
- * @brief  Set up and apply the alpha-beta search
- * @param  pc: The color who's move it is next
+ * @brief  Set up and apply the alpha-beta search asynchronously.
+ *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+ * @param  pc: The color whose move it is next.
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
- * @param  end_point: The time point at which the search should be ended, never by default.
- * @return An array of moves and their values
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search.
+ * @return An array of moves and their values.
  */
-chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const std::chrono::steady_clock::time_point end_point ) const
+std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const std::atomic_bool& end_flag ) const
 {
-    /* Create a copy of the chessboard */
-    chessboard cb { * this };
+    /* Run this function asynchronously.
+     * Be careful with lambda captures so that no references to this object are captured.
+     */
+    return std::async ( std::launch::async, [ =, cb = chessboard { * this }, &end_flag ] () mutable
+    {
+        /* Allocate new memory */
+        cb.ab_working = new ab_working_t;
 
-    /* Allocate new memory */
-    cb.ab_working = new ab_working_t;
+        /* Allocate excess memory  */
+        cb.ab_working->move_sets.resize ( 128 );
+        cb.ab_working->killer_moves.resize ( 128 );
 
-    /* Allocate excess memory  */
-    cb.ab_working->move_sets.resize ( 128 );
-    cb.ab_working->killer_moves.resize ( 128 );
+        /* Reserve excess memory for root moves */
+        cb.ab_working->root_moves.reserve ( 128 );
 
-    /* Reserve excess memory for root moves */
-    cb.ab_working->root_moves.reserve ( 128 );
+        /* Call the internal method */
+        cb.alpha_beta_search_internal ( pc, depth, end_flag );
 
-    /* Call the internal method */
-    cb.alpha_beta_search_internal ( pc, depth, end_point );
+        /* Extract the move list */
+        ab_result_t moves = std::move ( cb.ab_working->root_moves );
 
-    /* Extract the move list */
-    ab_result_t moves = std::move ( cb.ab_working->root_moves );
+        /* Shrink to fit */
+        moves.shrink_to_fit ();
 
-    /* Shrink to fit */
-    moves.shrink_to_fit ();
+        /* Order the moves */
+        std::sort ( moves.begin (), moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
 
-    /* Order the moves */
-    std::sort ( moves.begin (), moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
+        /* Set the check count for each move */
+        std::for_each ( moves.begin (), moves.end (), [ & ] ( auto& move ) 
+        { 
+            /* Make the move */
+            const aux_info_t aux = cb.make_move_internal ( move.first ); 
+            
+            /* Get the check cound */
+            move.first.check_count = cb.get_check_info ( other_color ( pc ) ).check_count;
 
-    /* Set the check count for each move */
-    std::for_each ( moves.begin (), moves.end (), [ & ] ( auto& move ) 
-    { 
-        /* Make the move */
-        const aux_info_t aux = cb.make_move_internal ( move.first ); 
-        
-        /* Get the check cound */
-        move.first.check_count = cb.get_check_info ( other_color ( pc ) ).check_count;
+            /* Unmake the move */
+            cb.unmake_move_internal ( move.first, aux );
+        } );
 
-        /* Unmake the move */
-        cb.unmake_move_internal ( move.first, aux );
+        /* Return the moves */
+        return moves;
     } );
-
-    /* Return the moves */
-    return moves;
 }
 
 /** @name  alpha_beta_iterative_deepening
  * 
- * @brief  Apply an alpha-beta search over a range of depths
- * @param  pc: The color who's move it is next
- * @param  min_depth: The lower bound of the depths to try
- * @param  max_depth: The upper bound of the depths to try
- * @param  end_point: The time point at which the search should be ended
- * @param  threads: The number of threads to run simultaneously, 0 by default
+ * @brief  Apply an alpha-beta search over a range of depths asynchronously.
+ *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+ * @param  pc: The color whose move it is next.
+ * @param  min_depth: The lower bound of the depths to try.
+ * @param  max_depth: The upper bound of the depths to try.
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search.
+ * @param  threads: The number of threads to run simultaneously, 0 by default.
  * @param  finish_first: Do not pass the end point to the lowest depth search and wait for it to finish completely, false by default.
- * @return An array of moves and their values
+ * @return A future which will resolve to an array of moves and their values.
  */
-chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, const std::chrono::steady_clock::time_point end_point, int threads, bool finish_first ) const
+std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, const std::atomic_bool& end_flag, int threads, bool finish_first ) const
 {
-    /* If threads == 0, increase it to 1 */
-    if ( threads == 0 ) threads = 1;
-
-    /* Create an array of chessboards and futures for each depth */
-    std::vector<std::future<ab_result_t>> fts { max_depth - min_depth + 1u };
-
-    /* Set of the first set of futures */
-    for ( int i = 0; i < threads && min_depth + i <= max_depth; ++i ) 
-        fts.at ( i ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, this, pc, min_depth + i, ( i == 0 && finish_first ? std::chrono::steady_clock::time_point::max () : end_point ) );
-
-    /* The running moves list */
-    ab_result_t deepest_moves;
-
-    /* Wait for each future in turn */
-    for ( int i = 0; min_depth + i <= max_depth; ++i )
+    /* Run this function asynchronously.
+     * Be careful with lambda captures so that no references to this object are captured.
+     */
+    return std::async ( std::launch::async, [ =, * this, &end_flag ] () mutable
     {
-        /* If the future is invalid, break */
-        if ( !fts.at ( i ).valid () ) break;
+        /* If threads == 0, increase it to 1 */
+        if ( threads == 0 ) threads = 1;
 
-        /* Get the next future */
-        ab_result_t new_moves = fts.at ( i ).get ();
+        /* Create an array of chessboards and futures for each depth */
+        std::vector<std::future<ab_result_t>> fts { max_depth - min_depth + 1u };
 
-        /* Only accept the new moves if not passed the end point */
-        if ( std::chrono::steady_clock::now () < end_point ) 
+        /* Set of the first set of futures */
+        for ( int i = 0; i < threads && min_depth + i <= max_depth; ++i ) if ( i == 0 && end_flag ) 
+            fts.at ( i ) = alpha_beta_search ( pc, min_depth + i, false ); else
+            fts.at ( i ) = alpha_beta_search ( pc, min_depth + i, end_flag );
+
+        /* The running moves list */
+        ab_result_t deepest_moves;
+
+        /* Wait for each future in turn */
+        for ( int i = 0; min_depth + i <= max_depth; ++i )
         {
-            /* Set the deepest moves */
-            deepest_moves = std::move ( new_moves );
+            /* If the future is invalid, break */
+            if ( !fts.at ( i ).valid () ) break;
 
-            /* Possibly start the next thread */
-            if ( min_depth + i + threads <= max_depth ) 
-                fts.at ( i + threads ) = std::async ( std::launch::async, &chess::chessboard::alpha_beta_search, this, pc, min_depth + i + threads, end_point );
+            /* Get the next future */
+            ab_result_t new_moves = fts.at ( i ).get ();
+
+            /* Only accept the new moves if the end flag is unset */
+            if ( !end_flag ) 
+            {
+                /* Set the deepest moves */
+                deepest_moves = std::move ( new_moves );
+
+                /* Possibly start the next thread */
+                if ( min_depth + i + threads <= max_depth ) fts.at ( i + threads ) = alpha_beta_search ( pc, min_depth + i + threads, end_flag );
+            }
+
+            /* Howevever still accept the new moves if this is the first search, and finish_first is true */
+            else if ( i == 0 && finish_first ) deepest_moves = std::move ( new_moves );
         }
-
-        /* Howevever still accept the new moves if this is the first search, and finish_first is true */
-        else if ( i == 0 && finish_first ) deepest_moves = std::move ( new_moves );
-    }
-    
-    /* Return the moves from the deepest complete search */
-    return deepest_moves;
+        
+        /* Return the moves from the deepest complete search */
+        return deepest_moves;
+    } );
 }
 
 /** @name  alpha_beta_search_internal
@@ -1230,7 +1212,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
  * @param  pc: The color who's move it is next
  * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search
- * @param  end_point: The time point at which the search should be ended, never by default.
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search.
  * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
  * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
  * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
@@ -1238,7 +1220,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
  * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
  * @return alpha_beta_t
  */
-int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, std::chrono::steady_clock::time_point end_point, int alpha, int beta, int fd_depth, int null_depth, int q_depth )
+int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, const std::atomic_bool& end_flag, int alpha, int beta, int fd_depth, int null_depth, int q_depth )
 {
 
     /* CONSTANTS */
@@ -1263,8 +1245,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* The number of pieces such that if any player has less than this, the game is considered endgame */
     constexpr int ENDGAME_PIECES = 8;
 
-    /* The maximum fd_depth at which an endpoint cutoff is noticed */
-    constexpr int END_POINT_CUTOFF_MAX_FD_DEPTH = 5;
+    /* The maximum fd_depth at which an end flag cutoff is noticed */
+    constexpr int END_FLAG_CUTOFF_MAX_FD_DEPTH = 5;
 
 
 
@@ -1455,7 +1437,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         const aux_info_t aux = make_move_internal ( move_t {} );
 
         /* Apply the null move */
-        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_point, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
+        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake a null move */
         unmake_move_internal ( move_t {}, aux );
@@ -1485,13 +1467,13 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         * Switch around and negate alpha and beta, since it is the other player's turn.
         * Since the next move is done by the other player, negate the value.
         */
-        const int new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), end_point, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ) );
+        const int new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), end_flag, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake the move */
         unmake_move_internal ( move, aux ); 
 
         /* If past the end point, return */
-        if ( fd_depth <= END_POINT_CUTOFF_MAX_FD_DEPTH && std::chrono::steady_clock::now () > end_point ) return true;
+        if ( fd_depth <= END_FLAG_CUTOFF_MAX_FD_DEPTH && end_flag ) return true;
 
         /* If at the root node, add to the root moves. */
         if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move, new_value ) ); else
@@ -1597,16 +1579,12 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     {
         /* Iterate through the pieces */
-        ptype pt = ptype_start ();
         #pragma clang loop unroll ( full )
         #pragma GCC unroll 6
-        for ( int i = 0; i < 6; ++i ) 
+        for ( ptype pt : ptype_inc_value ) 
         {
-            /* Get the pieces */
-            bitboard pieces = bb ( pc, pt ); 
-
             /* Iterate through pieces */
-            while ( pieces )
+            for ( bitboard pieces = bb ( pc, pt ); pieces; )
             {
                 /* Get the position of the next piece and reset that bit.
                 * Favour the further away pieces to encourage them to move towards the other color.
@@ -1622,9 +1600,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
                  */
                 if ( move_set || pt == ptype::king ) access_move_sets ( pt ).push_back ( std::make_pair ( pos, move_set ) );
             }
-        
-            /* Increment pt */
-            pt = ptype_next ( pt ); 
         }
     }
 
@@ -1633,25 +1608,22 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* SEARCH */
 
     /* Look for killer moves */
-    for ( int i = 0; i < 2; ++i )
+    for ( const auto& killer_move : ab_working->killer_moves.at ( fd_depth ) )
     {
         /* Look for the move */
-        if ( access_killer_move ( i ).pt != ptype::no_piece ) for ( int j = 0; j < access_move_sets ( access_killer_move ( i ).pt ).size (); ++j )
+        if ( killer_move.pt != ptype::no_piece ) for ( auto& move_set : access_move_sets ( killer_move.pt ) )
         {
-            /* Get the move set */
-            auto move_set = access_move_sets ( access_killer_move ( i ).pt ).at ( j );
-
             /* See if this is the correct piece for the move */
-            if ( move_set.first == access_killer_move ( i ).from && move_set.second.test ( access_killer_move ( i ).to ) )
+            if ( move_set.first == killer_move.from && move_set.second.test ( killer_move.to ) )
             {
                 /* Check that the move is the same capture, or is now a capture when previously it wasn't */
-                if ( access_killer_move ( i ).capture_pt == ptype::no_piece || bb ( npc, access_killer_move ( i ).capture_pt ).test ( access_killer_move ( i ).to ) )
+                if ( killer_move.capture_pt == ptype::no_piece || bb ( npc, killer_move.capture_pt ).test ( killer_move.to ) )
                 {
                     /* Apply the killer move and return on alpha-beta cutoff */
-                    if ( apply_move_set ( access_killer_move ( i ).pt, move_set.first, singleton_bitboard ( access_killer_move ( i ).to ) ) ) return best_value;
+                    if ( apply_move_set ( killer_move.pt, move_set.first, singleton_bitboard ( killer_move.to ) ) ) return best_value;
                     
                     /* Unset that bit in the move set */
-                    access_move_sets ( access_killer_move ( i ).pt ).at ( j ).second.reset ( access_killer_move ( i ).to );
+                    move_set.second.reset ( killer_move.to );
                 }
 
                 /* killer move found, so break */
@@ -1660,42 +1632,34 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         }
     }
 
-    /* Look for pawn moves that promite that pawn */
-    for ( int i = 0; i < access_move_sets ( ptype::pawn ).size (); ++i )
+    /* Look for pawn moves that promote that pawn */
+    for ( auto& move_set : access_move_sets ( ptype::pawn ) )
     {
         /* Apply the move, then remove those bits */
-        if ( apply_move_set ( ptype::pawn, access_move_sets ( ptype::pawn ).at ( i ).first, access_move_sets ( ptype::pawn ).at ( i ).second & rank_8 ) ) return best_value; 
-        access_move_sets ( ptype::pawn ).at ( i ).second &= ~rank_8;
+        if ( apply_move_set ( ptype::pawn, move_set.first, move_set.second & rank_8 ) ) return best_value; 
+        move_set.second &= ~rank_8;
     }
 
-    /* Loop through the most valuable pieces to capture */
+    /* Loop through the most valuable pieces to capture.
+     * Look at the captures on pieces not protected by pawns first.
+     */
+    for ( ptype captee_pt : ptype_dec_value ) 
     {
-        ptype captee_pt = ptype::queen;
-        for ( int i = 0; i < 5; ++i ) 
+        /* Get this enemy type of piece */
+        const bitboard enemy_captees = bb ( npc, captee_pt );
+
+        /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them.
+         * Also apply some move ordering.
+         */
+        if ( enemy_captees ) for ( ptype captor_pt : ptype_inc_value ) for ( bitboard order_mask : { ~bitboard {} } )
         {
-            /* Get this enemy type of piece */
-            const bitboard enemy_captees = bb ( npc, captee_pt );
-
-            /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them */
-            if ( enemy_captees ) 
+            /* Look though the different captors of this type */
+            for ( auto& move_set : access_move_sets ( captor_pt ) )
             {
-                ptype captor_pt = ptype::pawn;
-                for ( int j = 0; j < 6; ++j ) 
-                {
-                    /* Look though the different captors of this type */
-                    for ( int k = 0; k < access_move_sets ( captor_pt ).size (); ++k )
-                    {
-                        /* Try capturing, and return on alpha-beta cutoff */
-                        if ( apply_move_set ( captor_pt, access_move_sets ( captor_pt ).at ( k ).first, access_move_sets ( captor_pt ).at ( k ).second & enemy_captees ) ) return best_value;
-                    }
-
-                    /* Increment the captor */
-                    captor_pt = ptype_inc_value ( captor_pt );
-                }
+                /* Try capturing, and return on alpha-beta cutoff */
+                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees & order_mask ) ) return best_value;
+                move_set.second &= ~( enemy_captees & order_mask );
             }
-
-            /* Decrement the captee */
-            captee_pt = ptype_dec_value ( captee_pt );
         }
     }
 
@@ -1719,27 +1683,33 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos - 2 );
     }
 
+    /* Get some unsafe squares. Start of with those that pawns are attacking */
+    bitboard unsafe_squares = ( pc == pcolor::white ? bb ( npc, ptype::pawn ).pawn_any_attack_s () : bb ( npc, ptype::pawn ).pawn_any_attack_n () );
+
+    /* Iterate through the knights to get their defended squares */
+    for ( bitboard knights_temp = bb ( npc, ptype::knight ); knights_temp; )
+    {
+        /* Get the next position, look up the attacks and unset that bit */
+        const int pos = knights_temp.trailing_zeros ();
+        unsafe_squares |= bitboard::knight_attack_lookup ( pos );
+        knights_temp.reset ( pos );
+    }
+
     /* Look for non-captures, unless quiescing */
     if ( bk_depth != 0 )
     {
-        /* Iterate through all pieces */
-        ptype pt = ptype::queen;
-        for ( int i = 0; i < 6; ++i ) 
+        /* Iterate through all pieces, and apply some ordering via masking specific moves first */
+        for ( ptype pt : ptype_dec_move_value ) for ( bitboard order_mask : { ~unsafe_squares, ~bitboard {} } )
         {
             /* Loop though the pieces of this type */
-            for ( int j = 0; j < access_move_sets ( pt ).size (); ++j )
+            for ( auto& move_set : access_move_sets ( pt ) )
             {
                 /* Try the move, and return on alpha-beta cutoff */ 
-                if ( apply_move_set ( pt, access_move_sets ( pt ).at ( j ).first, access_move_sets ( pt ).at ( j ).second & pp ) ) return best_value;
+                if ( apply_move_set ( pt, move_set.first, move_set.second & pp & order_mask ) ) return best_value;
+                move_set.second &= ~order_mask;
             }
-
-            /* Decrement the captee */
-            pt = ptype_dec_value ( pt );
         }
     }
-
-
-
 
 
     /* FINALLY */

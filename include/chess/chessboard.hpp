@@ -53,23 +53,6 @@ inline constexpr chess::pcolor chess::other_color ( const pcolor pc ) noexcept {
 inline constexpr int chess::cast_penum ( pcolor pc ) noexcept { return static_cast<int> ( pc ); }
 inline constexpr int chess::cast_penum ( ptype  pt ) noexcept { return static_cast<int> ( pt ); }
 
-/** @name  ptype_start
- * 
- * @brief  Gives the first ptype in order to iterate through them.
- * @return ptype
- */
-inline constexpr chess::ptype chess::ptype_start () noexcept { return ptype::pawn; }
-
-/** @name  ptype_next, ptype_inc_value, ptype_dec_value
- * 
- * @brief  Gives the next ptype, looping to the beginning before any_piece.
- * @param  pt: The type to increment.
- * @return ptype
- */
-inline constexpr chess::ptype chess::ptype_next ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<int> ( pt ) + 1 ) % 6 ); }
-inline constexpr chess::ptype chess::ptype_inc_value ( ptype pt ) noexcept { return static_cast<ptype> ( ( static_cast<int> ( pt ) + 1 ) % 6 ); }
-inline constexpr chess::ptype chess::ptype_dec_value ( ptype pt ) noexcept { return static_cast<ptype> ( static_cast<int> ( pt ) == 0 ? 5 : static_cast<int> ( pt ) - 1 ); }
-
 /** @name  check_penum
  * 
  * @brief  This function does nothing if validation is disabled.
@@ -577,8 +560,7 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
     get_bb ( pc, ptype::king ).empty ();
 
     /* Iterate through the moves and make sure that they do not lead to check */
-    bitboard moves_temp = moves;
-    while ( moves_temp )
+    for ( bitboard moves_temp = moves; moves_temp; )
     {
         /* Get the next test position */
         const int test_pos = moves_temp.trailing_zeros ();
