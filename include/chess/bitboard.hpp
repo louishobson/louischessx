@@ -38,36 +38,6 @@ inline constexpr int chess::cast_compass ( knight_compass dir ) noexcept { retur
 inline constexpr int chess::cast_compass ( straight_compass dir ) noexcept { return static_cast<int> ( dir ); }
 inline constexpr int chess::cast_compass ( diagonal_compass dir ) noexcept { return static_cast<int> ( dir ); }
 
-/** @name  compass_start, knight/straight/diagonal_compass_start
- *
- * @brief  Gives the first direction in a compass (useful for iterating over a compass)
- * @return A compass
- */
-inline constexpr chess::compass chess::compass_start () noexcept { return compass::sw; }
-inline constexpr chess::knight_compass chess::knight_compass_start () noexcept { return knight_compass::ssw; }
-inline constexpr chess::straight_compass chess::straight_compass_start () noexcept { return straight_compass::s; }
-inline constexpr chess::diagonal_compass chess::diagonal_compass_start () noexcept { return diagonal_compass::sw; }
-
-/** @name  compass_next
- *
- * @brief  Gives the next direction in a compass, looping back to the start if reaching the end (useful for iterating over a compass)
- * @param  dir: The compass direction to advance.
- * @return A compass
- */
-inline constexpr chess::compass chess::compass_next ( const compass dir ) noexcept { return static_cast<compass> ( ( cast_compass ( dir ) + 1 ) & 7 ); }
-inline constexpr chess::knight_compass chess::compass_next ( const knight_compass dir ) noexcept { return static_cast<knight_compass> ( ( cast_compass ( dir ) + 1 ) & 7 ); }
-inline constexpr chess::straight_compass chess::compass_next ( const straight_compass dir ) noexcept 
-{ 
-    bool add_one = ( cast_compass ( dir ) == 3 );
-    return static_cast<straight_compass> ( ( cast_compass ( dir ) + 2 - add_one ) & 7 );
-}
-inline constexpr chess::diagonal_compass chess::compass_next ( const diagonal_compass dir ) noexcept 
-{ 
-    bool add_one = ( cast_compass ( dir ) == 7 );
-    bool add_three = ( cast_compass ( dir ) == 2 );
-    return static_cast<diagonal_compass> ( ( cast_compass ( dir ) + 2 - add_one + add_three ) & 7 );
-}
-
 
 
 /* BITBOARD CREATION */
@@ -542,22 +512,20 @@ inline constexpr chess::bitboard chess::bitboard::king_any_attack ( const bitboa
  *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
  * @return A new bitboard
  */
-inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( const bitboard pp, const bitboard sp ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::rook_all_attack ( const bitboard pp, const bitboard sp ) const noexcept
 {
-    /* x will store the output, dir iterates over the directions of the compass */
+    /* x will store the output */
     bitboard x;
-    straight_compass dir = straight_compass_start ();
 
     /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( straight_compass dir : straight_compass_array )
     {
-        /* Union the attacks in this direction to x, and increment dir */
+        /* Union the attacks in this direction to x */
         x |= rook_attack ( dir, pp, sp );
-        dir = compass_next ( dir );
     }
 
     /* Return the union of all attacks */
@@ -565,41 +533,37 @@ inline constexpr chess::bitboard chess::bitboard::rook_all_attack   ( const bitb
 }
 inline constexpr chess::bitboard chess::bitboard::bishop_all_attack ( const bitboard pp, const bitboard sp ) const noexcept
 {
-    /* x will store the output, dir iterates over the directions of the compass */
+    /* x will store the output */
     bitboard x;
-    diagonal_compass dir = diagonal_compass_start ();
 
     /* Iterate over the 4 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 4
-    for ( int i = 0; i < 4; ++i )
+    for ( diagonal_compass dir : diagonal_compass_array )
     {
-        /* Union the attacks in this direction to x, and increment dir */
+        /* Union the attacks in this direction to x */
         x |= bishop_attack ( dir, pp, sp );
-        dir = compass_next ( dir );
     }
 
     /* Return the union of all attacks */
     return x;
 }
-inline constexpr chess::bitboard chess::bitboard::queen_all_attack  ( const bitboard pp, const bitboard sp ) const noexcept
+inline constexpr chess::bitboard chess::bitboard::queen_all_attack ( const bitboard pp, const bitboard sp ) const noexcept
 {
-    /* x will store the output, dir iterates over the directions of the compass */
+    /* x will store the output */
     bitboard x;
-    compass dir = compass_start ();
 
     /* Iterate over the 8 compass directions, forcing GCC to unroll the loop.
      * This causes dir to be recognised as a constant expression which will greatly optimise the loop.
      */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 8
-    for ( int i = 0; i < 8; ++i )
+    for ( compass dir : compass_array )
     {
-        /* Union the attacks in this direction to x, and increment dir */
+        /* Union the attacks in this direction to x */
         x |= queen_attack ( dir, pp, sp );
-        dir = compass_next ( dir );
     }
 
     /* Return the union of all attacks */

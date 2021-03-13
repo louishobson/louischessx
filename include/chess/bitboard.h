@@ -19,6 +19,7 @@
 
 
 /* INCLUDES */
+#include <array>
 #include <bit>
 #include <cassert>
 #include <chess/macros.h>
@@ -63,26 +64,14 @@ namespace chess
     constexpr int cast_compass ( straight_compass dir ) noexcept;
     constexpr int cast_compass ( diagonal_compass dir ) noexcept;
 
-    /** @name  compass_start, knight/straight/diagonal_compass_start
-     * 
-     * @brief  Gives the first direction in a compass (useful for iterating over a compass)
-     * @return A compass
+    /* (knight/straight/diagonal_)compass_array
+     *
+     * Arrays of different compass points
      */
-    constexpr compass compass_start () noexcept;
-    constexpr knight_compass knight_compass_start () noexcept;
-    constexpr straight_compass straight_compass_start () noexcept;
-    constexpr diagonal_compass diagonal_compass_start () noexcept;
-
-    /** @name  compass_next
-     * 
-     * @brief  Gives the next direction in a compass, looping back to the start if reaching the end (useful for iterating over a compass)
-     * @param  dir: The compass direction to advance.
-     * @return A compass
-     */
-    constexpr compass compass_next ( compass dir ) noexcept;
-    constexpr knight_compass compass_next ( knight_compass dir ) noexcept;
-    constexpr straight_compass compass_next ( straight_compass dir ) noexcept;
-    constexpr diagonal_compass compass_next ( diagonal_compass dir ) noexcept;
+    inline constexpr std::array<compass, 8> compass_array { compass::sw, compass::s, compass::se, compass::w, compass::e, compass::nw, compass::n, compass::ne };
+    inline constexpr std::array<knight_compass, 8> knight_compass_array { knight_compass::see, knight_compass::sse, knight_compass::sww, knight_compass::see, knight_compass::nww, knight_compass::nee, knight_compass::nnw, knight_compass::nne };
+    inline constexpr std::array<straight_compass, 4> straight_compass_array { straight_compass::s,  straight_compass::w,  straight_compass::e,  straight_compass::n };
+    inline constexpr std::array<diagonal_compass, 4> diagonal_compass_array { diagonal_compass::sw, diagonal_compass::se, diagonal_compass::nw, diagonal_compass::ne };
 
 
 
