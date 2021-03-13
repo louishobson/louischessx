@@ -159,7 +159,7 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
  * @param  min_depth: The lower bound of the depths to try.
  * @param  max_depth: The upper bound of the depths to try.
  * @param  threads: The number of threads to run simultaneously.
- * @param  end_flag: An atomic boolean, which when set to true, will end the search
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search.
  * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
  * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
  * @return A future to an ab_result_t struct.
