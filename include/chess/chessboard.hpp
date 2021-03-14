@@ -92,7 +92,7 @@ inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
     : bbs      { other.bbs }
     , aux_info { other.aux_info }
 
-    /* Don't create ab_working, since it will be created if a search occured */
+    /* Don't create ab_working, since it will be created if a search occurs */
     , ab_working { nullptr }
 {}
 
@@ -106,21 +106,8 @@ inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other
     bbs      = other.bbs;
     aux_info = other.aux_info;
 
-    /* Don't copy ab_working, since it will be created if a search occured */
-    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
-
     /* Return this object */
     return * this;
-}
-
-/** @name  destructor
- * 
- * @brief  Destructs the chessboard
- */
-inline chess::chessboard::~chessboard () noexcept
-{
-    /* Destroy the working values, if not already */
-    if ( ab_working ) { delete ab_working; ab_working = nullptr; }
 }
 
 /** @name  operator==

@@ -158,17 +158,29 @@ public:
      */
     chessboard ( const chessboard& other ) noexcept;
 
+    /** @name  move constructor
+     * 
+     * @brief  Differs from the copy constructor only by ab_working being moved, rather than ignored.
+     */
+    chessboard ( chessboard&& other ) noexcept = default;
+
     /** @name  copy assignment operator
      * 
      * @brief  Copy assigns the chessboard
      */
     chessboard& operator= ( const chessboard& other ) noexcept;
 
+    /** @name  move assignment operator
+     * 
+     * @brief  Differs from the copy assignment only by ab_working being moved, rather than ignored.
+     */
+    chessboard& operator= ( chessboard&& other ) noexcept = default;
+
     /** @name  destructor
      * 
      * @brief  Destructs the chessboard
      */
-    ~chessboard () noexcept;
+    ~chessboard () = default;
 
     /** @name  operator==
      * 
@@ -272,34 +284,6 @@ public:
 
 
 
-    /* CHECK INFO STRUCT */
-
-    /* Check info */
-    struct check_info_t
-    {
-        /* Check and pin vectors */
-        bitboard check_vectors, pin_vectors;
-
-        /* The number of times this color is in check */
-        int check_count = 0;
-
-        /* Versions of check and pin vectors but on straights and diagonals */
-        bitboard straight_check_vectors, diagonal_check_vectors, straight_pin_vectors, diagonal_pin_vectors;
-
-        /* check_vectors_dep_check_count
-        * This can be intersected with possible attacks to ensure that the king was protected.
-        * If not in check, the king does not need to be protected so the bitboard is set to universe.
-        * If in check once, every possible move must bloock check, so the bitboard is set to check_vectors.
-        * If in double check, only the king can move so the bitboard is set to empty.
-        */
-        bitboard check_vectors_dep_check_count;
-
-        /* Default comparison operator */
-        bool operator== ( const check_info_t& other ) const noexcept = default;
-    };
-
-
-
     /* AUX INFO STRUCT */
 
     /* Auxiliary chessboard information */
@@ -328,6 +312,152 @@ public:
 
 
 
+    /* CHECK INFO STRUCT */
+
+    /* Check info */
+    struct check_info_t
+    {
+        /* Check and pin vectors */
+        bitboard check_vectors, pin_vectors;
+
+        /* The number of times this color is in check */
+        int check_count = 0;
+
+        /* Versions of check and pin vectors but on straights and diagonals */
+        bitboard straight_check_vectors, diagonal_check_vectors, straight_pin_vectors, diagonal_pin_vectors;
+
+        /* check_vectors_dep_check_count
+        * This can be intersected with possible attacks to ensure that the king was protected.
+        * If not in check, the king does not need to be protected so the bitboard is set to universe.
+        * If in check once, every possible move must bloock check, so the bitboard is set to check_vectors.
+        * If in double check, only the king can move so the bitboard is set to empty.
+        */
+        bitboard check_vectors_dep_check_count;
+
+        /* Default comparison operator */
+        bool operator== ( const check_info_t& other ) const noexcept = default;
+    };
+
+
+
+    /* ALPHA BETA STATE */
+
+    /* A structure to store a state of alpha-beta search */
+    class ab_state_t
+    {
+    public:
+
+        /* CONSTRUCTORS */
+
+        /** @name  default constructor
+         * 
+         * @brief  Unlike chessboard, initialized the state to be an empty board
+         */
+        ab_state_t () noexcept = default;
+
+        /** @name  chessboard constructor
+         * 
+         * @brief  Construct from a chessboard state
+         * @param  cb: The chessboard to construct from
+         * @param  _pc: The player whose move it is next
+         */
+        ab_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw;
+
+
+        
+        /* OPERATORS */
+
+        /** @name  operator==
+         * 
+         * @brief  Compare two alpha-beta states
+         */
+        bool operator== ( const ab_state_t& other ) const noexcept = default;
+
+        
+
+        /* ATTRIBUTES */
+
+        /* Which player's turn it is */
+        pcolor pc;
+
+        /* Bitboards to store the state */
+        std::array<bitboard, 8> bbs;
+
+        /* the auxiliary info */
+        aux_info_t aux_info;
+
+    };
+
+
+
+    /* TTABLE ENTRY STRUCT */
+
+    /* A structure for a ttable entry in alpha-beta search */
+    struct ab_ttable_entry_t
+    {
+        /* An enum for whether the ttable entry is exact or an upper or lower bound */
+        enum class bound_t { exact, upper, lower };
+
+        /* The value of the ttable entry */
+        int value;
+
+        /* The bk_depth that the entry was made */
+        int bk_depth;
+
+        /* The bound of the ttable entry */
+        bound_t bound;
+
+        /* The best move at this state */
+        move_t best_move;
+    };
+
+
+
+    /* HASHING STRUCT */
+
+    /* Struct to hash a chessboard or state */
+    struct hash
+    {
+        /** @name  operator ()
+         * 
+         * @brief  Creates a hash for a chessboard
+         * @param  cb: The chessboard or alpha-beta state to hash
+         * @param  mv: The move to hash
+         * @return The hash
+         */
+        std::size_t operator () ( const chessboard& cb ) const chess_validate_throw;
+        std::size_t operator () ( const ab_state_t& cb ) const noexcept;
+        std::size_t operator () ( const move_t& mv ) const noexcept;
+    };
+
+
+
+    /* WORKING VALUES STRUCT */
+
+    /* A structure containing temporary alpha-beta search data */
+    struct ab_working_t
+    {
+        /* Accumulate the sum of quiescence depth and moves made */
+        unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
+        
+        /* Accumulate the number of full nodes and quiescence nodes visited */
+        int num_nodes = 0, num_q_nodes = 0;
+
+        /* Array of sets of moves */
+        std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
+
+        /* An array of root moves and their values */
+        std::vector<std::pair<move_t, int>> root_moves;
+
+        /* An array of the two most recent killer moves for each depth */
+        std::vector<std::array<move_t, 2>> killer_moves;
+
+        /* The transposition table */
+        std::unordered_map<ab_state_t, ab_ttable_entry_t, hash> ttable;
+    };
+
+
+
     /* ALPHA BETA RESULT STRUCT */
 
     /* Alpha beta result struct */
@@ -349,7 +479,10 @@ public:
         double time_multiple = 0.0;
 
         /* The time taken for the search */
-        std::chrono::steady_clock::duration duration;          
+        std::chrono::system_clock::duration duration;
+
+        /* Alpha beta working values from the search */
+        std::unique_ptr<ab_working_t> _ab_working;
     };
 
 
@@ -523,26 +656,30 @@ public:
      * @param  pc: The color whose move it is next.
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
+     * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
+     * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @return A future to an ab_result_t struct
      */
-    std::future<chess::chessboard::ab_result_t> alpha_beta_search ( pcolor pc, int depth, const std::atomic_bool& end_flag = false ) const;
+    std::future<chess::chessboard::ab_result_t> alpha_beta_search ( pcolor pc, int depth, const std::atomic_bool& end_flag = false, int alpha = -20000, int beta = +20000 ) const;
 
     /** @name  alpha_beta_iterative_deepening
      * 
      * @brief  Apply an alpha-beta search over a range of depths asynchronously.
      *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
-     *         Specifying an end point with a depth range of at least 3 will could to an early return.
-     *         The method will predict the time for the 3rd and beyond depth using an exponential model, and return if will exceed the end point.
+     *         Specifying an end point with a depth range of at least 4 could to an early return before the 4th search has finished.
+     *         The method will predict the time for the 4rd and beyond depth using an exponential model, and return if will exceed the end point.
      * @param  pc: The color whose move it is next.
      * @param  min_depth: The lower bound of the depths to try.
      * @param  max_depth: The upper bound of the depths to try.
-     * @param  threads: The number of threads to run simultaneously.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
      * @return A future to an ab_result_t struct.
      */
-    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, int threads, std::atomic_bool& end_flag, std::chrono::steady_clock::time_point end_point = std::chrono::steady_clock::time_point::max (), bool finish_first = true ) const;
+    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, std::atomic_bool& end_flag, 
+        std::chrono::system_clock::time_point end_point = std::chrono::system_clock::time_point::max (), 
+        bool finish_first = true 
+    ) const;
 
 
 
@@ -587,18 +724,6 @@ private:
 
     /* PRIVATE TYPES */
 
-    /* A structure to store a state of alpha-beta search */
-    class ab_state_t;
-
-    /* Struct to hash a chessboard or state */
-    struct hash;
-
-    /* A structure for a ttable entry in alpha-beta search */
-    struct ab_ttable_entry_t;
-
-    /* A structure containing temporary alpha-beta search data */
-    struct ab_working_t;
-
 
 
     /* ATTRIBUTES */
@@ -619,7 +744,7 @@ private:
     aux_info_t aux_info;
 
     /* A structure containing temporary alpha-beta search data */
-    ab_working_t * ab_working = nullptr;
+    mutable std::unique_ptr<ab_working_t> ab_working;
 
 
 
@@ -663,14 +788,16 @@ private:
      * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
      * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
      * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
+     * @param  null_window: Whether a null window has been set, false by default.
      * @return alpha_beta_t
      */
     chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, const std::atomic_bool& end_flag = false,
-        int alpha      = -20000, 
-        int beta       = +20000, 
-        int fd_depth   = 0, 
-        int null_depth = 0, 
-        int q_depth    = 0
+        int alpha        = -20000, 
+        int beta         = +20000, 
+        int fd_depth     = 0, 
+        int null_depth   = 0, 
+        int q_depth      = 0,
+        bool null_window = false
     );
 
 
@@ -686,121 +813,6 @@ private:
      */
     void sanity_check_bbs () const chess_validate_throw;
 
-};
-
-
-
-/* AB_STATE_T DEFINITION */
-
-/* A class to store a state of alpha-beta search */
-class chess::chessboard::ab_state_t
-{
-public:
-
-    /* CONSTRUCTORS */
-
-    /** @name  default constructor
-     * 
-     * @brief  Unlike chessboard, initialized the state to be an empty board
-     */
-    ab_state_t () noexcept = default;
-
-    /** @name  chessboard constructor
-     * 
-     * @brief  Construct from a chessboard state
-     * @param  cb: The chessboard to construct from
-     * @param  _pc: The player whose move it is next
-     */
-    ab_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw;
-
-
-    
-    /* OPERATORS */
-
-    /** @name  operator==
-     * 
-     * @brief  Compare two alpha-beta states
-     */
-    bool operator== ( const ab_state_t& other ) const noexcept = default;
-
-    
-
-    /* ATTRIBUTES */
-
-    /* Which player's turn it is */
-    pcolor pc;
-
-    /* Bitboards to store the state */
-    std::array<bitboard, 8> bbs;
-
-    /* the auxiliary info */
-    aux_info_t aux_info;
-
-};
-
-
-
-/* HASH DEFINITION */
-
-/* Struct to hash a chessboard or state */
-struct chess::chessboard::hash
-{
-    /** @name  operator ()
-     * 
-     * @brief  Creates a hash for a chessboard
-     * @param  cb: The chessboard or alpha-beta state to hash
-     * @param  mv: The move to hash
-     * @return The hash
-     */
-    std::size_t operator () ( const chessboard& cb ) const chess_validate_throw;
-    std::size_t operator () ( const ab_state_t& cb ) const noexcept;
-    std::size_t operator () ( const move_t& mv ) const noexcept;
-};
-
-
-
-/* AB_TTABLE_ENTRY_T DEFINITION */
-
-/* A structure for a ttable entry in alpha-beta search */
-struct chess::chessboard::ab_ttable_entry_t
-{
-    /* An enum for whether the ttable entry is exact or an upper or lower bound */
-    enum class bound_t { exact, upper, lower };
-
-    /* The value of the ttable entry */
-    int value;
-
-    /* The bk_depth that the entry was made */
-    int bk_depth;
-
-    /* The bound of the ttable entry */
-    bound_t bound;
-};
-
-
-
-/* AB_WORKING_T DEFINITION */
-
-/* A structure containing temporary alpha-beta search data */
-struct chess::chessboard::ab_working_t
-{
-    /* Accumulate the sum of quiescence depth and moves made */
-    unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
-    
-    /* Accumulate the number of full nodes and quiescence nodes visited */
-    int num_nodes = 0, num_q_nodes = 0;
-
-    /* Array of sets of moves */
-    std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
-
-    /* An array of root moves and their values */
-    std::vector<std::pair<move_t, int>> root_moves;
-
-    /* An array of the two most recent killer moves for each depth */
-    std::vector<std::array<move_t, 2>> killer_moves;
-
-    /* The transposition table */
-    std::unordered_map<ab_state_t, ab_ttable_entry_t, hash> ttable;
 };
 
 

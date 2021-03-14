@@ -498,19 +498,15 @@ inline void chess::chessboard::sanity_check_bbs () const chess_validate_throw
         bitboard all = bb ( pc );
 
         /* Iterate through each type */
-        ptype pt = ptype_start ();
         #pragma clang loop unroll ( full )
         #pragma GCC unroll 6
-        for ( int j = 0; j < 6; ++j )
+        for ( const ptype pt : ptype_inc_value )
         {
             /* Switch the bits in all */
             all ^= bb ( pc, pt );
 
             /* Test for errors */
             if ( all & bb ( pc, pt ) ) throw std::runtime_error { "Sanity check failed." };
-
-            /* Get the next type */
-            pt = ptype_next ( pt );
         }
 
         /* Throw if all has any set bits left */
