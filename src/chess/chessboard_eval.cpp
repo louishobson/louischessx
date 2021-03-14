@@ -178,7 +178,7 @@ bool chess::chessboard::is_protected ( pcolor pc, int pos ) const chess_validate
     const bitboard pp = ~bb ();
     const bitboard sp = bb ( pc );
 
-    /* Get the adjacent open cells. These are the cells which don't contain an enemy piece or a friendly pawn or knight (and protection coule be given by a sliding piece) */
+    /* Get the adjacent open cells. These are the cells which don't contain an enemy piece or a friendly pawn or knight (and protection from a sliding piece could be blocked) */
     const bitboard adj_open_cells = bitboard::king_attack_lookup ( pos ) & ~bb ( other_color ( pc ) ) & ~bb ( pc, ptype::pawn ) & ~bb ( pc, ptype::knight );
 
 
@@ -285,6 +285,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr int BLOCKED_PASSED_PAWNS             { -15 }; // For each blocked passed pawn
     constexpr int STRONG_SQUARES                   {  20 }; // For each strong square (one attacked by a friendly pawn and not an enemy pawn)
     constexpr int BACKWARD_PAWNS                   {  10 }; // For each pawn behind a strong square (see above)
+    constexpr int PASSED_PAWNS_IN_ENDGAME          {  80 }; // For each passed pawn (since may be queened) 
 
 
     /* Sliding pieces */
@@ -310,16 +311,22 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr int MOBILITY            {  1 }; // For every legal move
     constexpr int KING_QUEEN_MOBILITY { -2 }; // For every non-capture attack, pretending the king is a queen
 
-    /* Casling */
+    /* Castling */
     constexpr int CASTLE_MADE {  30 }; // If true
     constexpr int CASTLE_LOST { -60 }; // If true
 
     /* Other values */
-    constexpr int KNIGHT_AND_QUEEN_EXIST               { 10 }; // If true
-    constexpr int CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES { 10 }; // For every attack (not including pawns or kings)
+    constexpr int KNIGHT_AND_QUEEN_EXIST               {  10 }; // If true
+    constexpr int CENTER_LEGAL_ATTACKS_BY_RESTRICTIVES {  10 }; // For every attack (not including pawns or kings)
+    constexpr int PINNED_PIECES                        { -20 }; // For each (friendly) piece
 
-    /* Checkmate */
-    constexpr int CHECKMATE { 10000 }; // If on the enemy, -10000 if on self
+    /* Non-symmetrical values */
+    constexpr int CHECKMATE                      { 10000 }; // If on the enemy, -10000 if on self
+    constexpr int KINGS_IN_OPPOSITION_IN_ENDGAME {    15 }; // If is the endgame and kings are one off adjacent
+
+    /* The maximum number of pieces for an endgame */
+    constexpr int ENDGAME_PIECES       { 8 };
+    constexpr int ENDGAME_RESTRICTIVES { 3 };
 
 
     
@@ -371,10 +378,15 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     const bitboard black_semiopen_files = ~black_pawn_file_fill & white_pawn_file_fill;
 
     /* Get the cells behind passed pawns. 
-     * This is the span between the passed pawns and the next piece back, including that piece.
+     * This is the span between the passed pawns and the next piece back, including the next piece back but not the pawn.
      */ 
-    const bitboard white_behind_passed_pawns = ( bb ( pcolor::white, ptype::pawn ) & ~white_pawn_rear_span ).span ( compass::s, pp, ~bitboard {} ) & black_semiopen_files;
-    const bitboard black_behind_passed_pawns = ( bb ( pcolor::black, ptype::pawn ) & ~black_pawn_rear_span ).span ( compass::n, pp, ~bitboard {} ) & white_semiopen_files;
+    const bitboard white_behind_passed_pawns = ( bb ( pcolor::white, ptype::pawn ) & ~white_pawn_rear_span ).span ( compass::s, pp, ~bitboard {} ) & black_semiopen_files & black_semiopen_files.shift ( compass::e ) & black_semiopen_files.shift ( compass::w );
+    const bitboard black_behind_passed_pawns = ( bb ( pcolor::black, ptype::pawn ) & ~black_pawn_rear_span ).span ( compass::n, pp, ~bitboard {} ) & white_semiopen_files & white_semiopen_files.shift ( compass::e ) & white_semiopen_files.shift ( compass::w );
+
+    /* Whether this is the endgame */
+    const bool endgame = ( bb ( pcolor::white ).popcount () <= ENDGAME_PIECES ) | ( bb ( pcolor::black ).popcount () <= ENDGAME_PIECES )
+        | ( ( bb ( pcolor::white, ptype::queen ) | bb ( pcolor::white, ptype::rook ) | bb ( pcolor::white, ptype::bishop ) | bb ( pcolor::white, ptype::knight ) ).popcount () <= ENDGAME_RESTRICTIVES )
+        | ( ( bb ( pcolor::black, ptype::queen ) | bb ( pcolor::black, ptype::rook ) | bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::knight ) ).popcount () <= ENDGAME_RESTRICTIVES );
 
 
 
@@ -871,6 +883,13 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             const bitboard black_bishop_or_knight_strong_squares = black_strong_squares & ( bb ( pcolor::black, ptype::bishop ) | bb ( pcolor::black, ptype::knight ) );
             value += BISHOP_OR_KNIGHT_ON_STRONG_SQUARE * ( white_bishop_or_knight_strong_squares.popcount () - black_bishop_or_knight_strong_squares.popcount () );
         }
+
+        /* Incorporate passed pawns in endgame into value */
+        {
+            const bitboard white_passed_pawns = white_behind_passed_pawns.shift ( compass::n ) & bb ( pcolor::white, ptype::pawn );
+            const bitboard black_passed_pawns = black_behind_passed_pawns.shift ( compass::s ) & bb ( pcolor::black, ptype::pawn );
+            value += PASSED_PAWNS_IN_ENDGAME * endgame * ( white_passed_pawns.popcount () - black_passed_pawns.popcount () );
+        }
     }
 
 
@@ -981,6 +1000,16 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     /* Castling */
     value += CASTLE_MADE * ( castle_made ( pcolor::white ) - castle_made ( pcolor::black ) );
     value += CASTLE_LOST * ( castle_lost ( pcolor::white ) - castle_lost ( pcolor::black ) );
+
+    /* Pinned pieces */
+    {
+        const bitboard white_pinned_pieces = white_check_info.pin_vectors & bb ( pcolor::white );
+        const bitboard black_pinned_pieces = black_check_info.pin_vectors & bb ( pcolor::black );
+        value += PINNED_PIECES * ( white_pinned_pieces.popcount () - black_pinned_pieces.popcount () );
+    }
+
+    /* Kings in opposition */
+    value +=  KINGS_IN_OPPOSITION_IN_ENDGAME * endgame * ( white_king_span & black_king_span ).is_nonempty () * ( pc == pcolor::white ? +1 : -1 );
 
 
 

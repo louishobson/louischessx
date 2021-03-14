@@ -216,8 +216,11 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
                 /* If this is not the first or last search, predict when the next thread will finish */
                 if ( i != 0 && min_depth + i != max_depth )
                 {
+                    /* Get the time multiple */
+                    new_ab_result.time_multiple = new_ab_result.duration / std::chrono::duration<double, std::nano> { ab_result.duration };
+
                     /* Get the predicted duration */
-                    const std::chrono::steady_clock::duration pred_duration = std::chrono::duration_cast<std::chrono::steady_clock::duration> ( ( new_ab_result.duration / std::chrono::duration<double, std::nano> { ab_result.duration } ) * 0.9 * new_ab_result.duration );
+                    const std::chrono::steady_clock::duration pred_duration = std::chrono::duration_cast<std::chrono::steady_clock::duration> ( new_ab_result.time_multiple * 0.9 * new_ab_result.duration );
 
                     /* Force end the search now if this exceeds the end point */
                     if ( tps.at ( i + 1 ) + pred_duration > end_point ) end_flag = true;

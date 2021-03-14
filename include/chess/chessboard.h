@@ -345,6 +345,9 @@ public:
         /* Average quiescence depth and moves per node */
         double av_q_depth = 0.0, av_moves = 0.0, av_q_moves = 0.0;
 
+        /* The time multiple between this depth search and the previous when using iterative deepening */
+        double time_multiple = 0.0;
+
         /* The time taken for the search */
         std::chrono::steady_clock::duration duration;          
     };
