@@ -261,10 +261,9 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
  * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
  * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
  * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
- * @param  null_window: Whether a null window has been set, false by default.
  * @return alpha_beta_t
  */
-int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, const bool best_only, const std::atomic_bool& end_flag, int alpha, int beta, int fd_depth, int null_depth, int q_depth, const bool null_window )
+int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, const bool best_only, const std::atomic_bool& end_flag, int alpha, int beta, int fd_depth, int null_depth, int q_depth )
 {
 
     /* CONSTANTS */
@@ -274,9 +273,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      */
     constexpr int TTABLE_MIN_SEARCH_FD_DEPTH = 1, TTABLE_MAX_SEARCH_FD_DEPTH = 6;
     constexpr int TTABLE_MIN_STORE_FD_DEPTH  = 1, TTABLE_MAX_STORE_FD_DEPTH  = 6;
-    
-    /* Set the minimum fd_depth for a null window to be used */
-    constexpr int NULL_WINDOW_MAX_BK_DEPTH = 5;
 
     /* Set the maximum depth quiescence search can go to.
      * This is important as it stops rare infinite loops relating to check in quiescence search.
@@ -451,7 +447,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     }
 
     /* If we are outside the specified fd_depth range, set use_ttable to false to stop storing new values in the ttable */
-    if ( null_depth || q_depth || null_window || fd_depth > TTABLE_MAX_STORE_FD_DEPTH || fd_depth < TTABLE_MIN_STORE_FD_DEPTH ) use_ttable = false;
+    if ( null_depth || q_depth || fd_depth > TTABLE_MAX_STORE_FD_DEPTH || fd_depth < TTABLE_MIN_STORE_FD_DEPTH ) use_ttable = false;
 
 
 
@@ -504,7 +500,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         const aux_info_t aux = make_move_internal ( move_t {} );
 
         /* Apply the null move */
-        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, best_only, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ), null_window );
+        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, best_only, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake a null move */
         unmake_move_internal ( move_t {}, aux );
@@ -523,10 +519,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      * 
      * @brief  Applies a move and recursively calls alpha_beta_search_internal on each of them
      * @param  move: The move to make
-     * @param  start_null_window: Continue the search using a null window
      * @return boolean, true for an alpha-beta cutoff, false otherwise
      */
-    auto apply_move = [ & ] ( const move_t& move, bool start_null_window ) -> bool
+    auto apply_move = [ & ] ( const move_t& move ) -> bool
     {
         /* Apply the move */
         const aux_info_t aux = make_move_internal ( move );
@@ -534,13 +529,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         /* Recursively call to get the value for this move.
         * Switch around and negate alpha and beta, since it is the other player's turn.
         * Since the next move is done by the other player, negate the value.
-        * If a null window should be used, try a = -a - 1 and b = -a. If fails high, retry with full window.
         */
-        int new_value;
-        if ( start_null_window ) 
-            new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), best_only, end_flag, -alpha - 1, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ), null_window | start_null_window );
-        if ( !start_null_window || ( alpha < new_value && new_value < beta ) )
-            new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), best_only, end_flag, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ), null_window );
+        const int new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), best_only, end_flag, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake the move */
         unmake_move_internal ( move, aux ); 
@@ -610,10 +600,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      * @param  pt: The type of the piece currently in focus
      * @param  from: The pos from which the piece is moving from
      * @param  move_set: The possible moves for that piece (not necessarily a singleton)
-     * @param  start_null_window: Continue the search using a null window
      * @return boolean, true for an alpha-beta cutoff, false otherwise
      */
-    auto apply_move_set = [ & ] ( ptype pt, int from, bitboard move_set, bool start_null_window ) -> bool
+    auto apply_move_set = [ & ] ( ptype pt, int from, bitboard move_set ) -> bool
     {
         /* Iterate through the individual moves */
         while ( move_set )
@@ -630,8 +619,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             if ( pt == ptype::pawn && rank_8.test ( to ) )
             {
                 /* Try the move with a queen and a knight as the promotion type, returning on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to, 0, 0 }, start_null_window ) ) return true;
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to, 0, 0 }, start_null_window ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to, 0, 0 } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to, 0, 0 } ) ) return true;
             } else
 
             /* Detect if this is an en passant capture. 
@@ -641,11 +630,11 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             if ( pt == ptype::pawn && ( to - from ) % 8 != 0 && !bb ( npc ).test ( to ) )
             {
                 /* Apply the move and return on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, ( from / 8 ) * 8 + ( to % 8 ), 0 }, start_null_window ) ) return true;
+                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, ( from / 8 ) * 8 + ( to % 8 ), 0 } ) ) return true;
             } else
             
             /* Else this is an ordinary move, so try it and return on alpha-beta cutoff */
-            if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to, 0, 0 }, start_null_window ) ) return true;
+            if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to, 0, 0 } ) ) return true;
         }
 
         /* Return false */
@@ -657,7 +646,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* TRY BEST MOVE */
 
     /* Test if a best move has been found and try it if so */
-    if ( ttable_best_move ) if ( apply_move ( best_move, false ) ) return best_value;
+    if ( ttable_best_move ) if ( apply_move ( best_move ) ) return best_value;
 
 
 
@@ -714,7 +703,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
                 if ( killer_move.capture_pt == ptype::no_piece || bb ( npc, killer_move.capture_pt ).test ( killer_move.to ) )
                 {
                     /* Apply the killer move and return on alpha-beta cutoff */
-                    if ( apply_move_set ( killer_move.pt, move_set.first, singleton_bitboard ( killer_move.to ), bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
+                    if ( apply_move_set ( killer_move.pt, move_set.first, singleton_bitboard ( killer_move.to ) ) ) return best_value;
                     
                     /* Unset that bit in the move set */
                     move_set.second.reset ( killer_move.to );
@@ -730,7 +719,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     for ( auto& move_set : access_move_sets ( ptype::pawn ) )
     {
         /* Apply the move, then remove those bits */
-        if ( apply_move_set ( ptype::pawn, move_set.first, move_set.second & rank_8, bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value; 
+        if ( apply_move_set ( ptype::pawn, move_set.first, move_set.second & rank_8 ) ) return best_value; 
         move_set.second &= ~rank_8;
     }
 
@@ -749,7 +738,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             for ( const auto& move_set : access_move_sets ( captor_pt ) )
             {
                 /* Try capturing, and return on alpha-beta cutoff */
-                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees, bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
+                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees ) ) return best_value;
             }
         }
     }
@@ -758,7 +747,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( access_move_sets ( ptype::king ).front ().second.test ( king_pos + 2 ) )
     {
         /* Try the move and return on alpha-beta cutoff */
-        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos + 2 ), bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
+        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos + 2 ) ) ) return best_value;
 
         /* Unset the move */
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos + 2 );
@@ -768,7 +757,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( access_move_sets ( ptype::king ).front ().second.test ( king_pos - 2 ) )
     {
         /* Try the move and return on alpha-beta cutoff */
-        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos - 2 ), bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
+        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos - 2 ) ) ) return best_value;
 
         /* Unset the move */
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos - 2 );
@@ -784,7 +773,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             for ( const auto& move_set : access_move_sets ( pt ) )
             {
                 /* Try the move, and return on alpha-beta cutoff */ 
-                if ( apply_move_set ( pt, move_set.first, move_set.second & pp, bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
+                if ( apply_move_set ( pt, move_set.first, move_set.second & pp ) ) return best_value;
             }
         }
     }

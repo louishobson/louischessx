@@ -795,7 +795,6 @@ private:
      * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
      * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
      * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
-     * @param  null_window: Whether a null window has been set, false by default.
      * @return alpha_beta_t
      */
     chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, bool best_only, const std::atomic_bool& end_flag = false,
@@ -803,8 +802,7 @@ private:
         int beta         = +20000, 
         int fd_depth     = 0, 
         int null_depth   = 0, 
-        int q_depth      = 0,
-        bool null_window = false
+        int q_depth      = 0
     );
 
 
