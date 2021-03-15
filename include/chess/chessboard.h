@@ -297,7 +297,7 @@ public:
          *   2: Can kingside castle 
          *   3: Can queenside castle
          */
-        int castling_rights = 0b11110000;
+        unsigned castling_rights = 0b11110000;
 
         /* Double push position:
          * The position of the pawn which double pushed in the previous move.
