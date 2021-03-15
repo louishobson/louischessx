@@ -165,15 +165,14 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
  *         Specifying an end point with a depth range of at least 4 could to an early return before the 4+th search has finished.
  *         The method will predict the time for the 3rd and beyond depth using an exponential model, and return if will exceed the end point.
  * @param  pc: The color whose move it is next.
- * @param  min_depth: The lower bound of the depths to try.
- * @param  max_depth: The upper bound of the depths to try.
+ * @param  depths: A list of depth values to search.
  * @param  best_only: If true, the search will be optimised as only the best move is returned.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search.
  * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
  * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
  * @return A future to an ab_result_t struct.
  */
-std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, const bool best_only, std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first ) const
+std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, std::initializer_list<int> depths, const bool best_only, std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first ) const
 {
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
@@ -183,27 +182,32 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
         /* The result of the highest depth complete search */
         ab_result_t ab_result;
 
-        /* If act as a multiple for alpha and beta due to the previous iteration failing high or low */
-        int failed_high = 1; int failed_low = 1;
+        /* If act as an exponent for high and low windows due to the previous iteration failing high or low */
+        int low_exponent = 1; int high_exponent = 1;
 
         /* Iterate through the depths */
-        for ( int i = 0; min_depth + i <= max_depth && !end_flag; ++i )
+        for ( auto depth_it = depths.begin (); depth_it != depths.end (); ++depth_it )
         {
             /* Store the result */
             ab_result_t new_ab_result;
 
+            /* Get the aspiration window sized based on whether the previous and this depth are both odd/even or are different */
+            int low_window = 50, high_window = 50;
+            if ( ab_result.depth % 2 == 1 && * depth_it % 2 == 0 ) low_window  = 150;
+            if ( ab_result.depth % 2 == 0 && * depth_it % 2 == 1 ) high_window = 150;
+
             /* Get the aspiration window to use */
-            const int alpha = ( ab_result.moves.size () ? ab_result.moves.front ().second - 25 : -20000 ) * failed_low;
-            const int beta  = ( ab_result.moves.size () ? ab_result.moves.front ().second + 25 : +20000 ) * failed_high;
+            const int alpha = ( ab_result.moves.size () ? ab_result.moves.front ().second - std::pow ( low_window,  low_exponent  ) : -20000 );
+            const int beta  = ( ab_result.moves.size () ? ab_result.moves.front ().second + std::pow ( high_window, high_exponent ) : +20000 );
 
             /* Detect if this is the first search and finish_first is set.
              * If so, don't pass end_flag to the search and wait for the output.
              * Else find the aspiration window, pass end_flag and only wait until end_point.
              */
-            if ( i == 0 && finish_first ) { ab_result = alpha_beta_search ( pc, min_depth + i, best_only ).get (); continue; } else
+            if ( depth_it == depths.begin () && finish_first ) { ab_result = alpha_beta_search ( pc, * depth_it, best_only ).get (); continue; } else
             {
                 /* Start the search. */
-                auto new_ab_result_future = alpha_beta_search ( pc, min_depth + i, best_only, end_flag, alpha, beta );
+                auto new_ab_result_future = alpha_beta_search ( pc, * depth_it, best_only, end_flag, alpha, beta );
 
                 /* Wait for the search to finish or time out. If there is a timeout, set the end flag to true. */
                 if ( new_ab_result_future.wait_until ( end_point ) != std::future_status::ready ) end_flag = true;
@@ -212,30 +216,37 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
                 new_ab_result = new_ab_result_future.get ();
             }
 
+            std::cout << "alpha: " << alpha << "\nbeta: " << beta << "\nvalue: " << new_ab_result.moves.front ().second << "\n\n";
+
             /* Only accept the new moves if the search finished */
             if ( chess_clock::now () < end_point && !end_flag ) 
             {
-                /* Detect if the search failed high or low and continue while increasing the failed_high/low counters */
-                if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second >= beta  ) { failed_high *= 2; --i; continue; }
-                if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second <= alpha ) { failed_low  *= 2; --i; continue; }
+                /* Detect if the search failed high or low and continue while increasing the high/low_exponent counters */
+                if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second <= alpha ) { while ( ab_result.moves.front ().second - std::pow ( low_window,  low_exponent  += 1 ) > new_ab_result.moves.front ().second ); --depth_it; continue; }
+                if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second >= beta  ) { while ( ab_result.moves.front ().second + std::pow ( high_window, high_exponent += 1 ) < new_ab_result.moves.front ().second ); --depth_it; continue; }
 
-                /* Reset failed_high/low since didn't do either */
-                failed_high = 1; failed_low = 1;
+                /* Reset high/low_exponent since didn't fail */
+                low_exponent = 1; high_exponent = 1;
 
                 /* Move the ab_working values into this */
                 ab_working = std::move ( new_ab_result._ab_working );
 
                 /* If this at least the 3rd search, predict when the next thread will finish */
-                if ( i >= 2 )
+                if ( std::distance ( depths.begin (), depth_it ) >= 2 )
                 {
                     /* Get the time multiple */
-                    new_ab_result.time_multiple = new_ab_result.duration / std::chrono::duration<double, std::nano> { ab_result.duration };
+                    new_ab_result.time_multiple = std::pow ( new_ab_result.duration / std::chrono::duration<double, std::nano> { ab_result.duration }, 1.0 / ( new_ab_result.depth - ab_result.depth ) );
 
-                    /* Get the predicted duration */
-                    const chess_clock::duration pred_duration = std::chrono::duration_cast<chess_clock::duration> ( new_ab_result.time_multiple * 0.75 * new_ab_result.duration );
+                    /* If this is not the last search, get the predicted duration of the next search and cancel it if it will take too long */
+                    if ( std::next ( depth_it ) != depths.end () )
+                    {
+                        /* Get the predicted duration */
+                        const chess_clock::duration pred_duration = 
+                            std::chrono::duration_cast<chess_clock::duration> ( std::pow ( new_ab_result.time_multiple, * std::next ( depth_it ) / new_ab_result.depth ) * 0.75 * new_ab_result.duration );
 
-                    /* Force end the search now if this exceeds the end point */
-                    if ( chess_clock::now () + pred_duration > end_point ) end_flag = true;
+                        /* Force end the search now if this exceeds the end point */
+                        if ( chess_clock::now () + pred_duration > end_point ) end_flag = true;
+                    }
                 }
 
                 /* Set the latest result */
@@ -454,20 +465,19 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* CHECK FOR LEAF */
 
     /* If at bk_depth zero, start or continue with quiescence */
-    int static_eval = 0;
     if ( bk_depth == 0 )
     {
         /* Set q_depth if not already */
         if ( !q_depth ) q_depth = 1;
 
         /* Get static evaluation */
-        static_eval = evaluate ( pc );
+        best_value = evaluate ( pc );
 
         /* If in check increase the bk_depth by 1 */
         if ( check_info.check_count ) bk_depth++; else 
         {
             /* Else return now if exceeding the max quiescence depth */
-            if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return static_eval;
+            if ( q_depth >= QUIESCENCE_MAX_Q_DEPTH ) return best_value;
 
             /* Find the quiescence delta */
             const int quiescence_delta = std::max 
@@ -479,14 +489,14 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             } ) + ( bb ( pc, ptype::pawn ) & rank_7 ).popcount () * 550;
 
             /* Or return on delta pruning if allowed */
-            if ( use_delta_pruning && static_eval + quiescence_delta < alpha ) return static_eval;
+            if ( use_delta_pruning && best_value + quiescence_delta < alpha ) return best_value;
         }
 
-        /* Return if static evaluation is greater than beta */
-        if ( static_eval >= beta ) return beta;
-
         /* Tune alpha to the static evaluation */
-        alpha = std::max ( alpha, static_eval );
+        alpha = std::max ( alpha, best_value );
+
+        /* Return if alpha is greater than beta */
+        if ( alpha >= beta ) return best_value;
     }
 
 

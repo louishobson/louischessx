@@ -23,7 +23,10 @@
 #include <atomic>
 #include <chess/bitboard.h>
 #include <chess/macros.h>
+#include <cmath>
+#include <initializer_list>
 #include <iostream>
+#include <iterator>
 #include <future>
 #include <memory>
 #include <unordered_map>
@@ -674,15 +677,14 @@ public:
      *         Specifying an end point with a depth range of at least 4 could to an early return before the 4th search has finished.
      *         The method will predict the time for the 4rd and beyond depth using an exponential model, and return if will exceed the end point.
      * @param  pc: The color whose move it is next.
-     * @param  min_depth: The lower bound of the depths to try.
-     * @param  max_depth: The upper bound of the depths to try.
+     * @param  depths: A list of depth values to search.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
      * @return A future to an ab_result_t struct.
      */
-    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, int min_depth, int max_depth, bool best_only, std::atomic_bool& end_flag,
+    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, std::initializer_list<int> depths, bool best_only, std::atomic_bool& end_flag,
         chess_clock::time_point end_point = chess_clock::time_point::max (), 
         bool finish_first = true 
     ) const;
