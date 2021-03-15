@@ -85,12 +85,13 @@ void chess::chessboard::make_move ( const move_t& move )
  *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
  * @param  pc: The color whose move it is next.
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
+ * @param  best_only: If true, the search will be optimised as only the best move is returned.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
  * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
  * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
  * @return A future to an ab_result_t struct.
  */
-std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const std::atomic_bool& end_flag, const int alpha, const int beta ) const
+std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const bool best_only, const std::atomic_bool& end_flag, const int alpha, const int beta ) const
 {
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
@@ -108,9 +109,9 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
         cb.ab_working->root_moves.reserve ( 128 );
 
         /* Call and time the internal method */
-        const auto t0 = std::chrono::system_clock::now ();
-        cb.alpha_beta_search_internal ( pc, depth, end_flag, alpha, beta );
-        const auto t1 = std::chrono::system_clock::now ();
+        const auto t0 = chess_clock::now ();
+        cb.alpha_beta_search_internal ( pc, depth, best_only, end_flag, alpha, beta );
+        const auto t1 = chess_clock::now ();
 
         /* Create the ab result struct */
         ab_result_t ab_result;
@@ -130,11 +131,14 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
         /* Extract the alpha beta working values */
         ab_result._ab_working = std::move ( cb.ab_working );
 
-        /* Shrink to fit */
-        ab_result.moves.shrink_to_fit ();
-
         /* Order the moves */
         std::sort ( ab_result.moves.begin (), ab_result.moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
+
+        /* Resize the moves list to 1 if best_only is set */
+        if ( best_only ) ab_result.moves.resize ( 1 );
+
+        /* Shrink to fit */
+        ab_result.moves.shrink_to_fit ();
 
         /* Set the check count for each move */
         std::for_each ( ab_result.moves.begin (), ab_result.moves.end (), [ & ] ( auto& move ) 
@@ -163,12 +167,13 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
  * @param  pc: The color whose move it is next.
  * @param  min_depth: The lower bound of the depths to try.
  * @param  max_depth: The upper bound of the depths to try.
+ * @param  best_only: If true, the search will be optimised as only the best move is returned.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search.
  * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
  * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
  * @return A future to an ab_result_t struct.
  */
-std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, std::atomic_bool& end_flag, const std::chrono::system_clock::time_point end_point, const bool finish_first ) const
+std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const int min_depth, const int max_depth, const bool best_only, std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first ) const
 {
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
@@ -195,10 +200,10 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
              * If so, don't pass end_flag to the search and wait for the output.
              * Else find the aspiration window, pass end_flag and only wait until end_point.
              */
-            if ( i == 0 && finish_first ) { ab_result = alpha_beta_search ( pc, min_depth + i ).get (); continue; } else
+            if ( i == 0 && finish_first ) { ab_result = alpha_beta_search ( pc, min_depth + i, best_only ).get (); continue; } else
             {
                 /* Start the search. */
-                auto new_ab_result_future = alpha_beta_search ( pc, min_depth + i, end_flag, alpha, beta );
+                auto new_ab_result_future = alpha_beta_search ( pc, min_depth + i, best_only, end_flag, alpha, beta );
 
                 /* Wait for the search to finish or time out. If there is a timeout, set the end flag to true. */
                 if ( new_ab_result_future.wait_until ( end_point ) != std::future_status::ready ) end_flag = true;
@@ -208,7 +213,7 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
             }
 
             /* Only accept the new moves if the search finished */
-            if ( std::chrono::system_clock::now () < end_point && !end_flag ) 
+            if ( chess_clock::now () < end_point && !end_flag ) 
             {
                 /* Detect if the search failed high or low and continue while increasing the failed_high/low counters */
                 if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second >= beta  ) { failed_high *= 2; --i; continue; }
@@ -227,10 +232,10 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
                     new_ab_result.time_multiple = new_ab_result.duration / std::chrono::duration<double, std::nano> { ab_result.duration };
 
                     /* Get the predicted duration */
-                    const std::chrono::system_clock::duration pred_duration = std::chrono::duration_cast<std::chrono::system_clock::duration> ( new_ab_result.time_multiple * 0.75 * new_ab_result.duration );
+                    const chess_clock::duration pred_duration = std::chrono::duration_cast<chess_clock::duration> ( new_ab_result.time_multiple * 0.75 * new_ab_result.duration );
 
                     /* Force end the search now if this exceeds the end point */
-                    if ( std::chrono::system_clock::now () + pred_duration > end_point ) end_flag = true;
+                    if ( chess_clock::now () + pred_duration > end_point ) end_flag = true;
                 }
 
                 /* Set the latest result */
@@ -247,8 +252,9 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
  * 
  * @brief  Apply an alpha-beta search to a given depth.
  *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
- * @param  pc: The color who's move it is next
- * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search
+ * @param  pc: The color who's move it is next.
+ * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search.
+ * @param  best_only: If true, the search will be optimised as only the best move is returned.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search.
  * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
  * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
@@ -258,7 +264,7 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
  * @param  null_window: Whether a null window has been set, false by default.
  * @return alpha_beta_t
  */
-int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, const std::atomic_bool& end_flag, int alpha, int beta, int fd_depth, int null_depth, int q_depth, const bool null_window )
+int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_depth, const bool best_only, const std::atomic_bool& end_flag, int alpha, int beta, int fd_depth, int null_depth, int q_depth, const bool null_window )
 {
 
     /* CONSTANTS */
@@ -270,7 +276,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     constexpr int TTABLE_MIN_STORE_FD_DEPTH  = 1, TTABLE_MAX_STORE_FD_DEPTH  = 6;
     
     /* Set the minimum fd_depth for a null window to be used */
-    constexpr int NULL_WINDOW_MIN_FD_DEPTH = 3;
+    constexpr int NULL_WINDOW_MAX_BK_DEPTH = 5;
 
     /* Set the maximum depth quiescence search can go to.
      * This is important as it stops rare infinite loops relating to check in quiescence search.
@@ -498,7 +504,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         const aux_info_t aux = make_move_internal ( move_t {} );
 
         /* Apply the null move */
-        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ), null_window );
+        int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, best_only, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ), null_window );
 
         /* Unmake a null move */
         unmake_move_internal ( move_t {}, aux );
@@ -532,12 +538,15 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         */
         int new_value;
         if ( start_null_window ) 
-            new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), end_flag, -alpha - 1, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ), null_window | start_null_window );
+            new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), best_only, end_flag, -alpha - 1, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ), null_window | start_null_window );
         if ( !start_null_window || ( alpha < new_value && new_value < beta ) )
-            new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), end_flag, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ), null_window );
+            new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), best_only, end_flag, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ), null_window );
 
         /* Unmake the move */
         unmake_move_internal ( move, aux ); 
+
+        /* Set the best value and hence best move */
+        if ( new_value > best_value ) { best_value = new_value; best_move = move; }
 
         /* Add to the number of moves made */
         if ( !q_depth ) ++ab_working->sum_moves; else ++ab_working->sum_q_moves;
@@ -546,46 +555,45 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         if ( fd_depth <= END_FLAG_CUTOFF_MAX_FD_DEPTH && end_flag ) return true;
 
         /* If at the root node, add to the root moves. */
-        if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move, new_value ) ); else
+        if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move, new_value ) );
 
-        /* Otherwise consider alpha-beta pruning etc. */
+        /* If the new value is better than the best value, update the best value and move.
+         * If the new best value is greater than alpha then:
+         *     If this is not the root node, reassign alpha to the best value, else
+         *     if this is the root node and best_only is true, reassign alpha to best value - 1 (-1 since this will avoid duplicate best values). 
+         * If alpha is now greater than beta, return true due to an alpha-beta cutoff.
+         */
+        if ( new_value > best_value ) { best_value = new_value; best_move = move; }
+        if ( fd_depth ) alpha = std::max ( alpha, best_value ); else if ( best_only ) alpha = std::max ( alpha, best_value - 1 );
+        if ( alpha >= beta )
         {
-            /* If the new value is greater than the best value, then reassign the best value and best move.
-            * Further check if the new best value is greater than alpha, if so reassign alpha.
-            * If alpha is now greater than beta, return true due to an alpha-beta cutoff.
-            */
-            if ( new_value > best_value ) { best_value = new_value; best_move = move; }
-            alpha = std::max ( alpha, best_value );
-            if ( alpha >= beta )
+            /* If the most recent killer move is similar, update its capture type, otherwise update the killer moves */
+            if ( access_killer_move ( 0 ).is_similar ( move ) ) 
             {
-                /* If the most recent killer move is similar, update its capture type, otherwise update the killer moves */
+                /* Only update the capture type if it was not previously a non-capture.
+                    * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
+                    */
+                if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
+            } else
+            {
+                /* Swap the killer moves */
+                std::swap ( access_killer_move ( 0 ), access_killer_move ( 1 ) );
+
+                /* If the most recent killer move is now similar, update the capture type, else replace it */
                 if ( access_killer_move ( 0 ).is_similar ( move ) ) 
                 {
                     /* Only update the capture type if it was not previously a non-capture.
-                     * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
-                     */
+                        * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
+                        */
                     if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
-                } else
-                {
-                    /* Swap the killer moves */
-                    std::swap ( access_killer_move ( 0 ), access_killer_move ( 1 ) );
+                } else access_killer_move ( 0 ) = move;
+            }    
 
-                    /* If the most recent killer move is now similar, update the capture type, else replace it */
-                    if ( access_killer_move ( 0 ).is_similar ( move ) ) 
-                    {
-                        /* Only update the capture type if it was not previously a non-capture.
-                         * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
-                         */
-                        if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
-                    } else access_killer_move ( 0 ) = move;
-                }    
+            /* If is flagged to do so, add to the transposition table as a lower bound */
+            if ( use_ttable ) ab_working->ttable.insert_or_assign ( ab_state, ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
 
-                /* If is flagged to do so, add to the transposition table as a lower bound */
-                if ( use_ttable ) ab_working->ttable.insert_or_assign ( ab_state, ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
-
-                /* Return */
-                return true;
-            }
+            /* Return */
+            return true;
         }
 
         /* Return false */
@@ -706,7 +714,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
                 if ( killer_move.capture_pt == ptype::no_piece || bb ( npc, killer_move.capture_pt ).test ( killer_move.to ) )
                 {
                     /* Apply the killer move and return on alpha-beta cutoff */
-                    if ( apply_move_set ( killer_move.pt, move_set.first, singleton_bitboard ( killer_move.to ), fd_depth >= NULL_WINDOW_MIN_FD_DEPTH && ttable_best_move ) ) return best_value;
+                    if ( apply_move_set ( killer_move.pt, move_set.first, singleton_bitboard ( killer_move.to ), bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
                     
                     /* Unset that bit in the move set */
                     move_set.second.reset ( killer_move.to );
@@ -722,7 +730,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     for ( auto& move_set : access_move_sets ( ptype::pawn ) )
     {
         /* Apply the move, then remove those bits */
-        if ( apply_move_set ( ptype::pawn, move_set.first, move_set.second & rank_8, fd_depth >= NULL_WINDOW_MIN_FD_DEPTH && ttable_best_move ) ) return best_value; 
+        if ( apply_move_set ( ptype::pawn, move_set.first, move_set.second & rank_8, bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value; 
         move_set.second &= ~rank_8;
     }
 
@@ -741,7 +749,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             for ( const auto& move_set : access_move_sets ( captor_pt ) )
             {
                 /* Try capturing, and return on alpha-beta cutoff */
-                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees, fd_depth >= NULL_WINDOW_MIN_FD_DEPTH && ttable_best_move ) ) return best_value;
+                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees, bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
             }
         }
     }
@@ -750,7 +758,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( access_move_sets ( ptype::king ).front ().second.test ( king_pos + 2 ) )
     {
         /* Try the move and return on alpha-beta cutoff */
-        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos + 2 ), fd_depth >= NULL_WINDOW_MIN_FD_DEPTH && ttable_best_move ) ) return best_value;
+        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos + 2 ), bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
 
         /* Unset the move */
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos + 2 );
@@ -760,7 +768,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( access_move_sets ( ptype::king ).front ().second.test ( king_pos - 2 ) )
     {
         /* Try the move and return on alpha-beta cutoff */
-        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos - 2 ), fd_depth >= NULL_WINDOW_MIN_FD_DEPTH && ttable_best_move ) ) return best_value;
+        if ( apply_move_set ( ptype::king, king_pos, singleton_bitboard ( king_pos - 2 ), bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
 
         /* Unset the move */
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos - 2 );
@@ -776,7 +784,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             for ( const auto& move_set : access_move_sets ( pt ) )
             {
                 /* Try the move, and return on alpha-beta cutoff */ 
-                if ( apply_move_set ( pt, move_set.first, move_set.second & pp, fd_depth >= NULL_WINDOW_MIN_FD_DEPTH && ttable_best_move ) ) return best_value;
+                if ( apply_move_set ( pt, move_set.first, move_set.second & pp, bk_depth <= NULL_WINDOW_MAX_BK_DEPTH && ttable_best_move ) ) return best_value;
             }
         }
     }
