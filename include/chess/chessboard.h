@@ -157,17 +157,17 @@ public:
      * 
      * @brief  Sets up an opening chessboard
      */
-    chessboard () noexcept = default;
+    chessboard ();
 
     /** @name  copy constructor
      * 
      * @brief  Copy constructs the chessboard
      */
-    chessboard ( const chessboard& other ) noexcept;
+    chessboard ( const chessboard& other );
 
     /** @name  move constructor
      * 
-     * @brief  Differs from the copy constructor only by ab_working being moved, rather than ignored.
+     * @brief  Move constructs the chessboard
      */
     chessboard ( chessboard&& other ) noexcept = default;
 
@@ -175,11 +175,11 @@ public:
      * 
      * @brief  Copy assigns the chessboard
      */
-    chessboard& operator= ( const chessboard& other ) noexcept;
+    chessboard& operator= ( const chessboard& other );
 
     /** @name  move assignment operator
      * 
-     * @brief  Differs from the copy assignment only by ab_working being moved, rather than ignored.
+     * @brief  Move assigns the chessboard
      */
     chessboard& operator= ( chessboard&& other ) noexcept = default;
 
@@ -195,6 +195,119 @@ public:
      */
     bool operator== ( const chessboard& other ) const noexcept;
 
+    /** @name  transfer_with_ab_working
+     * 
+     * @brief  Produce a copy of this chessboard, however with ab_working transfered to the copy.
+     * @return chessboard
+     */
+    chessboard transfer_with_ab_working () const;
+
+
+
+    /* AUX INFO STRUCT */
+
+    /* Auxiliary chessboard information */
+    struct aux_info_t
+    {
+        /* Castling rights:
+         * Whether white and black is allowed to castle, based on previous moves.
+         * Eight bits are used to store the rights, alternating bits for each color, in order of least to most significant:
+         *   0: Castle made
+         *   1: Castle lost (both)
+         *   2: Can kingside castle 
+         *   3: Can queenside castle
+         */
+        unsigned castling_rights = 0b11110000;
+
+        /* Double push position:
+         * The position of the pawn which double pushed in the previous move.
+         * If there is no such pawn, the value is 0.
+         * This is used to determine whether an en passant capture is allowed.
+         */
+        int double_push_pos = 0;
+
+        /* Default comparison operator */
+        bool operator== ( const aux_info_t& other ) const noexcept = default;
+    };
+
+
+
+    /* CHECK INFO STRUCT */
+
+    /* Check info */
+    struct check_info_t
+    {
+        /* Check and pin vectors */
+        bitboard check_vectors, pin_vectors;
+
+        /* The number of times this color is in check */
+        int check_count = 0;
+
+        /* Versions of check and pin vectors but on straights and diagonals */
+        bitboard straight_check_vectors, diagonal_check_vectors, straight_pin_vectors, diagonal_pin_vectors;
+
+        /* check_vectors_dep_check_count
+        * This can be intersected with possible attacks to ensure that the king was protected.
+        * If not in check, the king does not need to be protected so the bitboard is set to universe.
+        * If in check once, every possible move must bloock check, so the bitboard is set to check_vectors.
+        * If in double check, only the king can move so the bitboard is set to empty.
+        */
+        bitboard check_vectors_dep_check_count;
+
+        /* Default comparison operator */
+        bool operator== ( const check_info_t& other ) const noexcept = default;
+    };
+
+
+
+    /* AGAME STATE STATE */
+
+    /* A structure to store a state of the game */
+    class game_state_t
+    {
+    public:
+
+        /* CONSTRUCTORS */
+
+        /** @name  default constructor
+         * 
+         * @brief  Unlike chessboard, initialized the state to be an empty board
+         */
+        game_state_t () noexcept = default;
+
+        /** @name  chessboard constructor
+         * 
+         * @brief  Construct from a chessboard state
+         * @param  cb: The chessboard to construct from
+         * @param  _pc: The player whose move it is next
+         */
+        game_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw;
+
+
+        
+        /* OPERATORS */
+
+        /** @name  operator==
+         * 
+         * @brief  Compare two alpha-beta states
+         */
+        bool operator== ( const game_state_t& other ) const noexcept = default;
+
+        
+
+        /* ATTRIBUTES */
+
+        /* Which player's turn it is */
+        pcolor pc;
+
+        /* Bitboards to store the state */
+        std::array<bitboard, 8> bbs;
+
+        /* the auxiliary info */
+        aux_info_t aux_info;
+
+    };
+
 
 
     /* MOVE CLASS */
@@ -208,11 +321,17 @@ public:
 
         /** @name  default constructor
          * 
-         * @brief  Constructs an empty move, or a null move.
+         * @brief  Constructs an empty move
+         */
+        move_t () noexcept = default;
+
+        /** @name  null move constructor
+         * 
+         * @brief  Constructs a null move.
          *         It will count as a null move when applied via make_move_internal or unmake_move_internal.
          *         However make_move will throw if a null move is given.
          */
-        move_t () noexcept = default;
+        move_t ( pcolor _pc ) : pc { _pc } {}
 
         /** @name  full constructor
          * 
@@ -291,112 +410,6 @@ public:
 
 
 
-    /* AUX INFO STRUCT */
-
-    /* Auxiliary chessboard information */
-    struct aux_info_t
-    {
-        /* Castling rights:
-         * Whether white and black is allowed to castle, based on previous moves.
-         * Eight bits are used to store the rights, alternating bits for each color, in order of least to most significant:
-         *   0: Castle made
-         *   1: Castle lost (both)
-         *   2: Can kingside castle 
-         *   3: Can queenside castle
-         */
-        unsigned castling_rights = 0b11110000;
-
-        /* Double push position:
-         * The position of the pawn which double pushed in the previous move.
-         * If there is no such pawn, the value is 0.
-         * This is used to determine whether an en passant capture is allowed.
-         */
-        int double_push_pos = 0;
-
-        /* Default comparison operator */
-        bool operator== ( const aux_info_t& other ) const noexcept = default;
-    };
-
-
-
-    /* CHECK INFO STRUCT */
-
-    /* Check info */
-    struct check_info_t
-    {
-        /* Check and pin vectors */
-        bitboard check_vectors, pin_vectors;
-
-        /* The number of times this color is in check */
-        int check_count = 0;
-
-        /* Versions of check and pin vectors but on straights and diagonals */
-        bitboard straight_check_vectors, diagonal_check_vectors, straight_pin_vectors, diagonal_pin_vectors;
-
-        /* check_vectors_dep_check_count
-        * This can be intersected with possible attacks to ensure that the king was protected.
-        * If not in check, the king does not need to be protected so the bitboard is set to universe.
-        * If in check once, every possible move must bloock check, so the bitboard is set to check_vectors.
-        * If in double check, only the king can move so the bitboard is set to empty.
-        */
-        bitboard check_vectors_dep_check_count;
-
-        /* Default comparison operator */
-        bool operator== ( const check_info_t& other ) const noexcept = default;
-    };
-
-
-
-    /* ALPHA BETA STATE */
-
-    /* A structure to store a state of alpha-beta search */
-    class ab_state_t
-    {
-    public:
-
-        /* CONSTRUCTORS */
-
-        /** @name  default constructor
-         * 
-         * @brief  Unlike chessboard, initialized the state to be an empty board
-         */
-        ab_state_t () noexcept = default;
-
-        /** @name  chessboard constructor
-         * 
-         * @brief  Construct from a chessboard state
-         * @param  cb: The chessboard to construct from
-         * @param  _pc: The player whose move it is next
-         */
-        ab_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw;
-
-
-        
-        /* OPERATORS */
-
-        /** @name  operator==
-         * 
-         * @brief  Compare two alpha-beta states
-         */
-        bool operator== ( const ab_state_t& other ) const noexcept = default;
-
-        
-
-        /* ATTRIBUTES */
-
-        /* Which player's turn it is */
-        pcolor pc;
-
-        /* Bitboards to store the state */
-        std::array<bitboard, 8> bbs;
-
-        /* the auxiliary info */
-        aux_info_t aux_info;
-
-    };
-
-
-
     /* TTABLE ENTRY STRUCT */
 
     /* A structure for a ttable entry in alpha-beta search */
@@ -433,7 +446,7 @@ public:
          * @return The hash
          */
         std::size_t operator () ( const chessboard& cb ) const chess_validate_throw;
-        std::size_t operator () ( const ab_state_t& cb ) const noexcept;
+        std::size_t operator () ( const game_state_t& cb ) const noexcept;
         std::size_t operator () ( const move_t& mv ) const noexcept;
     };
 
@@ -460,7 +473,7 @@ public:
         std::vector<std::array<move_t, 2>> killer_moves;
 
         /* The transposition table */
-        std::unordered_map<ab_state_t, ab_ttable_entry_t, hash> ttable;
+        std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ttable;
     };
 
 
@@ -751,6 +764,9 @@ private:
     /* Auxiliary information */
     aux_info_t aux_info;
 
+    /* The game state history */
+    std::vector<game_state_t> game_state_history;
+
     /* A structure containing temporary alpha-beta search data */
     mutable std::unique_ptr<ab_working_t> ab_working;
 
@@ -816,9 +832,10 @@ private:
      * @brief  Sanity check the bitboards describing the board state. 
      *         If any cell is occupied by multiple pieces, or ptype::any_piece bitboards are not correct, an exception is thrown.
      *         Does nothing if CHESS_VALIDATE is not set to true.
+     * @param  _pc: The player whose move it is
      * @return void
      */
-    void sanity_check_bbs () const chess_validate_throw;
+    void sanity_check_bbs ( pcolor _pc ) const chess_validate_throw;
 
 };
 

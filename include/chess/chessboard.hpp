@@ -83,14 +83,26 @@ inline void chess::check_penum ( const ptype pt ) chess_validate_throw
 
 
 
+/** @name  default constructor
+ * 
+ * @brief  Sets up an opening chessboard
+ */
+inline chess::chessboard::chessboard ()
+    /* Default initialize all non-static attributes */
+{
+    /* Set the initial history */
+    game_state_history.emplace_back ( * this, pcolor::white ); 
+}
+
 /** @name  copy constructor
  * 
  * @brief  Copy constructs the chess board
  */
-inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
+inline chess::chessboard::chessboard ( const chessboard& other )
     /* Initialize values */
-    : bbs      { other.bbs }
-    , aux_info { other.aux_info }
+    : bbs                { other.bbs }
+    , aux_info           { other.aux_info }
+    , game_state_history { other.game_state_history }
 
     /* Don't create ab_working, since it will be created if a search occurs */
     , ab_working { nullptr }
@@ -100,11 +112,12 @@ inline chess::chessboard::chessboard ( const chessboard& other ) noexcept
  * 
  * @brief  Copy assigns the chess board
  */
-inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other ) noexcept
+inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other )
 {
     /* Copy over values */
-    bbs      = other.bbs;
-    aux_info = other.aux_info;
+    bbs                = other.bbs;
+    aux_info           = other.aux_info;
+    game_state_history = other.game_state_history;
 
     /* Return this object */
     return * this;
@@ -116,8 +129,25 @@ inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other
  */
 inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
 {
-    /* Compare and return */
+    /* Compare and return. The games do not have to have the same history. */
     return ( ( bbs == other.bbs ) && ( aux_info.castling_rights == other.aux_info.castling_rights ) && ( aux_info.castling_rights == other.aux_info.double_push_pos ) );
+}
+
+/** @name  transfer_with_ab_working
+ * 
+ * @brief  Produce a copy of this chessboard, however with ab_working transfered to the copy.
+ * @return chessboard
+ */
+inline chess::chessboard chess::chessboard::transfer_with_ab_working () const
+{
+    /* Make a copy */
+    chessboard cb { * this };
+
+    /* Move ab_working */
+    cb.ab_working = std::move ( ab_working );
+
+    /* Return cb */
+    return cb;
 }
 
 
@@ -173,7 +203,7 @@ inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const int po
  * @param  cb: The chessboard to construct from
  * @param  _pc: The player who's move it is next
  */
-inline chess::chessboard::ab_state_t::ab_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw : pc ( _pc ), bbs 
+inline chess::chessboard::game_state_t::game_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw : pc ( _pc ), bbs 
 {
     cb.bb ( ptype::pawn   ),
     cb.bb ( ptype::knight ),
@@ -216,7 +246,7 @@ inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb )
     /* Return the hash */
     return hash_value.get_value ();
 }
-inline std::size_t chess::chessboard::hash::operator () ( const ab_state_t& cb ) const noexcept
+inline std::size_t chess::chessboard::hash::operator () ( const game_state_t& cb ) const noexcept
 {
     /* Set the hash to a random integer initially */
     bitboard hash_value { 0xcf4c987a6b0979 };

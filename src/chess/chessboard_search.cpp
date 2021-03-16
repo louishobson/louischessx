@@ -96,17 +96,17 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
      */
-    return std::async ( std::launch::async, [ =, cb { const_cast<chessboard&&> ( * this ) }, &end_flag ] () mutable
+    return std::async ( std::launch::async, [ =, cb { transfer_with_ab_working () }, &end_flag ] () mutable
     {
         /* Allocate new memory if necessary */
         if ( !cb.ab_working ) cb.ab_working.reset ( new ab_working_t );
 
         /* Allocate excess memory  */
-        cb.ab_working->move_sets.resize ( 128 );
-        cb.ab_working->killer_moves.resize ( 128 );
+        cb.ab_working->move_sets.resize ( 32 );
+        cb.ab_working->killer_moves.resize ( 32 );
 
         /* Reserve excess memory for root moves */
-        cb.ab_working->root_moves.reserve ( 128 );
+        cb.ab_working->root_moves.reserve ( 32 );
 
         /* Call and time the internal method */
         const auto t0 = chess_clock::now ();
@@ -193,8 +193,8 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
 
             /* Get the aspiration window sized based on whether the previous and this depth are both odd/even or are different */
             int low_window = 50, high_window = 50;
-            if ( ab_result.depth % 2 == 1 && * depth_it % 2 == 0 ) low_window  = 150;
-            if ( ab_result.depth % 2 == 0 && * depth_it % 2 == 1 ) high_window = 150;
+            if ( ab_result.depth % 2 == 1 && * depth_it % 2 == 0 ) low_window  = 100;
+            if ( ab_result.depth % 2 == 0 && * depth_it % 2 == 1 ) high_window = 100;
 
             /* Get the aspiration window to use */
             const int alpha = ( ab_result.moves.size () ? ab_result.moves.front ().second - std::pow ( low_window,  low_exponent  ) : -20000 );
@@ -279,11 +279,13 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* CONSTANTS */
 
-    /* Set the fd_depth range in which the transposition table will be used.
-     * Increased memory usage due to exponential growth of the search tree make using the ttable at higher fd_depths undesirable.
+    /* Set the maximum fd_depth at which the transposition table will be searched and written to */
+    constexpr int TTABLE_MAX_FD_DEPTH = 6;
+
+    /* The maximum fd_depth at which a draw state will be detected. 
+     * Depths before this will stop best_value from being stored in the tranposition table.
      */
-    constexpr int TTABLE_MIN_SEARCH_FD_DEPTH = 1, TTABLE_MAX_SEARCH_FD_DEPTH = 6;
-    constexpr int TTABLE_MIN_STORE_FD_DEPTH  = 1, TTABLE_MAX_STORE_FD_DEPTH  = 6;
+    constexpr int DRAW_MAX_FD_DEPTH = 2;
 
     /* Set the maximum depth quiescence search can go to.
      * This is important as it stops rare infinite loops relating to check in quiescence search.
@@ -373,9 +375,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Get the original alpha */
     const int orig_alpha = alpha;
 
-    /* Get the current alpha-beta state */
-    const ab_state_t ab_state { * this, pc };
-
     /* add to the number of nodes visited */
     if ( bk_depth ) ++ab_working->num_nodes; else { ab_working->sum_q_depth += fd_depth; ++ab_working->num_q_nodes; }
 
@@ -396,7 +395,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      * Must not be quiescing.
      * Must be within the specified fd_depth range.
      */
-    bool use_ttable = !null_depth && !q_depth && fd_depth <= TTABLE_MAX_SEARCH_FD_DEPTH && fd_depth >= TTABLE_MIN_SEARCH_FD_DEPTH;
+    bool use_ttable = !null_depth && !q_depth && fd_depth <= TTABLE_MAX_FD_DEPTH;
 
     /* Get whether delta pruning should be used. All of:
      * Must not be the endgame.
@@ -419,6 +418,19 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     bool ttable_best_move = false;
 
 
+
+    /* CHECK FOR A CYCLE */
+
+    /* Only if the forwards depth is less than or equal to DRAW_MAX_FD_DEPTH.
+     * Also there have been more than 8 moves (>= 9 states) in the game.
+     */
+    if ( fd_depth <= DRAW_MAX_FD_DEPTH && game_state_history.size () >= 9 )
+    {
+        /* Check if the last 8 moves have moved us in two cycles */
+        if ( game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ) ) return 0;
+    }
+
+
     
     /* TRY A LOOKUP */
 
@@ -426,7 +438,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( use_ttable )
     {
         /* Try to find the state */
-        auto search_it = ab_working->ttable.find ( ab_state );
+        auto search_it = ab_working->ttable.find ( game_state_history.back () );
 
         /* See if an entry has been found */
         if ( search_it != ab_working->ttable.end () )
@@ -456,9 +468,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             }
         }
     }
-
-    /* If we are outside the specified fd_depth range, set use_ttable to false to stop storing new values in the ttable */
-    if ( null_depth || q_depth || fd_depth > TTABLE_MAX_STORE_FD_DEPTH || fd_depth < TTABLE_MIN_STORE_FD_DEPTH ) use_ttable = false;
 
 
 
@@ -507,13 +516,13 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( use_null_move )
     {
         /* Make a null move */
-        const aux_info_t aux = make_move_internal ( move_t {} );
+        const aux_info_t aux = make_move_internal ( move_t { pc } );
 
         /* Apply the null move */
         int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, best_only, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake a null move */
-        unmake_move_internal ( move_t {}, aux );
+        unmake_move_internal ( move_t { pc }, aux );
 
         /* If proved successful, return beta.
          * Don't return score, since the null move will cause extremes of values otherwise.
@@ -590,7 +599,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             }    
 
             /* If is flagged to do so, add to the transposition table as a lower bound */
-            if ( use_ttable ) ab_working->ttable.insert_or_assign ( ab_state, ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
+            if ( use_ttable ) if ( fd_depth >= DRAW_MAX_FD_DEPTH ) 
+                ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } ); else
+                ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { -10000    , bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
 
             /* Return */
             return true;
@@ -793,10 +804,11 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* FINALLY */
 
     /* If is flagged to do so, add to the transposition table */
-    if ( use_ttable ) ab_working->ttable.insert_or_assign ( ab_state, ab_ttable_entry_t
-    {
-        best_value, bk_depth, ( best_value <= orig_alpha ? ab_ttable_entry_t::bound_t::upper : ab_ttable_entry_t::bound_t::exact ), best_move
-    } );
+    if ( use_ttable ) if ( fd_depth >= DRAW_MAX_FD_DEPTH ) ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t
+        {
+            best_value, bk_depth, ( best_value <= orig_alpha ? ab_ttable_entry_t::bound_t::upper : ab_ttable_entry_t::bound_t::exact ), best_move
+        } ); else
+        ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { -10000, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
 
     /* Return the best value */
     return best_value;

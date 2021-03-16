@@ -41,8 +41,13 @@ inline chess::chessboard::aux_info_t chess::chessboard::make_move_internal ( con
     /* Set the double push pos to zero (will be overriden if this is a pawn double push) */
     aux_info.double_push_pos = 0; 
 
-    /* If this is a null move, return */
-    if ( move.pt == ptype::no_piece ) return aux_info;
+    /* If this is a null move, add to the history, sanity check and return */
+    if ( move.pt == ptype::no_piece )
+    {
+        game_state_history.emplace_back ( * this, other_color ( move.pc ) );
+        sanity_check_bbs ( other_color ( move.pc ) );
+        return aux;
+    }
 
     /* Unset the original position of the piece */
     get_bb ( move.pc ).reset          ( move.from );
@@ -111,8 +116,11 @@ inline chess::chessboard::aux_info_t chess::chessboard::make_move_internal ( con
      */
     if ( move.pt == ptype::pawn && std::abs ( move.to - move.from ) == 16 ) aux_info.double_push_pos = move.to;
 
+    /* Push the new state to the history */
+    game_state_history.emplace_back ( * this, other_color ( move.pc ) );
+
     /* Sanity check */
-    sanity_check_bbs ();
+    sanity_check_bbs ( other_color ( move.pc ) );
 
     /* Return the old auxiliary info */
     return aux;
@@ -130,8 +138,13 @@ inline void chess::chessboard::unmake_move_internal ( const move_t& move, const 
     /* Reset aux info */
     aux_info = aux;
 
-    /* If the move was a null move, return */
-    if ( move.pt == ptype::no_piece ) return;
+    /* If the move was a null move, pop the history, sanity check and returnn */
+    if ( move.pt == ptype::no_piece )
+    {
+        game_state_history.pop_back ();
+        sanity_check_bbs ( move.pc );
+        return;
+    }
 
     /* Unpromote pawn */
     if ( move.promote_pt != ptype::no_piece )
@@ -182,8 +195,11 @@ inline void chess::chessboard::unmake_move_internal ( const move_t& move, const 
     get_bb ( move.pc ).set ( move.from );
     get_bb ( move.pc, move.pt ).set ( move.from );
 
+    /* Pop the old state from the history */
+    game_state_history.pop_back ();
+
     /* Sanity check */
-    sanity_check_bbs ();
+    sanity_check_bbs ( move.pc );
 }
 
 
@@ -481,9 +497,10 @@ inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, c
  * @brief  Sanity check the bitboards describing the board state. 
  *         If any cell is occupied by multiple pieces, or ptype::any_piece bitboards are not correct, an exception is thrown.
  *         Does nothing if CHESS_VALIDATE is not set to true.
+ * @param  _pc: The player whose move it is
  * @return void
  */
-inline void chess::chessboard::sanity_check_bbs () const chess_validate_throw
+inline void chess::chessboard::sanity_check_bbs ( const pcolor _pc ) const chess_validate_throw
 {
     /* Only if validation is enabled */
 #if CHESS_VALIDATE
@@ -515,6 +532,9 @@ inline void chess::chessboard::sanity_check_bbs () const chess_validate_throw
         /* Get the next color */
         pc = other_color ( pc );
     }
+
+    /* Check the most recent history is correct */
+    if ( game_state_t { * this, _pc } != game_state_history.back () ) throw std::runtime_error { "Sanity check failed." };
 
 #endif
 }
