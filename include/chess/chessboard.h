@@ -195,12 +195,19 @@ public:
      */
     bool operator== ( const chessboard& other ) const noexcept;
 
-    /** @name  transfer_with_ab_working
+    /** @name  copy_with_ab_working
      * 
-     * @brief  Produce a copy of this chessboard, however with ab_working transfered to the copy.
+     * @brief  Produce a copy of this chessboard, however with ab_working copied to the copy.
      * @return chessboard
      */
-    chessboard transfer_with_ab_working () const;
+    chessboard copy_with_ab_working () const;
+
+    /** @name  copy_and_move_ab_working
+     * 
+     * @brief  Produce a copy of this chessboard, however with ab_working moves to the copy.
+     * @return chessboard
+     */
+    chessboard copy_and_move_ab_working () const;
 
 
 
@@ -495,9 +502,6 @@ public:
         /* Average quiescence depth and moves per node */
         double av_q_depth = 0.0, av_moves = 0.0, av_q_moves = 0.0;
 
-        /* The time multiple between this depth search and the previous when using iterative deepening */
-        double time_multiple = 0.0;
-
         /* The time taken for the search */
         chess_clock::duration duration;
 
@@ -687,8 +691,7 @@ public:
      * 
      * @brief  Apply an alpha-beta search over a range of depths asynchronously.
      *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
-     *         Specifying an end point with a depth range of at least 4 could to an early return before the 4th search has finished.
-     *         The method will predict the time for the 4rd and beyond depth using an exponential model, and return if will exceed the end point.
+     *         Specifying an end point could to an early return rather than starting later searches.
      * @param  pc: The color whose move it is next.
      * @param  depths: A list of depth values to search.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
@@ -697,7 +700,7 @@ public:
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
      * @return A future to an ab_result_t struct.
      */
-    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, std::initializer_list<int> depths, bool best_only, std::atomic_bool& end_flag,
+    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, std::atomic_bool& end_flag,
         chess_clock::time_point end_point = chess_clock::time_point::max (), 
         bool finish_first = true 
     ) const;
