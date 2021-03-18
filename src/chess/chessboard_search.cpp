@@ -239,8 +239,15 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
                     if ( chess_clock::now () + pred_duration > end_point ) end_flag = true;
                 }
 
-                /* Set the latest result if the search didn't fail */
-                if ( low_exponent == 1 && high_exponent == 1 ) ab_result = std::move ( new_ab_result );
+                /* Update best values if this search didn't fail */
+                if ( low_exponent == 1 && high_exponent == 1 ) 
+                {
+                    /* Set the latest result */
+                    ab_result = std::move ( new_ab_result );
+
+                    /* If the latest result is a checkmate, break immediately */
+                    if ( ab_result.moves.empty () || ab_result.moves.front ().second >= 10000 ) break;
+                }
             }
         }
 
