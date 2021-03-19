@@ -202,8 +202,8 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
             /* Start the search */
             auto new_ab_result_future = cb.alpha_beta_search ( pc, depths.at ( i ), best_only, end_flag, alpha, beta );
 
-            /* Wait for the search to finish or time out. If it times out, set the end flag, wait for the search to finish and break. */
-            if ( new_ab_result_future.wait_until ( i == 0 && finish_first ? chess_clock::time_point::max () : end_point ) != std::future_status::ready ) { end_flag = true; new_ab_result_future.wait (); break; }
+            /* Wait for the search to finish or time out. If it times out or is force ended, ensure the end flag is set, wait for the search to finish and break. */
+            if ( new_ab_result_future.wait_until ( i == 0 && finish_first ? chess_clock::time_point::max () : end_point ) != std::future_status::ready || end_flag ) { end_flag = true; new_ab_result_future.wait (); break; }
 
             /* Get the new result */
             new_ab_result = new_ab_result_future.get ();
