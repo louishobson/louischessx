@@ -60,12 +60,12 @@ std::string chess::chessboard::simple_format_board () const
 
 /* MOVE SERIALIZATION */
 
-/** @name  serialize
+/** @name  simple_serialize
  * 
  * @brief  Creates a string from the move
  * @return string
  */
-std::string chess::chessboard::move_t::serialize () const
+std::string chess::chessboard::move_t::simple_serialize () const
 {
     /* Check if the move is a castling move */
     if ( is_kingside_castle  () ) return "O-O"; 
@@ -100,7 +100,7 @@ std::string chess::chessboard::move_t::serialize () const
  * @param  desc: The serialization of the move
  * @return A reference to this move
  */
-chess::chessboard::move_t& chess::chessboard::move_t::deserialize ( const pcolor _pc, const std::string& desc )
+chess::chessboard::move_t& chess::chessboard::move_t::simple_deserialize ( const pcolor _pc, const std::string& desc )
 {
     /* Set the color */
     pc = _pc;

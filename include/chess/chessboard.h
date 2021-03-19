@@ -348,13 +348,13 @@ public:
             : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant_pos { _en_passant_pos }, check_count { _check_count }
         {}
 
-        /** @name  deserialize constructor
+        /** @name  simple_deserialize constructor
          * 
          * @brief  Take a serialized move and deserialize it
          * @param  pc: The color who is making the move
          * @param  desc: The serialized move
          */
-        move_t ( pcolor pc, const std::string& desc ) { deserialize ( pc, desc ); }
+        move_t ( pcolor pc, const std::string& desc ) { simple_deserialize ( pc, desc ); }
 
 
 
@@ -397,21 +397,21 @@ public:
         bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
         bool is_queenside_castle () const noexcept { return pt == ptype::king && from - 2 == to; }
 
-        /** @name  serialize
+        /** @name  simple_serialize
          * 
          * @brief  Creates a string from the move
          * @return string
          */
-        std::string serialize () const;
+        std::string simple_serialize () const;
 
-        /** @name  deserialize
+        /** @name  simple_deserialize
          * 
          * @brief  Sets the move from a string
          * @param  _pc: The color that is to make the move
          * @param  desc: The serialization of the move
          * @return A reference to this move
          */
-        move_t& deserialize ( pcolor _pc, const std::string& desc );
+        move_t& simple_deserialize ( pcolor _pc, const std::string& desc );
 
     };
 
@@ -555,6 +555,14 @@ public:
     void set_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01010000 << cast_penum ( pc ) ); aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_kingside_castle_lost  ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b00010000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_queenside_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01000000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
+
+    /** @name  get_game_state
+     * 
+     * @brief  Create a game_state_t struct for the current board
+     * @param  pc: The player whose move it is now
+     * @return game_state_t
+     */
+    game_state_t get_game_state ( pcolor pc ) const noexcept { return game_state_t { * this, pc }; };
 
 
 

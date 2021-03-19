@@ -91,7 +91,7 @@ inline chess::chessboard::chessboard ()
     /* Default initialize all non-static attributes */
 {
     /* Set the initial history */
-    game_state_history.emplace_back ( * this, pcolor::white ); 
+    game_state_history.push_back ( get_game_state ( pcolor::white ) ); 
 }
 
 /** @name  copy constructor
