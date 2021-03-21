@@ -792,13 +792,13 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
 
             /* Create and make the move */
             const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos, 0 };
-            const aux_info_t aux = make_move_internal ( ep_move );
+            make_move_internal ( ep_move );
 
             /* If in check or the pawn leaves a pin vector, remove this captor */
             if ( is_in_check ( pc ) ) en_passant_captors.reset ( pos );
 
             /* Undo the move */
-            unmake_move_internal ( ep_move, aux );
+            unmake_move_internal ();
         }
 
 

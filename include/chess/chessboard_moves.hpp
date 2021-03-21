@@ -31,9 +31,9 @@
  * 
  * @brief  Apply a move. Assumes all the information about the move is correct and legal.
  * @param  move: The move to apply
- * @return The auxiliary information before the move was made
+ * @return void
  */
-inline chess::chessboard::aux_info_t chess::chessboard::make_move_internal ( const move_t& move ) chess_validate_throw
+inline void chess::chessboard::make_move_internal ( const move_t& move )
 {
     /* Get the aux info */
     const aux_info_t aux = aux_info;
@@ -46,7 +46,7 @@ inline chess::chessboard::aux_info_t chess::chessboard::make_move_internal ( con
     {
         game_state_history.emplace_back ( * this, other_color ( move.pc ) );
         sanity_check_bbs ( other_color ( move.pc ) );
-        return aux;
+        return;
     }
 
     /* Unset the original position of the piece */
@@ -121,85 +121,31 @@ inline chess::chessboard::aux_info_t chess::chessboard::make_move_internal ( con
 
     /* Sanity check */
     sanity_check_bbs ( other_color ( move.pc ) );
-
-    /* Return the old auxiliary info */
-    return aux;
 }
 
 /** @name  unmake_move_internal
  * 
- * @brief  Unmake a move. Assumes that the move was made immediately before this undo function.
- * @param  move: The move to undo
- * @param  aux: The auxiliary information from before the move was first made
+ * @brief  Unmake the last made move.
  * @return void
  */
-inline void chess::chessboard::unmake_move_internal ( const move_t& move, const aux_info_t aux ) chess_validate_throw
+inline void chess::chessboard::unmake_move_internal ()
 {
-    /* Reset aux info */
-    aux_info = aux;
-
-    /* If the move was a null move, pop the history, sanity check and returnn */
-    if ( move.pt == ptype::no_piece )
-    {
-        game_state_history.pop_back ();
-        sanity_check_bbs ( move.pc );
-        return;
-    }
-
-    /* Unpromote pawn */
-    if ( move.promote_pt != ptype::no_piece )
-    {
-        get_bb ( move.pc, move.promote_pt ).reset ( move.to );
-        get_bb ( move.pc, ptype::pawn ).set ( move.to );
-    }
-
-    /* Check for if the move was a kingside castle */
-    if ( move.is_kingside_castle () )
-    {
-        /* Unmove the appropriate rook */
-        get_bb ( move.pc ).reset              ( move.pc == pcolor::white ? 5 : 61 );
-        get_bb ( move.pc, ptype::rook ).reset ( move.pc == pcolor::white ? 5 : 61 );
-        get_bb ( move.pc ).set                ( move.pc == pcolor::white ? 7 : 63 );
-        get_bb ( move.pc, ptype::rook ).set   ( move.pc == pcolor::white ? 7 : 63 );
-    } else
-
-    /* Else if the move was a queenside castle */
-    if ( move.is_queenside_castle () )
-    {
-        /* Unmove the appropriate rook */
-        get_bb ( move.pc ).reset              ( move.pc == pcolor::white ? 3 : 59 );
-        get_bb ( move.pc, ptype::rook ).reset ( move.pc == pcolor::white ? 3 : 59 );
-        get_bb ( move.pc ).set                ( move.pc == pcolor::white ? 0 : 56 );
-        get_bb ( move.pc, ptype::rook ).set   ( move.pc == pcolor::white ? 0 : 56 );
-    } else
-
-    /* Else if the move was an en passant capture, replace the captured pawn */
-    if ( move.en_passant_pos )
-    {
-        get_bb ( other_color ( move.pc ) ).set              ( move.en_passant_pos );
-        get_bb ( other_color ( move.pc ), ptype::pawn ).set ( move.en_passant_pos );
-    } else
-
-    /* Else if the move was a capture, replace captured pieces */
-    if ( move.capture_pt != ptype::no_piece )
-    {
-        get_bb ( other_color ( move.pc ) ).set                  ( move.to );
-        get_bb ( other_color ( move.pc ), move.capture_pt ).set ( move.to );
-    }
-
-    /* Unset the new position of the piece */
-    get_bb ( move.pc ).reset ( move.to );
-    get_bb ( move.pc, move.pt ).reset ( move.to ); 
-
-    /* Reset the original position of the piece */
-    get_bb ( move.pc ).set ( move.from );
-    get_bb ( move.pc, move.pt ).set ( move.from );
-
-    /* Pop the old state from the history */
+    /* Pop this state from the history */
     game_state_history.pop_back ();
 
-    /* Sanity check */
-    sanity_check_bbs ( move.pc );
+    /* Copy over the color bitboards */
+    get_bb ( pcolor::white ) = game_state_history.back ().bb ( pcolor::white );
+    get_bb ( pcolor::black ) = game_state_history.back ().bb ( pcolor::black );
+
+    /* Copy over the rest */
+    for ( ptype pt : ptype_inc_value )
+    {
+        get_bb ( pcolor::white, pt ) = game_state_history.back ().bb ( pcolor::white, pt );
+        get_bb ( pcolor::black, pt ) = game_state_history.back ().bb ( pcolor::black, pt );
+    }
+
+    /* Copy over aux */
+    aux_info = game_state_history.back ().aux_info;
 }
 
 
@@ -283,7 +229,7 @@ inline bool chess::chessboard::can_queenside_castle ( const pcolor pc, const che
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the piece in question
  */
-inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) chess_validate_throw
+inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info )
 {
     /* Switch depending on pt */
     switch ( pt )
@@ -312,7 +258,7 @@ inline chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, in
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the pawn in question
  */
-inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const int pos, const check_info_t& check_info ) chess_validate_throw
+inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const int pos, const check_info_t& check_info )
 {
     /* Get the pawn in question */
     const bitboard pawn { singleton_bitboard ( pos ) };
@@ -326,19 +272,19 @@ inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, c
         /* Get the attacks, and ensure that they protected the king */
         bitboard attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n ( bb ( other_color ( pc ) ) ) : pawn.pawn_any_attack_s ( bb ( other_color ( pc ) ) ) ) & check_info.check_vectors_dep_check_count;
 
-        /* Look for an en passant opportinity. 
+        /* Look for an en passant opportunity. 
          * There must have been a double pushed pawn on the previous move.
          * The pawns must be adjacent and on the same rank.
          */
         if ( aux_info.double_push_pos && std::abs ( pos - aux_info.double_push_pos ) == 1 && pos / 8 == aux_info.double_push_pos / 8 ) 
         {
             /* Create a move for the en passant capture */
-            const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos, 0 }; 
+            const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos }; 
 
             /* Only add the en passant capture to the attack set if making the capture does not leave the king in check */
-            const aux_info_t aux = make_move_internal ( ep_move );
+            make_move_internal ( ep_move );
             if ( !is_in_check ( pc ) ) attacks |= singleton_bitboard ( ep_move.to );
-            unmake_move_internal ( ep_move, aux );
+            unmake_move_internal ();
         }
 
         /* If is on a diagonal pin vector, ensure the captures stayed on the pin vector */
@@ -373,7 +319,7 @@ inline chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, c
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the knight in question
  */
-inline chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const int pos, const check_info_t& check_info ) chess_validate_throw
+inline chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const int pos, const check_info_t& check_info )
 {
     /* Get the knight in question */
     const bitboard knight = singleton_bitboard ( pos );
@@ -394,7 +340,7 @@ inline chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc,
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the sliding in question
  */
-inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const ptype pt, const int pos, const check_info_t& check_info ) chess_validate_throw
+inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const ptype pt, const int pos, const check_info_t& check_info )
 {
     /* Get the piece in question */
     const bitboard pt_bb = singleton_bitboard ( pos );
@@ -451,7 +397,7 @@ inline chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the king in question
  */
-inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, const check_info_t& check_info ) chess_validate_throw
+inline chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, const check_info_t& check_info )
 {
     /* Get the king */
     const bitboard king = bb ( pc, ptype::king );

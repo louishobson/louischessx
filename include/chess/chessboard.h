@@ -30,8 +30,9 @@
 #include <future>
 #include <memory>
 #include <unordered_map>
-#include <utility>
+#include <regex>
 #include <string>
+#include <utility>
 #include <vector>
 
 
@@ -267,7 +268,7 @@ public:
 
 
 
-    /* AGAME STATE STATE */
+    /* GAME STATE */
 
     /* A structure to store a state of the game */
     class game_state_t
@@ -300,7 +301,22 @@ public:
          */
         bool operator== ( const game_state_t& other ) const noexcept = default;
 
-        
+    
+
+        /* BITBOARD ACCESS */
+
+        /** @name  bb
+         * 
+         * @brief  Gets a bitboard, by copy, based on a piece type and or color
+         * @param  pc: One of pcolor. Undefined behavior if is no_piece and validation is disabled.
+         * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
+         * @return The bitboard for pt
+         */
+        bitboard bb ( pcolor pc )           const chess_validate_throw { check_penum ( pc ); return bbs [ cast_penum ( pc ) ]; }
+        bitboard bb ( ptype pt )            const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) + 2 ]; }
+        bitboard bb ( pcolor pc, ptype pt ) const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pc ) ] & bbs [ cast_penum ( pt ) + 2 ]; }
+
+
 
         /* ATTRIBUTES */
 
@@ -344,17 +360,9 @@ public:
          * 
          * @brief  Construct with all the requied information
          */
-        move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, int _en_passant_pos, int _check_count ) noexcept
-            : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant_pos { _en_passant_pos }, check_count { _check_count }
+        move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, int _en_passant_pos = 0, bool _check = false, bool _checkmate = false ) noexcept
+            : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant_pos { _en_passant_pos }, check { _check }, checkmate { _checkmate }
         {}
-
-        /** @name  simple_deserialize constructor
-         * 
-         * @brief  Take a serialized move and deserialize it
-         * @param  pc: The color who is making the move
-         * @param  desc: The serialized move
-         */
-        move_t ( pcolor pc, const std::string& desc ) { simple_deserialize ( pc, desc ); }
 
 
 
@@ -382,8 +390,11 @@ public:
         /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
         ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
 
-        /* Store the initial, final position, en passant position (if applicable; zero means no en passant), and the check count */
-        int from = 0, to = 0, en_passant_pos = 0, check_count = 0;
+        /* Store the initial, final position, en passant position (if applicable; zero means no en passant) */
+        int from = 0, to = 0, en_passant_pos = 0;
+
+        /* Store whether the move causes check or is a checkmate */
+        bool check = false, checkmate = false;
 
 
 
@@ -396,22 +407,6 @@ public:
          */
         bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
         bool is_queenside_castle () const noexcept { return pt == ptype::king && from - 2 == to; }
-
-        /** @name  simple_serialize
-         * 
-         * @brief  Creates a string from the move
-         * @return string
-         */
-        std::string simple_serialize () const;
-
-        /** @name  simple_deserialize
-         * 
-         * @brief  Sets the move from a string
-         * @param  _pc: The color that is to make the move
-         * @param  desc: The serialization of the move
-         * @return A reference to this move
-         */
-        move_t& simple_deserialize ( pcolor _pc, const std::string& desc );
 
     };
 
@@ -525,7 +520,7 @@ public:
 
     /** @name  bb
      * 
-     * @brief  Gets a bitboard, by copy, based on a single piece type
+     * @brief  Gets a bitboard, by copy, based on a piece type and or color
      * @param  pc: One of pcolor. Undefined behavior if is no_piece and validation is disabled.
      * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
      * @return The bitboard for pt
@@ -618,13 +613,22 @@ public:
 
     /* MOVE CALCULATIONS */
 
+    /** @name  check_move_is_valid
+     * 
+     * @brief  Throws if a move is invalid to apply to the current state
+     * @param  move: The move to test
+     * @return void
+     */
+    void check_move_is_valid ( const move_t& move );
+    void check_move_is_valid ( const move_t& move ) const { chessboard { * this }.check_move_is_valid ( move ); }
+
     /** @name  make_move
      * 
      * @brief  Check a move is valid then apply it
      * @param  move: The move to apply
      * @return void
      */
-    void make_move ( const move_t& move );
+    void make_move ( const move_t& move ) { check_move_is_valid ( move ); make_move_internal ( move ); }
 
     /** @name  get_move_set
      * 
@@ -635,7 +639,8 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the piece in question
      */
-    bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) chess_validate_throw;
+    bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info );
+    bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) const { return chessboard { * this }.get_move_set ( pc, pt, pos, check_info ); };
 
     /** @name  get_pawn_move_set
      * 
@@ -645,7 +650,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the pawn in question
      */
-    bitboard get_pawn_move_set ( pcolor pc, int pos, const check_info_t& check_info ) chess_validate_throw;
+    bitboard get_pawn_move_set ( pcolor pc, int pos, const check_info_t& check_info );
 
     /** @name  get_knight_move_set
      * 
@@ -655,7 +660,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the knight in question
      */
-    bitboard get_knight_move_set ( pcolor pc, int pos, const check_info_t& check_info ) chess_validate_throw;
+    bitboard get_knight_move_set ( pcolor pc, int pos, const check_info_t& check_info );
 
     /** @name  get_sliding_move_set
      * 
@@ -666,7 +671,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the sliding in question
      */
-    bitboard get_sliding_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) chess_validate_throw;
+    bitboard get_sliding_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info );
 
     /** @name  get_king_move_set
      * 
@@ -675,7 +680,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the king in question
      */
-    bitboard get_king_move_set ( pcolor pc, const check_info_t& check_info ) chess_validate_throw;
+    bitboard get_king_move_set ( pcolor pc, const check_info_t& check_info );
 
 
 
@@ -750,6 +755,23 @@ public:
      */
     std::string simple_format_board () const;
 
+    /** @name  fide_serialize_move
+     * 
+     * @brief  Take a move valid for this position and serialize it based on the FIDE standard
+     * @param  move: The move to serialize
+     * @return string
+     */
+    std::string fide_serialize_move ( const move_t& move ) const;
+
+    /** @name  fide_deserialize_move
+     * 
+     * @brief  Take a string describing a move for this position and deserialize it based on the FIDE standard
+     * @param  pc: The color that is to make the move
+     * @param  desc: The description to deserialize
+     * @return move_t
+     */
+    move_t fide_deserialize_move ( pcolor pc, const std::string& desc ) const;
+
 
 
 private:
@@ -796,18 +818,34 @@ private:
      * 
      * @brief  Apply a move. Assumes all the information about the move is correct and legal.
      * @param  move: The move to apply
-     * @return The auxiliary information before the move was made
+     * @return void
      */
-    aux_info_t make_move_internal ( const move_t& move ) chess_validate_throw;
+    void make_move_internal ( const move_t& move );
 
     /** @name  unmake_move
      * 
-     * @brief  Unmake a move. Assumes that the move was made immediately before this undo function.
-     * @param  move: The move to undo
-     * @param  aux: The auxiliary information from before the move was first made
+     * @brief  Unmake the last made move.
      * @return void
      */
-    void unmake_move_internal ( const move_t& move, aux_info_t aux_info ) chess_validate_throw;
+    void unmake_move_internal ();
+
+    /** @name  ptype_to_character
+     * 
+     * @brief  Convert a ptype to a character
+     * @param  pt: The character to convert
+     * @return char
+     */
+    static char ptype_to_character ( ptype pt ) noexcept;
+
+    /** @name  character_to_ptype
+     * 
+     * @brief  Convert a character to a ptype. Return no_piece for an unknown character.
+     * @param  c: The character to convert
+     * @return ptype
+     */
+    static ptype character_to_ptype ( char c ) noexcept;
+
+
 
     /* SEARCH */
 

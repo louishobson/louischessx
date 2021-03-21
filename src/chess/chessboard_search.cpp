@@ -17,67 +17,9 @@
 
 
 
-/* MAKING MOVES */
+/* ALPHA BETA SEARCH */
 
 
-
-/** @name  make_move
- * 
- * @brief  Check a move is valid then apply it
- * @param  move: The move to apply
- * @return void
- */
-void chess::chessboard::make_move ( const move_t& move )
-{
-    /* Check that the piece the move refers to exists */
-    if ( !bb ( move.pc, move.pt ).test ( move.from ) ) throw std::runtime_error { "Invalid move initial position or type in make_move ()." };
-
-    /* Check that the move is legal */
-    if ( !get_move_set ( move.pc, move.pt, move.from, get_check_info ( move.pc ) ).test ( move.to ) ) throw std::runtime_error { "Illegal move final position in make_move ()." };
-
-    /* If this is an en passant capture, ensure the captee is the most recent pawn to double push */
-    if ( move.en_passant_pos )
-    {
-        if ( move.capture_pt != ptype::pawn || move.en_passant_pos != aux_info.double_push_pos || !bb ( other_color ( move.pc ), ptype::pawn ).test ( move.en_passant_pos ) ) throw std::runtime_error { "Invalid en passant position in make_move ()." };
-    } else
-
-    /* Else if this is a capture, ensure that the capture piece exists */
-    if ( move.capture_pt != ptype::no_piece && !bb ( other_color ( move.pc ), move.capture_pt ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." }; else
-
-    /* If this is a non-capture, ensure that there is no enemy piece in the final position */
-    if ( move.capture_pt == ptype::no_piece &&  bb ( other_color ( move.pc ) ).test ( move.to ) ) throw std::runtime_error { "Invalid capture type in make_move ()." };
-
-    /* Test if the move should be a pawn promotion and hence check the promote_pt is valid */
-    if ( move.pt == ptype::pawn && ( move.pc == pcolor::white ? move.to >= 56 : move.to < 8 ) )
-    {
-        /* Move should promote, so check the promotion type is valid */
-        if ( move.promote_pt != ptype::knight && move.promote_pt != ptype::bishop && move.promote_pt != ptype::rook && move.promote_pt != ptype::queen ) 
-            throw std::runtime_error { "Invalid promotion type (move should promote) in make_move ()." };
-    } else
-    {
-        /* Move should not promote, so check the promotion type is no_piece */
-        if ( move.promote_pt != ptype::no_piece ) throw std::runtime_error { "Invalid promotion type (move should not promote) in make_move ()." };
-    }
-
-    /* Make the move */
-    aux_info_t aux = make_move_internal ( move );
-
-    /* Make sure the check count was what was expected */
-    if ( move.check_count != get_check_info ( other_color ( move.pc ) ).check_count )
-    {
-        /* Unmake the move then throw */
-        unmake_move_internal ( move, aux );
-        throw std::runtime_error { "Invalid check count in make_move ()." };
-    } 
-}
-
-
-
-/* SEARCH */
-
-
-
-/* ALPHA-BETA SEARCH */
 
 /** @name  alpha_beta_search
  * 
@@ -140,23 +82,32 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
         /* Resize the moves list to 1 if best_only is set */
         if ( best_only ) ab_result.moves.resize ( 1 );
 
-        /* Set the check count for each move */
+        /* Set the check count and checkmate info for each move */
         std::for_each ( ab_result.moves.begin (), ab_result.moves.end (), [ & ] ( auto& move ) 
         { 
             /* Make the move */
-            const aux_info_t aux = cb.make_move_internal ( move.first ); 
+            cb.make_move_internal ( move.first ); 
             
-            /* Get the check count */
-            move.first.check_count = cb.get_check_info ( other_color ( pc ) ).check_count;
+            /* Get the check bool */
+            move.first.check = cb.get_check_info ( other_color ( pc ) ).check_count;
+
+            /* Get if is a checkmate */
+            move.first.checkmate = ( move.second == 10000 + depth - 1 );
 
             /* Unmake the move */
-            cb.unmake_move_internal ( move.first, aux );
+            cb.unmake_move_internal ();
         } );
 
         /* Return the alpha beta result */
         return ab_result;
     } );
 }
+
+
+
+/* ITERATIVE DEEPENING */
+
+
 
 /** @name  alpha_beta_iterative_deepening
  * 
@@ -246,6 +197,12 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
         return ab_result;
     } );
 }
+
+
+
+/* ALPHA BETA INTERNAL */
+
+
 
 /** @name  alpha_beta_search_internal
  * 
@@ -504,13 +461,13 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     if ( use_null_move )
     {
         /* Make a null move */
-        const aux_info_t aux = make_move_internal ( move_t { pc } );
+        make_move_internal ( move_t { pc } );
 
         /* Apply the null move */
         int score = -alpha_beta_search_internal ( npc, bk_depth - NULL_MOVE_CHANGE_BK_DEPTH, best_only, end_flag, -beta, -beta + 1, fd_depth + 1, 1, ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake a null move */
-        unmake_move_internal ( move_t { pc }, aux );
+        unmake_move_internal ();
 
         /* If proved successful, return beta.
          * Don't return score, since the null move will cause extremes of values otherwise.
@@ -531,7 +488,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     auto apply_move = [ & ] ( const move_t& move ) -> bool
     {
         /* Apply the move */
-        const aux_info_t aux = make_move_internal ( move );
+        make_move_internal ( move );
 
         /* Recursively call to get the value for this move.
         * Switch around and negate alpha and beta, since it is the other player's turn.
@@ -540,7 +497,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         const int new_value = -alpha_beta_search_internal ( npc, ( bk_depth ? bk_depth - 1 : 0 ), best_only, end_flag, -beta, -alpha, fd_depth + 1, ( null_depth ? null_depth + 1 : 0 ), ( q_depth ? q_depth + 1 : 0 ) );
 
         /* Unmake the move */
-        unmake_move_internal ( move, aux ); 
+        unmake_move_internal (); 
 
         /* Set the best value and hence best move */
         if ( new_value > best_value ) { best_value = new_value; best_move = move; }
@@ -616,34 +573,32 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         /* Iterate through the individual moves */
         while ( move_set )
         {
-            /* Get the position and singleton bitboard of the next move.
+            /* Get the position and singleton bitboard of the next move and unset that bit.
              * Choose motion towards the opposing color.
              */
             const int to = ( opposing_conc ? 63 - move_set.leading_zeros () : move_set.trailing_zeros () );
-
-            /* Unset this bit in the set of moves */
             move_set.reset ( to );
+
+            /* Find the capture type */
+            const ptype capture_pt = find_type ( npc, to );
 
             /* Detect if there are any pawns to promote */
             if ( pt == ptype::pawn && rank_8.test ( to ) )
             {
                 /* Try the move with a queen and a knight as the promotion type, returning on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::queen,  from, to, 0, 0 } ) ) return true;
-                if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::knight, from, to, 0, 0 } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, capture_pt, ptype::queen,  from, to } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, capture_pt, ptype::knight, from, to } ) ) return true;
             } else
 
-            /* Detect if this is an en passant capture. 
-             * "( to - from ) % 8" is non-zero if the pawn move is a capture. 
-             * bb ( npc ).test ( to ) is false if the move does not land on an enemy piece.
-             */
-            if ( pt == ptype::pawn && ( to - from ) % 8 != 0 && !bb ( npc ).test ( to ) )
+            /* Detect if this is an en passant capture */
+            if ( aux_info.double_push_pos && pt == ptype::pawn && ( to - aux_info.double_push_pos ) == ( pc == pcolor::white ? +8 : -8 ) )
             {
                 /* Apply the move and return on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, ( from / 8 ) * 8 + ( to % 8 ), 0 } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, aux_info.double_push_pos } ) ) return true;
             } else
             
             /* Else this is an ordinary move, so try it and return on alpha-beta cutoff */
-            if ( apply_move ( move_t { pc, pt, find_type ( npc, to ), ptype::no_piece, from, to, 0, 0 } ) ) return true;
+            if ( apply_move ( move_t { pc, pt, capture_pt, ptype::no_piece, from, to } ) ) return true;
         }
 
         /* Return false */

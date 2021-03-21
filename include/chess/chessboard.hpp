@@ -210,7 +210,7 @@ inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const int po
 
 
 
-/* AB_STATE_T IMPLEMENTATION */
+/* GAME_STATE_T IMPLEMENTATION */
 
 
 
@@ -222,14 +222,14 @@ inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const int po
  */
 inline chess::chessboard::game_state_t::game_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw : pc ( _pc ), bbs 
 {
-    cb.bb ( ptype::pawn   ),
-    cb.bb ( ptype::knight ),
-    cb.bb ( ptype::bishop ),
-    cb.bb ( ptype::rook   ),
-    cb.bb ( ptype::queen  ),
-    cb.bb ( ptype::king   ),
     cb.bb ( pcolor::white ),
     cb.bb ( pcolor::black ),
+    cb.bb ( ptype_inc_value.at ( 0 ) ),
+    cb.bb ( ptype_inc_value.at ( 1 ) ),
+    cb.bb ( ptype_inc_value.at ( 2 ) ),
+    cb.bb ( ptype_inc_value.at ( 3 ) ),
+    cb.bb ( ptype_inc_value.at ( 4 ) ),
+    cb.bb ( ptype_inc_value.at ( 5 ) ),
 }, aux_info { cb.aux_info } {}
 
 
