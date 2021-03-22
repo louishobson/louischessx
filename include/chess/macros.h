@@ -23,7 +23,7 @@
  * If defined and set to true, extra checks and throw expressions will be used.
  */
 #ifndef CHESS_VALIDATE
-    #define CHESS_VALIDATE 1
+    #define CHESS_VALIDATE 0
 #endif
 
 
