@@ -230,7 +230,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* The maximum fd_depth at which a draw state will be detected. 
      * Depths before this will stop best_value from being stored in the tranposition table.
      */
-    constexpr int DRAW_MAX_FD_DEPTH = 2;
+    constexpr int DRAW_MAX_FD_DEPTH = 3;
 
     /* Set the maximum depth quiescence search can go to.
      * This is important as it stops rare infinite loops relating to check in quiescence search.
