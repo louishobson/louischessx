@@ -73,9 +73,9 @@ void chess::chessboard::check_move_is_valid ( const move_t& move )
     /* Make the move */
     make_move_internal ( move );
 
-    /* Ensure the check and checkmate flags are correct */
-    if ( move.check != is_in_check ( other_color ( move.pc ) ) ) throw std::runtime_error { "Incorrct check flag in check_move_is_valid ()." }; 
-    if ( move.checkmate != ( evaluate ( move.pc ) == 10000 ) )   throw std::runtime_error { "Incorrct checkmate flag in check_move_is_valid ()." };
+    /* Ensure the check and checkmate flags are correct. Ensure the move is unmade before throwing. */
+    if ( move.check != is_in_check ( other_color ( move.pc ) ) ) { unmake_move_internal (); throw std::runtime_error { "Incorrct check flag in check_move_is_valid ()." }; }
+    if ( move.checkmate != ( evaluate ( move.pc ) == 10000 ) )   { unmake_move_internal (); throw std::runtime_error { "Incorrct checkmate flag in check_move_is_valid ()." }; }
 
     /* Unmake the move */
     unmake_move_internal ();

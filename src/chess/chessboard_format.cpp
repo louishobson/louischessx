@@ -297,7 +297,7 @@ chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolo
     move.check = cb.is_in_check ( other_color ( move.pc ) );
 
     /* Get whether the other color has been checkmated */
-    move.checkmate = move.check = ( cb.evaluate ( move.pc ) == 10000 );
+    move.checkmate = ( cb.evaluate ( move.pc ) == 10000 );
 
 
 
