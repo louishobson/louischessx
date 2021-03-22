@@ -197,7 +197,7 @@ chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolo
     std::reverse ( desc.begin (), desc.end () );
 
     /* Create the regex to extract the information */
-    std::regex move_regex { "([NBRQ]\?\?)([1-8][a-h])(x\?\?)([1-8]\?\?)([a-h]\?\?)([PNBRQK]\?\?)$" };
+    std::regex move_regex { "([NBRQ]?)([1-8][a-h])(x?)([1-8]?)([a-h]?)([PNBRQK]?)$" };
     
     /* Run the search */
     std::smatch move_match;
@@ -217,11 +217,9 @@ chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolo
     if ( move_submatch_it->length () ) move.pt = character_to_ptype ( move_submatch_it->str ().at ( 0 ) );
     else move.pt = ptype::pawn; ++move_submatch_it;
 
-    /* Get the known file or rank from the disambiguation characters.
-     * Rank comes first since the input has been reversed.
-     */
-    const int known_rank = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - '1' : -1 ); ++move_submatch_it;
+    /* Get the known file or rank from the disambiguation characters. */
     const int known_file = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - 'a' : -1 ); ++move_submatch_it;
+    const int known_rank = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - '1' : -1 ); ++move_submatch_it;
 
     /* Get if there is a capture character */
     const bool capture_char = move_submatch_it++->length ();
