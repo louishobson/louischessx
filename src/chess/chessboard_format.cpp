@@ -173,14 +173,17 @@ std::string chess::chessboard::fide_serialize_move ( const move_t& move ) const
  * @param  desc: The description to deserialize
  * @return move_t
  */
-chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const std::string& desc ) const
+chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, std::string desc ) const
 {
+    /* CASTLING MOVE */
+
     /* Look for a castling move */
     if ( desc == "O-O"   ) return move_t { pc, ptype::king, ptype::no_piece,  ptype::no_piece, ( pc == pcolor::white ? 4 : 60 ), ( pc == pcolor::white ? 6 : 62 ) };
     if ( desc == "O-O-O" ) return move_t { pc, ptype::king, ptype::no_piece,  ptype::no_piece, ( pc == pcolor::white ? 4 : 60 ), ( pc == pcolor::white ? 2 : 58 ) };
 
-    /* Throw if the input is too short */
-    if ( desc.size () < 2 ) throw std::runtime_error { "Input too short in fide_deserialize_move ()." };
+
+
+    /* SETUP AND REGEX SEARCH */
 
     /* Get the check info */
     const check_info_t check_info = get_check_info ( pc );
@@ -188,183 +191,119 @@ chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolo
     /* Create an empty move */
     move_t move { pc };
 
-    /* Store the running string iterator */
-    auto desc_it = desc.begin ();
+    /* Reverse the move description.
+     * The regex works in reverse, so that the destination position is reached first, rather than any disambiguation characters.
+     */
+    std::reverse ( desc.begin (), desc.end () );
 
-    /* PT */
+    /* Create the regex to extract the information */
+    std::regex move_regex { "([NBRQ]\?\?)([1-8][a-h])(x\?\?)([1-8]\?\?)([a-h]\?\?)([PNBRQK]\?\?)$" };
+    
+    /* Run the search */
+    std::smatch move_match;
+    std::regex_search ( desc, move_match, move_regex );
+    
+    /* Check that the number of submatches is exactly 7 (the number of groups plus one for the entire match) */
+    if ( move_match.size () != 7 ) throw std::runtime_error { "Could not format move description in fide_deserialize_move ()." };
+
+    /* An iterator to the current submatch in focus */
+    auto move_submatch_it = std::reverse_iterator { move_match.end () };
+
+
+
+    /* EXTRACT INFO */
+
+    /* See if there is a promotion type */
+    if ( move_submatch_it->length () ) move.pt = character_to_ptype ( move_submatch_it->str ().at ( 0 ) );
+    else move.pt = ptype::pawn; ++move_submatch_it;
+
+    /* Get the known file or rank from the disambiguation characters.
+     * Rank comes first since the input has been reversed.
+     */
+    const int known_rank = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - '1' : -1 ); ++move_submatch_it;
+    const int known_file = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - 'a' : -1 ); ++move_submatch_it;
+
+    /* Get if there is a capture character */
+    const bool capture_char = move_submatch_it++->length ();
+
+    /* Get the destination position */
+    move.to = bitboard::cell_pos_reversed ( * move_submatch_it++ );
+
+    /* Get promotion type, if given */
+    if ( move_submatch_it->length () ) move.promote_pt = character_to_ptype ( move_submatch_it->str ().at ( 0 ) ); ++move_submatch_it;
+
+    /* Determine the capture type from the destination position */
+    move.capture_pt = find_type ( other_color ( move.pc ), move.to );
+
+    /* Determine the en passant pos from the destination position */
+    if ( aux_info.double_push_pos && move.pt == ptype::pawn && move.capture_pt == ptype::no_piece && move.to == aux_info.double_push_pos + ( move.pc == pcolor::white ? +8 : -8 ) )
+        { move.capture_pt = ptype::pawn; move.en_passant_pos = aux_info.double_push_pos; }
+
+
+
+    /* GET DEPARTURE POSITION */
+
+    /* A bitboard to store the possible departure positions */
+    bitboard from_bb;
+
+    /* Iterate through the pieces of the moving color and find any that can make the move */
+    for ( bitboard pieces = bb ( move.pc, move.pt ); pieces; )
     {
-        /* See if the string begins with an upper case letter (which gives the piece type). If not present, set type to pawn. */
-        if ( std::isupper ( * desc_it ) )
-        {
-            /* Get the type, also increasing desc_it */
-            move.pt = character_to_ptype ( * desc_it++ );
+        /* Get the position of the next piece and unset it in pieces */
+        int pos = pieces.trailing_zeros ();
+        pieces.reset ( pos );
 
-            /* If the character for pt was invalid, throw */
-            if ( move.pt == ptype::any_piece || move.pt == ptype::no_piece ) throw std::runtime_error { "Invalid piece type in fide_deserialize_move ()." };
-        } else move.pt = ptype::pawn;
+        /* Check that the position is within the known rank and file */
+        if ( known_file != -1 && pos % 8 != known_file ) continue;
+        if ( known_rank != -1 && pos / 8 != known_rank ) continue;
+
+        /* Detect if the final position of the move is present in this piece. If so, add it to from_bb. */
+        if ( get_move_set ( move.pc, move.pt, pos, check_info ).test ( move.to ) ) from_bb.set ( pos );
     }
 
-    /* Store the submatch to the destination cell name */
-    std::ssub_match to_submatch;
+    /* If from_bb is empty, throw */
+    if ( from_bb.is_empty () ) throw std::runtime_error { "Could not find a matching departure position in fide_deserialize_move ()." };
 
-    /* TO */
-    {
-        /* Create the regex */
-        std::regex to_regex { "[a-h][1-8]" };
+    /* If from_bb is not a singleton, throw */
+    if ( !from_bb.is_singleton () ) throw std::runtime_error { "Could not find a unique departure position in fide_deserialize_move ()." };
 
-        /* Search for the destination position */
-        for ( std::sregex_iterator it { desc.begin (), desc.end (), to_regex }; it != std::sregex_iterator {}; to_submatch = * it++->begin () );
-        
-        /* Throw if not found */
-        if ( !to_submatch.matched ) throw std::runtime_error { "Could not find destination position in fide_deserialize_move ()." };
+    /* Set the departure position */
+    move.from = from_bb.trailing_zeros ();
 
-        /* Extract the cell pos */
-        move.to = bitboard::cell_pos ( to_submatch );
 
-        /* Throw if the destination position is a friendly piece */
-        if ( bb ( move.pc ).test ( move.to ) ) throw std::runtime_error { "Destination position contains a friendly piece in fide_deserialize_move ()." };
-    }
 
-    /* Get the number of disambiguation chars */
-    int num_disambiguation_chars = to_submatch.first - desc_it;
+    /* VALIDATION */
 
-    /* CAPTURE_PT and EN_PASSANT_POS */
-    {
-        /* Determine the capture type from the destination position */
-        move.capture_pt = find_type ( other_color ( move.pc ), move.to );
+    /* Throw if a capture char is not given when required, or given when not required */
+    if ( move.capture_pt != ptype::no_piece && !capture_char ) throw std::runtime_error { "Expected a capture character, 'x', in fide_deserialize_move ()." }; 
+    if ( move.capture_pt == ptype::no_piece &&  capture_char ) throw std::runtime_error { "Receieved an unexpected capture character, 'x', in fide_deserialize_move ()." }; 
 
-        /* If the move is a pawn attack, the capture type is no_piece, and the pawn ends up behind the last pawn double push, then the move must be en passant.
-         * Therefore reassign the capture type to a pawn and set the en passant pos.
-         */
-        if ( aux_info.double_push_pos && move.pt == ptype::pawn && move.capture_pt == ptype::no_piece && move.to == aux_info.double_push_pos + ( move.pc == pcolor::white ? +8 : -8 ) )
-            { move.capture_pt = ptype::pawn; move.en_passant_pos = aux_info.double_push_pos; }
+    /* Get if a promotion type is required */
+    const bool promote_pt_required = ( move.pt == ptype::pawn && ( move.pc == pcolor::white ? move.to >= 56 : move.to < 8 ) );
 
-        /* Get if there is a capture character */
-        if ( num_disambiguation_chars && * ( to_submatch.first - 1 ) == 'x' )
-        { 
-            /* There was a capture character, so throw if the move is not a capture */
-            if ( move.capture_pt == ptype::no_piece ) throw std::runtime_error { "Receieved an unexpected capture character, 'x', in fide_deserialize_move ()." }; 
+    /* Throw if a promotion type is not given when required, or one is given when not required */
+    if (  promote_pt_required && move.promote_pt == ptype::no_piece ) throw std::runtime_error { "Expected promotion type (move is a promotion) in fide_deserialize_move ()." };
+    if ( !promote_pt_required && move.promote_pt != ptype::no_piece ) throw std::runtime_error { "Unexpected promotion type (move should not promote) in fide_deserialize_move ()." };
 
-            /* Reduce num_disambiguation_chars by one */
-            --num_disambiguation_chars;
-        } else
-        { 
-            /* There was no capture character, so throw if the move is a capture */
-            if ( move.capture_pt != ptype::no_piece ) throw std::runtime_error { "Expected a capture character, 'x', in fide_deserialize_move ()." }; 
-        }
-    }
 
-    /* FROM */
-    {
-        /* If there is more than two disambiguation characters left, throw */
-        if ( num_disambiguation_chars > 2 ) throw std::runtime_error { "Too many disambiguation characters in fide_deserialize_move ()." };
-
-        /* Store the given file and rank for the piece */
-        int known_file = -1, known_rank = -1;
-
-        /* If there is only one disambiguation, set the known file or rank */
-        if ( num_disambiguation_chars == 1 )
-        {
-            /* Get the file/rank */
-            if ( * desc_it >= 'a' && * desc_it <= 'h' ) known_file = * desc_it - 'a'; else
-            if ( * desc_it >= '1' && * desc_it <= '8' ) known_rank = * desc_it - '1'; else
-
-            /* Throw since was unknown character */
-            throw std::runtime_error { "Invalid departure position character in fide_deserialize_move ()." };
-        } else
-
-        /* Else if there are two characters, get the file and rank */
-        if ( num_disambiguation_chars == 2 )
-        {
-            /* Check the characters are valid */
-            if ( * (  desc_it    ) < 'a' || * ( desc_it     ) > 'h' ) throw std::runtime_error { "Invalid departure position in fide_deserialize_move ()." };
-            if ( * ( desc_it + 1 ) < '1' || * ( desc_it + 1 ) > '8' ) throw std::runtime_error { "Invalid departure position in fide_deserialize_move ()." };
-
-            /* Set the file and rank */
-            known_file = * ( desc_it     ) - 'a';
-            known_rank = * ( desc_it + 1 ) - '1';
-        }
-
-        /* Iterate through the pieces of the moving color and find any that can make the move */
-        bitboard from_bb;
-        for ( bitboard pieces = bb ( move.pc, move.pt ); pieces; )
-        {
-            /* Get the position of the next piece and unset it in pieces */
-            int pos = pieces.trailing_zeros ();
-            pieces.reset ( pos );
-
-            /* Check that the position is within the known rank and file */
-            if ( known_file != -1 && pos % 8 != known_file ) continue;
-            if ( known_rank != -1 && pos / 8 != known_rank ) continue;
-
-            /* Detect if the final position of the move is present in this piece. If so, add it to from_bb. */
-            if ( get_move_set ( move.pc, move.pt, pos, check_info ).test ( move.to ) ) from_bb.set ( pos );
-        }
-
-        /* If from_bb is empty, throw */
-        if ( from_bb.is_empty () ) throw std::runtime_error { "Could not find a matching departure position in fide_deserialize_move ()." };
-
-        /* If from_bb is not a singleton, throw */
-        if ( !from_bb.is_singleton () ) throw std::runtime_error { "Could not find a unique departure position in fide_deserialize_move ()." };
-
-        /* Set the departure position */
-        move.from = from_bb.trailing_zeros ();
-    }
-
-    /* Set desc_it to after the destination cell name */
-    desc_it = to_submatch.second;
-
-    /* PROMOTE_PT */
-    {
-        /* Get if a promotion type is required */
-        const bool promote_pt_required = ( move.pt == ptype::pawn && ( move.pc == pcolor::white ? move.to >= 56 : move.to < 8 ) );
-
-        /* If there is a capital letter at desc_it, get the promotion type */
-        if ( desc_it != desc.end () && std::isupper ( * desc_it ) )
-        {
-            /* Get the type, also increasing desc_it */
-            move.promote_pt = character_to_ptype ( * desc_it++ );
-
-            /* If the character for promote_pt was invalid, throw */
-            if ( move.promote_pt == ptype::any_piece || move.promote_pt == ptype::no_piece || move.promote_pt == ptype::pawn || move.promote_pt == ptype::king ) throw std::runtime_error { "Invalid promote type in fide_deserialize_move ()." };
-        
-            /* If a promotion type is not required, throw */
-            if ( !promote_pt_required ) throw std::runtime_error { "Unexpected promotion type (move should not promote) in fide_deserialize_move ()." };
-        }
-
-        /* If a promotion type is required and not given, throw */
-        if ( promote_pt_required ) throw std::runtime_error { "Expected promotion type (move is a promotion) in fide_deserialize_move ()." };
-    }
 
     /* CHECK and CHECKMATE */
-    {
-        /* Create a copy of the bitboard */
-        chessboard cb { * this };
 
-        /* Apply the move */
-        cb.make_move_internal ( move );
+    /* Create a copy of the bitboard */
+    chessboard cb { * this };
 
-        /* Get whether the other player is in check */
-        move.check = cb.is_in_check ( other_color ( move.pc ) );
+    /* Apply the move */
+    cb.make_move_internal ( move );
 
-        /* Get whether the other color has been checkmated */
-        move.checkmate = move.check = ( cb.evaluate ( move.pc ) == 10000 );
-    }
+    /* Get whether the other player is in check */
+    move.check = cb.is_in_check ( other_color ( move.pc ) );
 
-    /* VALIDATE CHECK, CHECKMATE and EN_PASSANT */
-    {
-        /* Look for check '+', and throw if found and check flag is not set */
-        if ( desc.find ( '+', desc_it - desc.begin () ) != desc.npos && !move.check )
-            throw std::runtime_error { "Move incorrectly labelled as checking in fide_deserialize_move ()." };
+    /* Get whether the other color has been checkmated */
+    move.checkmate = move.check = ( cb.evaluate ( move.pc ) == 10000 );
 
-        /* Look for checkmate '#', and throw if found and checkmate or check are not set */
-        if ( desc.find ( '#', desc_it - desc.begin () ) != desc.npos && ( !move.check || !move.checkmate ) )
-            throw std::runtime_error { "Move incorrectly labelled as a checkmate in fide_deserialize_move ()." };
-        
-        /* Look for en passant string and throw if the move is not en passant */
-        if ( desc.find ( "ep", desc_it - desc.begin () ) != desc.npos || desc.find ( "e.p.", desc_it - desc.begin () ) != desc.npos )
-           if ( move.en_passant_pos == 0 ) throw std::runtime_error { "Move incorrectly labelled as en passant in fide_deserialize_move ()." };
-    }
+
+
+    /* RETURN */
 
     /* Return the move */
     return move;

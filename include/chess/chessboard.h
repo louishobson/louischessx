@@ -770,7 +770,7 @@ public:
      * @param  desc: The description to deserialize
      * @return move_t
      */
-    move_t fide_deserialize_move ( pcolor pc, const std::string& desc ) const;
+    move_t fide_deserialize_move ( pcolor pc, std::string desc ) const;
 
 
 
@@ -892,7 +892,6 @@ private:
 
 /* INCLUDE INLINE IMPLEMENTATION */
 #include <chess/chessboard.hpp>
-#include <chess/chessboard_moves.hpp>
 
 
 
