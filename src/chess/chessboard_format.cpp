@@ -173,7 +173,7 @@ std::string chess::chessboard::fide_serialize_move ( const move_t& move ) const
  * @param  desc: The description to deserialize
  * @return move_t
  */
-chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, std::string desc ) const
+chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const std::string& desc ) const
 {
     /* CASTLING MOVE */
 
@@ -191,44 +191,35 @@ chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolo
     /* Create an empty move */
     move_t move { pc };
 
-    /* Reverse the move description.
-     * The regex works in reverse, so that the destination position is reached first, rather than any disambiguation characters.
-     */
-    std::reverse ( desc.begin (), desc.end () );
-
     /* Create the regex to extract the information */
-    std::regex move_regex { "([NBRQ]?)([1-8][a-h])(x?)([1-8]?)([a-h]?)([PNBRQK]?)$" };
+    std::regex move_regex { "^" "([PNBRQK]?)" "([a-h]?(?=.*?[a-h][1-8]))" "([1-8]?(?=.*?[a-h][1-8]))" "(x?)" "([a-h][1-8])" "([NBRQ]?)" };
     
     /* Run the search */
-    std::smatch move_match;
-    std::regex_search ( desc, move_match, move_regex );
+    std::smatch move_match; std::regex_search ( desc, move_match, move_regex );
     
     /* Check that the number of submatches is exactly 7 (the number of groups plus one for the entire match) */
     if ( move_match.size () != 7 ) throw std::runtime_error { "Could not format move description in fide_deserialize_move ()." };
-
-    /* An iterator to the current submatch in focus */
-    auto move_submatch_it = std::reverse_iterator { move_match.end () };
 
 
 
     /* EXTRACT INFO */
 
     /* See if there is a promotion type */
-    if ( move_submatch_it->length () ) move.pt = character_to_ptype ( move_submatch_it->str ().at ( 0 ) );
-    else move.pt = ptype::pawn; ++move_submatch_it;
+    if ( move_match.length ( 1 ) ) move.pt = character_to_ptype ( move_match.str ( 1 ).at ( 0 ) );
+    else move.pt = ptype::pawn;
 
     /* Get the known file or rank from the disambiguation characters. */
-    const int known_file = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - 'a' : -1 ); ++move_submatch_it;
-    const int known_rank = ( move_submatch_it->length () ? move_submatch_it->str ().at ( 0 ) - '1' : -1 ); ++move_submatch_it;
+    const int known_file = ( move_match.length ( 2 ) ? move_match.str ( 2 ).at ( 0 ) - 'a' : -1 );
+    const int known_rank = ( move_match.length ( 3 ) ? move_match.str ( 3 ).at ( 0 ) - '1' : -1 );
 
     /* Get if there is a capture character */
-    const bool capture_char = move_submatch_it++->length ();
+    const bool capture_char = move_match.length ( 4 );
 
     /* Get the destination position */
-    move.to = bitboard::cell_pos_reversed ( * move_submatch_it++ );
+    move.to = bitboard::cell_pos ( move_match.str ( 5 ) );
 
     /* Get promotion type, if given */
-    if ( move_submatch_it->length () ) move.promote_pt = character_to_ptype ( move_submatch_it->str ().at ( 0 ) ); ++move_submatch_it;
+    if ( move_match.length ( 6 ) ) move.promote_pt = character_to_ptype ( move_match.str ( 6 ).at ( 0 ) );
 
     /* Determine the capture type from the destination position */
     move.capture_pt = find_type ( other_color ( move.pc ), move.to );
