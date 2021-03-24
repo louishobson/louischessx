@@ -314,7 +314,7 @@ public:
          */
         bitboard bb ( pcolor pc )           const chess_validate_throw { check_penum ( pc ); return bbs [ cast_penum ( pc ) ]; }
         bitboard bb ( ptype pt )            const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) + 2 ]; }
-        bitboard bb ( pcolor pc, ptype pt ) const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pc ) ] & bbs [ cast_penum ( pt ) + 2 ]; }
+        bitboard bb ( pcolor pc, ptype pt ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pc ) ] & bbs [ cast_penum ( pt ) + 2 ]; }
 
 
 
