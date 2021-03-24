@@ -354,7 +354,7 @@ public:
          *         It will count as a null move when applied via make_move_internal or unmake_move_internal.
          *         However make_move will throw if a null move is given.
          */
-        move_t ( pcolor _pc ) : pc { _pc } {}
+        explicit move_t ( pcolor _pc ) : pc { _pc } {}
 
         /** @name  full constructor
          * 
@@ -415,10 +415,13 @@ public:
     /* TTABLE ENTRY STRUCT */
 
     /* A structure for a ttable entry in alpha-beta search */
-    struct ab_ttable_entry_t
+    struct ttable_entry_t
     {
         /* An enum for whether the ttable entry is exact or an upper or lower bound */
         enum class bound_t { exact, upper, lower };
+
+        /* An enum for the usability of the ttable entry */
+        enum class usability_t { safe, tainted, unsafe };
 
         /* The value of the ttable entry */
         int value;
@@ -428,6 +431,9 @@ public:
 
         /* The bound of the ttable entry */
         bound_t bound;
+
+        /* The usability of the ttable entry */
+        usability_t usability;
 
         /* The best move at this state */
         move_t best_move;
@@ -475,7 +481,7 @@ public:
         std::vector<std::array<move_t, 2>> killer_moves;
 
         /* The transposition table */
-        std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ttable;
+        std::unordered_map<game_state_t, ttable_entry_t, hash> ttable;
     };
 
 
