@@ -109,8 +109,6 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         {
             /* Block on the condition variable. Block until there are is another completed search, or the end flag is set */
             search_cv.wait ( lock, [ this, i ] () { return i < completed_searches.size () || controller_end_flag; } );
-
-            std::cout << cb.fide_serialize_move ( completed_searches.back ()->opponent_move ) << "\n";
             
             /* If the end flag is set, break */
             if ( controller_end_flag ) break;
