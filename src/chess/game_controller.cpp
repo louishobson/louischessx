@@ -45,7 +45,7 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
     active_searches.back ().ab_result_future = std::async ( std::launch::async, [ this, search_data_it, direct_response ] () mutable
     {
         /* Wait for the search to complete */
-        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) ).get ();
+        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
 
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
         std::unique_lock lock { search_mx };
@@ -90,7 +90,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
     {
         /* Get the opponent moves */
         std::atomic_bool opponent_end_flag = false;
-        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, opponent_end_flag ).get ();
+        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, opponent_end_flag );
 
         /* Aquire a lock on search_mx */
         std::unique_lock lock { search_mx };

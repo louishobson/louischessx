@@ -23,84 +23,77 @@
 
 /** @name  alpha_beta_search
  * 
- * @brief  Set up and apply the alpha-beta search asynchronously.
- *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+ * @brief  Set up and apply the alpha-beta search.
  * @param  pc: The color whose move it is next.
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
  * @param  best_only: If true, the search will be optimised as only the best move is returned.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
  * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
  * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
- * @return A future to an ab_result_t struct.
+ * @return ab_result_t
  */
-std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const bool best_only, const std::atomic_bool& end_flag, const int alpha, const int beta ) const
+chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const bool best_only, const std::atomic_bool& end_flag, const int alpha, const int beta )
 {
-    /* Run this function asynchronously.
-     * Be careful with lambda captures so that no references to this object are captured.
-     */
-    return std::async ( std::launch::async, [ cb { copy_and_move_ab_working () }, pc, depth, best_only, &end_flag, alpha, beta ] () mutable
-    {
-        /* Allocate new memory if necessary */
-        if ( !cb.ab_working ) cb.ab_working.reset ( new ab_working_t );
+    /* Allocate new memory if necessary */
+    if ( !ab_working ) ab_working.reset ( new ab_working_t );
 
-        /* Allocate excess memory  */
-        cb.ab_working->move_sets.resize ( 32 );
-        cb.ab_working->killer_moves.resize ( 32 );
+    /* Allocate excess memory  */
+    ab_working->move_sets.resize ( 32 );
+    ab_working->killer_moves.resize ( 32 );
 
-        /* Reserve excess memory for root moves */
-        cb.ab_working->root_moves.reserve ( 32 );
+    /* Reserve excess memory for root moves */
+    ab_working->root_moves.reserve ( 32 );
 
-        /* Call and time the internal method */
-        const auto t0 = chess_clock::now ();
-        cb.alpha_beta_search_internal ( pc, depth, best_only, end_flag, alpha, beta );
-        const auto t1 = chess_clock::now ();
+    /* Call and time the internal method */
+    const auto t0 = chess_clock::now ();
+    alpha_beta_search_internal ( pc, depth, best_only, end_flag, alpha, beta );
+    const auto t1 = chess_clock::now ();
 
-        /* Create the ab result struct */
-        ab_result_t ab_result;
+    /* Create the ab result struct */
+    ab_result_t ab_result;
 
-        /* Set the simple information */
-        ab_result.depth       = depth; 
-        ab_result.num_nodes   = cb.ab_working->num_nodes;
-        ab_result.num_q_nodes = cb.ab_working->num_q_nodes;
-        ab_result.av_q_depth  = cb.ab_working->sum_q_depth / static_cast<double> ( cb.ab_working->num_q_nodes );
-        ab_result.av_moves    = cb.ab_working->sum_moves   / static_cast<double> ( cb.ab_working->num_nodes   );
-        ab_result.av_q_moves  = cb.ab_working->sum_q_moves / static_cast<double> ( cb.ab_working->num_q_nodes );
-        ab_result.duration    = t1 - t0;
+    /* Set the simple information */
+    ab_result.depth       = depth; 
+    ab_result.num_nodes   = ab_working->num_nodes;
+    ab_result.num_q_nodes = ab_working->num_q_nodes;
+    ab_result.av_q_depth  = ab_working->sum_q_depth / static_cast<double> ( ab_working->num_q_nodes );
+    ab_result.av_moves    = ab_working->sum_moves   / static_cast<double> ( ab_working->num_nodes   );
+    ab_result.av_q_moves  = ab_working->sum_q_moves / static_cast<double> ( ab_working->num_q_nodes );
+    ab_result.duration    = t1 - t0;
 
-        /* Extract the move list */
-        ab_result.moves = std::move ( cb.ab_working->root_moves );
+    /* Extract the move list */
+    ab_result.moves = std::move ( ab_working->root_moves );
 
-        /* Extract the alpha beta working values */
-        ab_result._ab_working = std::move ( cb.ab_working );
+    /* Extract the alpha beta working values */
+    ab_result._ab_working = std::move ( ab_working );
 
-        /* If there are no possible moves, return now */
-        if ( ab_result.moves.size () == 0 ) return ab_result;
+    /* If there are no possible moves, return now */
+    if ( ab_result.moves.size () == 0 ) return ab_result;
 
-        /* Order the moves */
-        std::sort ( ab_result.moves.begin (), ab_result.moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
+    /* Order the moves */
+    std::sort ( ab_result.moves.begin (), ab_result.moves.end (), [] ( const auto& lhs, const auto& rhs ) { return lhs.second > rhs.second; } );
 
-        /* Resize the moves list to 1 if best_only is set */
-        if ( best_only ) ab_result.moves.resize ( 1 );
+    /* Resize the moves list to 1 if best_only is set */
+    if ( best_only ) ab_result.moves.resize ( 1 );
 
-        /* Set the check count and checkmate info for each move */
-        std::for_each ( ab_result.moves.begin (), ab_result.moves.end (), [ & ] ( auto& move ) 
-        { 
-            /* Make the move */
-            cb.make_move_internal ( move.first ); 
-            
-            /* Get the check bool */
-            move.first.check = cb.get_check_info ( other_color ( pc ) ).check_count;
+    /* Set the check count and checkmate info for each move */
+    std::for_each ( ab_result.moves.begin (), ab_result.moves.end (), [ & ] ( auto& move ) 
+    { 
+        /* Make the move */
+        make_move_internal ( move.first ); 
+        
+        /* Get the check bool */
+        move.first.check = get_check_info ( other_color ( pc ) ).check_count;
 
-            /* Get if is a checkmate */
-            move.first.checkmate = ( move.second == 10000 + depth - 1 );
+        /* Get if is a checkmate */
+        move.first.checkmate = ( move.second == 10000 + depth - 1 );
 
-            /* Unmake the move */
-            cb.unmake_move_internal ();
-        } );
-
-        /* Return the alpha beta result */
-        return ab_result;
+        /* Unmake the move */
+        unmake_move_internal ();
     } );
+
+    /* Return the alpha beta result */
+    return ab_result;
 }
 
 
@@ -111,91 +104,116 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
 
 /** @name  alpha_beta_iterative_deepening
  * 
- * @brief  Apply an alpha-beta search over a range of depths asynchronously.
- *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+ * @brief  Apply an alpha-beta search over a range of depths.
  *         Specifying an end point could to an early return rather than starting later searches.
  * @param  pc: The color whose move it is next.
  * @param  depths: A list of depth values to search.
  * @param  best_only: If true, the search will be optimised as only the best move is returned.
- * @param  end_flag: An atomic boolean, which when set to true, will end the search.
+ * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
  * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
  * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
- * @return A future to an ab_result_t struct.
+ * @return ab_result_t
  */
-std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const std::vector<int>& depths, const bool best_only, std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first ) const
+chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const std::vector<int>& depths, const bool best_only, std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first )
 {
-    /* Run this function asynchronously.
-     * Be careful with lambda captures so that no references to this object are captured.
-     */
-    return std::async ( std::launch::async, [ cb { copy_and_move_ab_working () }, pc, depths, best_only, &end_flag, end_point, finish_first ] () mutable
+    /* The result of the highest depth complete search, and the result of the latest search */
+    ab_result_t ab_result, latest_ab_result;
+
+    /* Aspiration windows to use */
+    int alpha = -20000, beta = 20000;
+
+    /* An iterator to the currently active depth */
+    auto depth_it = depths.begin ();
+
+    /* A mutex and condition variable to communicate between this and the worker thread */
+    std::mutex search_mx;
+    std::condition_variable search_cv;
+
+    /* Lock the mutex */
+    std::unique_lock controller_lock { search_mx };
+
+    /* Start a thread, which computes the search */
+    std::thread search_thread { [ & ] ()
     {
-        /* The result of the highest depth complete search */
-        ab_result_t ab_result;
-
-        /* Exponents for high and low windows for if previous iteration failed high or low */
-        int low_exponent = 1, high_exponent = 1;
-
-        /* Iterate through the depths */
-        for ( int i = 0; i < depths.size (); ++i )
+        /* Loop while depth_it is valid and end flag is not set */
+        while ( depth_it != depths.end () && !end_flag )
         {
-            /* Store the result */
-            ab_result_t new_ab_result;
+            /* If the depth_it is at the end, or the end flag is true, return */
+            if ( depth_it == depths.end () || end_flag ) return;
 
-            /* Get the aspiration window sized based on whether the previous and this depth are both odd/even or are different */
-            int low_window = 50, high_window = 50;
-            if ( ab_result.depth % 2 == 1 && depths.at ( i ) % 2 == 0 ) low_window  = 100;
-            if ( ab_result.depth % 2 == 0 && depths.at ( i ) % 2 == 1 ) high_window = 100;
+            /* Run the search */
+            ab_result_t new_ab_result = alpha_beta_search ( pc, * depth_it, best_only, end_flag, alpha, beta );
 
-            /* Get the aspiration window to use */
-            const int alpha = ( ab_result.moves.size () ? ab_result.moves.front ().second - std::pow ( low_window,  low_exponent  ) : -20000 );
-            const int beta  = ( ab_result.moves.size () ? ab_result.moves.front ().second + std::pow ( high_window, high_exponent ) : +20000 );
+            /* Lock the mutex */
+            std::unique_lock worker_lock { search_mx };
 
-            /* Start the search */
-            auto new_ab_result_future = cb.alpha_beta_search ( pc, depths.at ( i ), best_only, end_flag, alpha, beta );
+            /* Set the latest reult */
+            latest_ab_result = std::move ( new_ab_result );
 
-            /* Wait for the search to finish or time out. If it times out or is force ended, ensure the end flag is set, wait for the search to finish and break. */
-            if ( new_ab_result_future.wait_until ( i == 0 && finish_first ? chess_clock::time_point::max () : end_point ) != std::future_status::ready || end_flag ) { end_flag = true; new_ab_result_future.wait (); break; }
+            /* Notify the condition variable */
+            search_cv.notify_all ();
 
-            /* Get the new result */
-            new_ab_result = new_ab_result_future.get ();
+            /* If end flag is set, return immediately */
+            if ( end_flag ) return;
 
-            /* Move the ab_working values from the search into cb */
-            cb.ab_working = std::move ( new_ab_result._ab_working );
+            /* Wait on the condition variable */
+            search_cv.wait ( worker_lock );            
+        }
+    } };
 
-            /* Detect an incorrect aspiration window, and whether the search failed high or low. If so, increase the high/low_exponent counters. */
-            if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second <= alpha ) { while ( ab_result.moves.front ().second - std::pow ( low_window,  ++low_exponent  ) > new_ab_result.moves.front ().second ); --i; } else
-            if ( new_ab_result.moves.size () && new_ab_result.moves.front ().second >= beta  ) { while ( ab_result.moves.front ().second + std::pow ( high_window, ++high_exponent ) < new_ab_result.moves.front ().second ); --i; } else
+    /* Iterate through the depths */
+    for ( ; depth_it != depths.end () && !end_flag; ++depth_it )
+    {
+        /* Notify the other thread to continue */
+        search_cv.notify_all ();
 
-            /* Else the search was successful */
-            {
-                /* Reset aspiration window exponents */
-                low_exponent = high_exponent = 1;
+        /* Wait for the search to finish or time out. If cancelled or timed out, break. */
+        if ( search_cv.wait_until ( controller_lock, ( finish_first && depth_it == depths.begin () ? chess_clock::time_point::max () : end_point ) ) == std::cv_status::timeout || end_flag ) break;
 
-                /* Set the latest result */
-                ab_result = std::move ( new_ab_result );
+        /* If there were no possible moves, which will be detected on the shallowest search, set the best result and break */
+        if ( latest_ab_result.moves.empty () ) { ab_result = std::move ( latest_ab_result ); break; }; 
 
-                /* If the latest result is a checkmate for either color, break immediately */
-                if ( ab_result.moves.empty () || ab_result.moves.front ().second >= 10000 ) break;
-            }
+        /* Move the ab_working values from the search into cb */
+        ab_working = std::move ( latest_ab_result._ab_working );
 
-            /* If this is not the last search, get the predicted duration of the next search and cancel it if it will take too long */
-            if ( i != depths.size () - 1 )
-            {
-                /* Get the predicted duration */
-                const chess_clock::duration pred_duration = 
-                    std::chrono::duration_cast<chess_clock::duration> ( std::pow ( new_ab_result.av_moves, depths.at ( i + 1 ) - new_ab_result.depth ) * new_ab_result.duration );
+        /* Detect an incorrect aspiration window, and whether the search failed high or low. If so, increase the high/alpha_exponent counters. */
+        if ( latest_ab_result.moves.front ().second <= alpha ) { alpha *= std::abs ( alpha ); --depth_it; } else
+        if ( latest_ab_result.moves.front ().second >= beta  ) { beta  *= std::abs ( beta  ); --depth_it; } else
 
-                /* Force end the search now if this exceeds the end point */
-                if ( chess_clock::now () + pred_duration > end_point ) break;
-            }
+        /* Else the search was successful */
+        {
+            /* Set the latest result */
+            ab_result = std::move ( latest_ab_result );
+
+            /* If this was the last search, or it is a checkmate for either color, break now */
+            if ( depth_it == depths.end () - 1 || std::abs ( ab_result.moves.front ().second ) >= 10000 ) break;
+
+            /* Set the aspiration window for next search based on whether the this and the next depth are both odd/even or are different */
+            alpha = beta = ab_result.moves.front ().second;
+            if ( * depth_it % 2 == 1 && * ( depth_it + 1 ) % 2 == 0 ) alpha -= 100; else alpha -= 50;
+            if ( * depth_it % 2 == 0 && * ( depth_it + 1 ) % 2 == 1 ) beta  += 100; else beta  += 50;
         }
 
-        /* Copy out ab_working from cb */
-        ab_result._ab_working = std::move ( cb.ab_working );
-        
-        /* Return the result deepest complete search */
-        return ab_result;
-    } );
+        /* If this is not the last search, get the predicted duration of the next search and cancel it if it will take too long */
+        if ( depth_it != depths.end () - 1 )
+        {
+            /* Get the predicted duration. Note that it is defined behaviour to access latest_ab_result.av_moves, depth and duration, since they are either fundamental, or don't have move semantics. */
+            const chess_clock::duration pred_duration = 
+                std::chrono::duration_cast<chess_clock::duration> ( std::pow ( latest_ab_result.av_moves, * ( depth_it + 1 ) - latest_ab_result.depth ) * latest_ab_result.duration );
+
+            /* Force end the search now if this exceeds the end point */
+            if ( chess_clock::now () + pred_duration > end_point ) break;
+        }
+    }
+
+    /* Set end_flag to true, unlock, notify and join */
+    end_flag = true; controller_lock.unlock (); search_cv.notify_all (); search_thread.join ();
+
+    /* Copy out ab_working from cb */
+    ab_result._ab_working = std::move ( ab_working );
+    
+    /* Return the result deepest complete search */
+    return ab_result;
 }
 
 

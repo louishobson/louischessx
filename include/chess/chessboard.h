@@ -708,22 +708,20 @@ public:
 
     /** @name  alpha_beta_search
      * 
-     * @brief  Set up and apply the alpha-beta search asynchronously.
-     *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+     * @brief  Set up and apply the alpha-beta search.
      * @param  pc: The color whose move it is next.
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
-     * @return A future to an ab_result_t struct
+     * @return ab_result_t
      */
-    std::future<chess::chessboard::ab_result_t> alpha_beta_search ( pcolor pc, int depth, bool best_only, const std::atomic_bool& end_flag = false, int alpha = -20000, int beta = +20000 ) const;
+    ab_result_t alpha_beta_search ( pcolor pc, int depth, bool best_only, const std::atomic_bool& end_flag = false, int alpha = -20000, int beta = +20000 );
 
     /** @name  alpha_beta_iterative_deepening
      * 
-     * @brief  Apply an alpha-beta search over a range of depths asynchronously.
-     *         The board state is saved before return, so may be safely modified after returning but before resolution of the future.
+     * @brief  Apply an alpha-beta search over a range of depths.
      *         Specifying an end point could to an early return rather than starting later searches.
      * @param  pc: The color whose move it is next.
      * @param  depths: A list of depth values to search.
@@ -731,12 +729,12 @@ public:
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
-     * @return A future to an ab_result_t struct.
+     * @return ab_result_t
      */
-    std::future<ab_result_t> alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, std::atomic_bool& end_flag,
+    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, std::atomic_bool& end_flag,
         chess_clock::time_point end_point = chess_clock::time_point::max (), 
         bool finish_first = true 
-    ) const;
+    );
 
 
 
