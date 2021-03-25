@@ -38,7 +38,7 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_search
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
      */
-    return std::async ( std::launch::async, [ =, cb { copy_and_move_ab_working () }, &end_flag ] () mutable
+    return std::async ( std::launch::async, [ cb { copy_and_move_ab_working () }, pc, depth, best_only, &end_flag, alpha, beta ] () mutable
     {
         /* Allocate new memory if necessary */
         if ( !cb.ab_working ) cb.ab_working.reset ( new ab_working_t );
@@ -127,7 +127,7 @@ std::future<chess::chessboard::ab_result_t> chess::chessboard::alpha_beta_iterat
     /* Run this function asynchronously.
      * Be careful with lambda captures so that no references to this object are captured.
      */
-    return std::async ( std::launch::async, [ =, cb { copy_and_move_ab_working () }, &end_flag ] () mutable
+    return std::async ( std::launch::async, [ cb { copy_and_move_ab_working () }, pc, depths, best_only, &end_flag, end_point, finish_first ] () mutable
     {
         /* The result of the highest depth complete search */
         ab_result_t ab_result;
