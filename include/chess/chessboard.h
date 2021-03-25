@@ -137,6 +137,17 @@ namespace chess
      * Store and manipulate a bitboard-based chessboard
      */
     class chessboard;
+
+
+
+    /* GAME CONTROLLER CLASS */
+
+    /* class game_controller
+     *
+     * An instance will store and maintain a chess game based on a set of streams communicating over the UCI protocol
+     */
+    class game_controller;
+
 }
 
 
@@ -149,6 +160,9 @@ namespace chess
  */
 class chess::chessboard
 {
+
+    /* Befriend game controller class */
+    friend game_controller;
 
 public:
 
