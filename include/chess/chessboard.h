@@ -130,6 +130,16 @@ namespace chess
 
 
 
+    /* MOVE CLASS */
+    
+    /* class move_t
+     *
+     * Stores a move in a chess game
+     */
+    class move_t;
+
+
+
     /* CHESSBOARD CLASS */
 
     /* class chessboard 
@@ -149,6 +159,85 @@ namespace chess
     class game_controller;
 
 }
+
+
+
+/* MOVE CLASS */
+
+/* Move class */
+class chess::move_t
+{
+public:
+
+    /* CONSTRUCTORS */
+
+    /** @name  default constructor
+     * 
+        * @brief  Constructs an empty move
+        */
+    move_t () noexcept = default;
+
+    /** @name  null move constructor
+     * 
+        * @brief  Constructs a null move.
+        *         It will count as a null move when applied via make_move_internal or unmake_move_internal.
+        *         However make_move will throw if a null move is given.
+        */
+    explicit move_t ( pcolor _pc ) : pc { _pc } {}
+
+    /** @name  full constructor
+     * 
+        * @brief  Construct with all the requied information
+        */
+    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, int _en_passant_pos = 0, bool _check = false, bool _checkmate = false ) noexcept
+        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant_pos { _en_passant_pos }, check { _check }, checkmate { _checkmate }
+    {}
+
+
+
+    /* OPERATORS AND COMPARISON */
+
+    /* Default comparison operator */
+    bool operator== ( const move_t& other ) const noexcept = default;
+
+    /** @name  is_similar
+     * 
+        * @brief  Returns true if another move has the same pc, pt, from and to
+        * @param  other: The other move.
+        * @return boolean
+        */
+    bool is_similar ( const move_t& other ) const noexcept 
+        { return pc == other.pc && pt == other.pt && from == other.from && to == other.to; }
+
+
+
+    /* ATTRIBUTES */
+
+    /* Store the color that moved */
+    pcolor pc = pcolor::no_piece;
+
+    /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
+    ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
+
+    /* Store the initial, final position, en passant position (if applicable; zero means no en passant) */
+    int from = 0, to = 0, en_passant_pos = 0;
+
+    /* Store whether the move causes check or is a checkmate */
+    bool check = false, checkmate = false;
+
+
+
+    /* OTHER METHODS */
+
+    /** @name  is_kingside/queenside_castle
+     * 
+        * @brief  Returns true if this move refers to a kingside or queenside castle
+        * @return boolean
+        */
+    bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
+    bool is_queenside_castle () const noexcept { return pt == ptype::king && from - 2 == to; }
+
+};
 
 
 
@@ -347,81 +436,21 @@ public:
 
 
 
-    /* MOVE CLASS */
+    /* HASHING STRUCT */
 
-    /* Move class */
-    class move_t
+    /* Struct to hash a chessboard or state */
+    struct hash
     {
-    public:
-
-        /* CONSTRUCTORS */
-
-        /** @name  default constructor
+        /** @name  operator ()
          * 
-         * @brief  Constructs an empty move
-         */
-        move_t () noexcept = default;
-
-        /** @name  null move constructor
-         * 
-         * @brief  Constructs a null move.
-         *         It will count as a null move when applied via make_move_internal or unmake_move_internal.
-         *         However make_move will throw if a null move is given.
-         */
-        explicit move_t ( pcolor _pc ) : pc { _pc } {}
-
-        /** @name  full constructor
-         * 
-         * @brief  Construct with all the requied information
-         */
-        move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, int _en_passant_pos = 0, bool _check = false, bool _checkmate = false ) noexcept
-            : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant_pos { _en_passant_pos }, check { _check }, checkmate { _checkmate }
-        {}
-
-
-
-        /* OPERATORS AND COMPARISON */
-
-        /* Default comparison operator */
-        bool operator== ( const move_t& other ) const noexcept = default;
-
-        /** @name  is_similar
-         * 
-         * @brief  Returns true if another move has the same pc, pt, from and to
-         * @param  other: The other move.
-         * @return boolean
-         */
-        bool is_similar ( const move_t& other ) const noexcept 
-            { return pc == other.pc && pt == other.pt && from == other.from && to == other.to; }
-
-
-
-        /* ATTRIBUTES */
-
-        /* Store the color that moved */
-        pcolor pc = pcolor::no_piece;
-
-        /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
-        ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
-
-        /* Store the initial, final position, en passant position (if applicable; zero means no en passant) */
-        int from = 0, to = 0, en_passant_pos = 0;
-
-        /* Store whether the move causes check or is a checkmate */
-        bool check = false, checkmate = false;
-
-
-
-        /* OTHER METHODS */
-
-        /** @name  is_kingside/queenside_castle
-         * 
-         * @brief  Returns true if this move refers to a kingside or queenside castle
-         * @return boolean
-         */
-        bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
-        bool is_queenside_castle () const noexcept { return pt == ptype::king && from - 2 == to; }
-
+            * @brief  Creates a hash for a chessboard
+            * @param  cb: The chessboard or alpha-beta state to hash
+            * @param  mv: The move to hash
+            * @return The hash
+            */
+        std::size_t operator () ( const chessboard& cb ) const chess_validate_throw;
+        std::size_t operator () ( const chessboard::game_state_t& cb ) const noexcept;
+        std::size_t operator () ( const move_t& mv ) const noexcept;
     };
 
 
@@ -451,25 +480,6 @@ public:
 
         /* The best move at this state */
         move_t best_move;
-    };
-
-
-
-    /* HASHING STRUCT */
-
-    /* Struct to hash a chessboard or state */
-    struct hash
-    {
-        /** @name  operator ()
-         * 
-         * @brief  Creates a hash for a chessboard
-         * @param  cb: The chessboard or alpha-beta state to hash
-         * @param  mv: The move to hash
-         * @return The hash
-         */
-        std::size_t operator () ( const chessboard& cb ) const chess_validate_throw;
-        std::size_t operator () ( const game_state_t& cb ) const noexcept;
-        std::size_t operator () ( const move_t& mv ) const noexcept;
     };
 
 
@@ -573,6 +583,14 @@ public:
     void set_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01010000 << cast_penum ( pc ) ); aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_kingside_castle_lost  ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b00010000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_queenside_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01000000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
+
+    /** @name  get_aux_info
+     * 
+     * @brief  Return the current aux info
+     * @return aux_info_t
+     */
+    aux_info_t& get_aux_info () noexcept { return aux_info; };
+    const aux_info_t& get_aux_info () const noexcept { return aux_info; };
 
     /** @name  get_game_state
      * 

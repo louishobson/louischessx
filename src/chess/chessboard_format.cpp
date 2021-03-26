@@ -173,7 +173,7 @@ std::string chess::chessboard::fide_serialize_move ( const move_t& move ) const
  * @param  desc: The description to deserialize
  * @return move_t
  */
-chess::chessboard::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const std::string& desc ) const
+chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const std::string& desc ) const
 {
     /* CASTLING MOVE */
 

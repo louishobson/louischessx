@@ -59,11 +59,21 @@ class chess::game_controller
 {
 public:
 
-    /** default constructor
+    /** @name  default constructor
      *
      * @brief  Construct the game controller with defailt parameters
      */
     game_controller () = default;
+
+
+
+    /** @name  reset_game
+     * 
+     * @brief  Reset the chess game to its initial state.
+     *         Will stop any precomputation that is running.
+     * @return void
+     */
+    void reset_game ();
 
     
 
@@ -78,7 +88,7 @@ public:
         chessboard cb;
 
         /* The move that lead to this state (if any) */
-        chessboard::move_t opponent_move;
+        move_t opponent_move;
 
         /* The player to move */
         pcolor pc;
@@ -141,7 +151,7 @@ public:
     std::atomic_bool search_end_flag;
 
     /* An atomic move_t, which gives the known opponent response to cancel other searches in the search controller */
-    std::atomic<chessboard::move_t> known_opponent_move;
+    std::atomic<move_t> known_opponent_move;
 
     /* A mutex, condition variable, and vector of iterators of elements in active_searches to notify the controller which searches have completed */
     std::mutex search_mx;
@@ -164,7 +174,7 @@ public:
      * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
      * @return An iterator to the search data in active_searches.
      */
-    search_data_it_t start_search ( const chessboard& cb, const chessboard::move_t& mv, pcolor pc, bool direct_response = false );
+    search_data_it_t start_search ( const chessboard& cb, const move_t& mv, pcolor pc, bool direct_response = false );
 
     /** @name  start_precomputation
      * 
@@ -183,9 +193,14 @@ public:
      * @param  oppponent_move: The now known opponent move. Defaults to no move, but if provided will set known_opponent_move which has an effect described by start_precomputation.
      * @return Iterator to a search which was made based on oppponent_move, or one past the end iterator if not found.
      */
-    search_data_it_t stop_precomputation ( const chessboard::move_t& opponent_move = {} );
+    search_data_it_t stop_precomputation ( const move_t& opponent_move = {} );
 
 };
+
+
+
+/* INCLUDE INLINE IMPLEMENTATION */
+#include <chess/game_controller.hpp>
 
 
 

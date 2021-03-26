@@ -33,7 +33,7 @@
  * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
  * @return An iterator to the search data in active_searches.
  */
-chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const chessboard::move_t& mv, const pcolor pc, const bool direct_response )
+chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const move_t& mv, const pcolor pc, const bool direct_response )
 {
     /* Create the search data */
     active_searches.emplace_back ( cb, mv, pc, false );
@@ -83,7 +83,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
     active_searches.clear (); completed_searches.clear (); 
 
     /* Set the end flag to false and the known opponent move to unknown */
-    search_end_flag = false; known_opponent_move = chessboard::move_t {};
+    search_end_flag = false; known_opponent_move = move_t {};
 
     /* Start the new thread */
     search_controller = std::thread { [ this, cb { game_cb }, pc ] () mutable
@@ -152,7 +152,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
  * @param  oppponent_move: The now known opponent move. Defaults to no move, but if provided will set known_opponent_move which has an effect described by start_precomputation.
  * @return Iterator to a search which was made based on oppponent_move, or one past the end iterator if not found.
  */
-chess::game_controller::search_data_it_t chess::game_controller::stop_precomputation ( const chessboard::move_t& opponent_move )
+chess::game_controller::search_data_it_t chess::game_controller::stop_precomputation ( const move_t& opponent_move )
 {
     /* Set known_opponent_move */
     known_opponent_move = opponent_move;
@@ -161,7 +161,7 @@ chess::game_controller::search_data_it_t chess::game_controller::stop_precomputa
     search_end_flag = true; search_cv.notify_all ();
 
     /* Join the controller thread */
-    search_controller.join ();
+    if ( search_controller.joinable () ) search_controller.join ();
 
     /* Try to find an active search based on opponent_move */
     for ( search_data_it_t search_data_it = active_searches.begin (); search_data_it != active_searches.end (); ++search_data_it ) 

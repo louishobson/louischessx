@@ -253,12 +253,12 @@ inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb )
     /* Combine all bitboards into the hash */
     #pragma clang loop unroll ( full )
     #pragma GCC unroll 6
-    for ( int i = 0; i < 6; ++i ) hash_value ^= ( cb.bbs [ i ] [ 0 ] | cb.bbs [ i ] [ 1 ] ).bit_rotl ( i * 8 );
-    hash_value ^= cb.bbs [ 6 ] [ 0 ].bit_rotl ( 48 ) ^ cb.bbs [ 6 ] [ 1 ].bit_rotl ( 56 );
+    for ( ptype pt : ptype_inc_value ) hash_value ^= cb.bb ( pt ).bit_rotl ( cast_penum ( pt ) * 8 );
+    hash_value ^= cb.bb ( pcolor::white ).bit_rotl ( 48 ) ^ cb.bb ( pcolor::black ).bit_rotl ( 56 );
 
     /* Incorporate aux info into hash */
-    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.castling_rights ) };
-    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.double_push_pos ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.get_aux_info ().castling_rights ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.get_aux_info ().double_push_pos ) };
 
     /* Return the hash */
     return hash_value.get_value ();
