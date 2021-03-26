@@ -4,9 +4,9 @@
  * Distributed under MIT licence as a part of the Chess C++ library.
  * For details, see: https://github.com/louishobson/Chess/blob/master/LICENSE
  * 
- * src/chess/game_controller.cpp
+ * src/chess/game_controller_precomputation.cpp
  * 
- * Implementation of include/chess/game_controller.h
+ * Implementation of precomputation methods in include/chess/game_controller.h
  * 
  */
 
@@ -68,7 +68,7 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
 /** @name  start_precomputation
  * 
  * @brief  Start a thread to precompute searches for possible opponent responses. The thread will be stored in search_controller.
- *         Setting controller_end_flag to true then notifying search_cv will cancel all active searches and the controller thread will prompty finish execution.
+ *         Setting search_end_flag to true then notifying search_cv will cancel all active searches and the controller thread will prompty finish execution.
  *         Setting known_opponent_move before doing the above will cause the controller thread to start the search in response to known_opponent_move, or not cancel it if already started. All other searches are cancelled.
  *         The game state will be stored, so can be safely modified after this function returns.
  * @param  pc: The color that searches are made for (based on the possible moves for other)
@@ -83,7 +83,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
     active_searches.clear (); completed_searches.clear (); 
 
     /* Set the end flag to false and the known opponent move to unknown */
-    controller_end_flag = false; known_opponent_move = chessboard::move_t {};
+    search_end_flag = false; known_opponent_move = chessboard::move_t {};
 
     /* Start the new thread */
     search_controller = std::thread { [ this, cb { game_cb }, pc ] () mutable
@@ -108,12 +108,10 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         for ( int i = 0; i < opponent_ab_result.moves.size (); ++i )
         {
             /* Block on the condition variable. Block until there are is another completed search, or the end flag is set */
-            search_cv.wait ( lock, [ this, i ] () { return i < completed_searches.size () || controller_end_flag; } );
-            
-            std::cout << cb.fide_serialize_move ( completed_searches.back ()->opponent_move ) << "\n";
+            search_cv.wait ( lock, [ this, i ] () { return i < completed_searches.size () || search_end_flag; } );
 
             /* If the end flag is set, break */
-            if ( controller_end_flag ) break;
+            if ( search_end_flag ) break;
 
             /* Determine if there are any searches left to start */
             if ( i + num_parallel_searches < opponent_ab_result.moves.size () )
@@ -132,7 +130,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         bool known_move_search_not_started = ( known_opponent_move.load ().pt != ptype::no_piece ); 
 
         /* If the end flag is set, cancel all searches, except if the search is for the known opposing move */
-        if ( controller_end_flag ) for ( search_data_t& search_data : active_searches ) if ( search_data.opponent_move != known_opponent_move ) 
+        if ( search_end_flag ) for ( search_data_t& search_data : active_searches ) if ( search_data.opponent_move != known_opponent_move ) 
             { search_data.end_flag = true; search_data.ab_result_future.wait (); } else known_move_search_not_started = false;
 
         /* If the known move search has not been started, start it now */
@@ -144,4 +142,31 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
             cb.unmake_move_internal ();  
         }
     } };
+}
+
+
+
+/** @name  stop_precomputation
+ * 
+ * @brief  Stop precomputation, if it's running.
+ * @param  oppponent_move: The now known opponent move. Defaults to no move, but if provided will set known_opponent_move which has an effect described by start_precomputation.
+ * @return Iterator to a search which was made based on oppponent_move, or one past the end iterator if not found.
+ */
+chess::game_controller::search_data_it_t chess::game_controller::stop_precomputation ( const chessboard::move_t& opponent_move )
+{
+    /* Set known_opponent_move */
+    known_opponent_move = opponent_move;
+
+    /* Set the end search flag to true and notify */
+    search_end_flag = true; search_cv.notify_all ();
+
+    /* Join the controller thread */
+    search_controller.join ();
+
+    /* Try to find an active search based on opponent_move */
+    for ( search_data_it_t search_data_it = active_searches.begin (); search_data_it != active_searches.end (); ++search_data_it ) 
+        if ( search_data_it->opponent_move == opponent_move ) return search_data_it;
+
+    /* Not found, so return a one past the end iterator */
+    return active_searches.end ();
 }

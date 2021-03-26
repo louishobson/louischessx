@@ -122,7 +122,7 @@ public:
      */
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6, 7 };
-    int num_parallel_searches = 6;
+    int num_parallel_searches = 8;
     chess_clock::duration max_search_duration = std::chrono::seconds { 14 };
     chess_clock::duration max_response_duration = std::chrono::seconds { 10 };
 
@@ -138,7 +138,7 @@ public:
     std::thread search_controller;
 
     /* An atomic boolean acting as an end flag for the entirety of the search controller */
-    std::atomic_bool controller_end_flag;
+    std::atomic_bool search_end_flag;
 
     /* An atomic move_t, which gives the known opponent response to cancel other searches in the search controller */
     std::atomic<chessboard::move_t> known_opponent_move;
@@ -169,13 +169,21 @@ public:
     /** @name  start_precomputation
      * 
      * @brief  Start a thread to precompute searches for possible opponent responses. The thread will be stored in search_controller.
-     *         Setting controller_end_flag to true then notifying search_cv will cancel all active searches and the controller thread will prompty finish execution.
+     *         Setting search_end_flag to true then notifying search_cv will cancel all active searches and the controller thread will prompty finish execution.
      *         Setting known_opponent_move before doing the above will cause the controller thread to start the search in response to known_opponent_move, or not cancel it if already started. All other searches are cancelled.
      *         The game state will be stored, so can be safely modified after this function returns.
      * @param  pc: The color that searches are made for (based on the possible moves for other)
      * @return void
      */
     void start_precomputation ( pcolor pc );
+
+    /** @name  stop_precomputation
+     * 
+     * @brief  Stop precomputation, if it's running.
+     * @param  oppponent_move: The now known opponent move. Defaults to no move, but if provided will set known_opponent_move which has an effect described by start_precomputation.
+     * @return Iterator to a search which was made based on oppponent_move, or one past the end iterator if not found.
+     */
+    search_data_it_t stop_precomputation ( const chessboard::move_t& opponent_move = {} );
 
 };
 
