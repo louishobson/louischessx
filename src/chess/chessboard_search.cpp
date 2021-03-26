@@ -232,8 +232,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* The number of pieces such that if any player has less than this, the game is considered endgame */
     constexpr int ENDGAME_PIECES = 8;
 
-    /* The minimum fd_depth at which an end flag or point cutoff is noticed */
-    constexpr int END_CUTOFF_MIN_BK_DEPTH = 5;
+    /* The maximum bk_depth at which an end flag or point cutoff is noticed */
+    constexpr int END_CUTOFF_MAX_FD_DEPTH = 4;
 
 
 
@@ -496,8 +496,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         /* Add to the number of moves made */
         if ( !q_depth ) ++ab_working->sum_moves; else ++ab_working->sum_q_moves;
 
-        /* If past the end point, return */
-        if ( bk_depth >= END_CUTOFF_MIN_BK_DEPTH && ( end_flag || chess_clock::now () > end_point ) ) return true;
+        /* If end flag is set or past the end point, return true */
+        if ( fd_depth <= END_CUTOFF_MAX_FD_DEPTH && ( end_flag || chess_clock::now () > end_point ) ) return true;
 
         /* If at the root node, add to the root moves. */
         if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move, new_value ) );
