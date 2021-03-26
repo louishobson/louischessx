@@ -458,7 +458,7 @@ public:
     /* TTABLE ENTRY STRUCT */
 
     /* A structure for a ttable entry in alpha-beta search */
-    struct ttable_entry_t
+    struct ab_ttable_entry_t
     {
         /* An enum for whether the ttable entry is exact or an upper or lower bound */
         enum class bound_t { exact, upper, lower };
@@ -505,7 +505,7 @@ public:
         std::vector<std::array<move_t, 2>> killer_moves;
 
         /* The transposition table */
-        std::unordered_map<game_state_t, ttable_entry_t, hash> ttable;
+        std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ttable;
     };
 
 

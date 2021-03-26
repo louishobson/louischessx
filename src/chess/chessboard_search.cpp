@@ -307,7 +307,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     const int orig_alpha = alpha;
 
     /* Find the usability flag to store new ttable entries as */
-    const ttable_entry_t::usability_t ttable_usability = ( fd_depth >= DRAW_MAX_FD_DEPTH ? ttable_entry_t::usability_t::safe : ( DRAW_MAX_FD_DEPTH <= 4 ? ttable_entry_t::usability_t::tainted : ttable_entry_t::usability_t::unsafe ) );
+    const ab_ttable_entry_t::usability_t ttable_usability = ( fd_depth >= DRAW_MAX_FD_DEPTH ? ab_ttable_entry_t::usability_t::safe : ( DRAW_MAX_FD_DEPTH <= 4 ? ab_ttable_entry_t::usability_t::tainted : ab_ttable_entry_t::usability_t::unsafe ) );
 
     /* add to the number of nodes visited */
     if ( bk_depth ) ++ab_working->num_nodes; else { ab_working->sum_q_depth += fd_depth; ++ab_working->num_q_nodes; }
@@ -385,8 +385,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
             /* Check the usability and compare depths */
             if ( bk_depth <= search_it->second.bk_depth  &&
-                 search_it->second.usability != ttable_entry_t::usability_t::unsafe && 
-              !( search_it->second.usability == ttable_entry_t::usability_t::tainted && bk_depth != search_it->second.bk_depth ) )
+                 search_it->second.usability != ab_ttable_entry_t::usability_t::unsafe && 
+              !( search_it->second.usability == ab_ttable_entry_t::usability_t::tainted && bk_depth != search_it->second.bk_depth ) )
             {
                 /* If we are deeper than the value in the ttable, then don't store new values in it */
                 if ( bk_depth < search_it->second.bk_depth ) use_ttable = false;
@@ -395,9 +395,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
                 * If it is a lower bound, modify alpha.
                 * If it is an upper bound, modify beta.
                 */
-                if ( search_it->second.bound == ttable_entry_t::bound_t::exact ) return search_it->second.value;
-                if ( search_it->second.bound == ttable_entry_t::bound_t::lower ) alpha = std::max ( alpha, search_it->second.value ); else
-                if ( search_it->second.bound == ttable_entry_t::bound_t::upper ) beta  = std::min ( beta,  search_it->second.value );
+                if ( search_it->second.bound == ab_ttable_entry_t::bound_t::exact ) return search_it->second.value;
+                if ( search_it->second.bound == ab_ttable_entry_t::bound_t::lower ) alpha = std::max ( alpha, search_it->second.value ); else
+                if ( search_it->second.bound == ab_ttable_entry_t::bound_t::upper ) beta  = std::min ( beta,  search_it->second.value );
 
                 /* Possibly return now on an alpha-beta cutoff */
                 if ( alpha >= beta ) return alpha; 
@@ -535,7 +535,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             }    
 
             /* If is flagged to do so, add to the transposition table as a lower bound */
-            if ( use_ttable ) ab_working->ttable.insert_or_assign ( game_state_history.back (), ttable_entry_t { best_value, bk_depth, ttable_entry_t::bound_t::lower, ttable_usability, best_move } );
+            if ( use_ttable ) ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower, ttable_usability, best_move } );
 
             /* Return */
             return true;
@@ -736,8 +736,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* FINALLY */
 
     /* If is flagged to do so, add to the transposition table */
-    if ( use_ttable ) ab_working->ttable.insert_or_assign ( game_state_history.back (), ttable_entry_t
-        { best_value, bk_depth, ( best_value <= orig_alpha ? ttable_entry_t::bound_t::upper : ttable_entry_t::bound_t::exact ), ttable_usability, best_move } );
+    if ( use_ttable ) ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t
+        { best_value, bk_depth, ( best_value <= orig_alpha ? ab_ttable_entry_t::bound_t::upper : ab_ttable_entry_t::bound_t::exact ), ttable_usability, best_move } );
 
     /* Return the best value */
     return best_value;
