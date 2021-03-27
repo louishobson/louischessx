@@ -580,10 +580,10 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             } else
 
             /* Detect if this is an en passant capture */
-            if ( aux_info.double_push_pos && pt == ptype::pawn && ( to - aux_info.double_push_pos ) == ( pc == pcolor::white ? +8 : -8 ) )
+            if ( pt == ptype::pawn && pc == aux_info.en_passant_color && to == aux_info.en_passant_target )
             {
                 /* Apply the move and return on alpha-beta cutoff */
-                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, aux_info.double_push_pos } ) ) return true;
+                if ( apply_move ( move_t { pc, pt, ptype::pawn, ptype::no_piece, from, to, true } ) ) return true;
             } else
             
             /* Else this is an ordinary move, so try it and return on alpha-beta cutoff */

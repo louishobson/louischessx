@@ -285,7 +285,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     constexpr int BLOCKED_PASSED_PAWNS             { -15 }; // For each blocked passed pawn
     constexpr int STRONG_SQUARES                   {  20 }; // For each strong square (one attacked by a friendly pawn and not an enemy pawn)
     constexpr int BACKWARD_PAWNS                   {  10 }; // For each pawn behind a strong square (see above)
-    constexpr int PASSED_PAWNS_IN_ENDGAME          {  80 }; // For each passed pawn (since may be queened) 
+    constexpr int PASSED_PAWNS                     {  80 }; // For each passed pawn (since may be queened) 
 
 
     /* Sliding pieces */
@@ -763,41 +763,46 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         const bitboard white_pawn_attacks = bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ) | bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw );
         const bitboard black_pawn_attacks = bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se ) | bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw );
 
-        /* Get pawn captures (legal pawn attacks).
-         * Non-pinned pawns can attack without restriction.
-         * Pinned pawns can attack only if they started and ended within a diagonal pin vector.
-         * If in check, ensure that the movements protected the king.
-         */
-        const bitboard white_pawn_captures_e = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::ne ) & white_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::black ) & white_legalize_attacks;
-        const bitboard white_pawn_captures_w = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::nw ) & white_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::black ) & white_legalize_attacks;
-        const bitboard black_pawn_captures_e = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::se ) & black_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
-        const bitboard black_pawn_captures_w = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::sw ) & black_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
-
         /* Get the strong squares.
          * These are the squares attacked by a friendly pawn, but not by an enemy pawn.
          */
         const bitboard white_strong_squares = white_pawn_attacks & ~black_pawn_attacks;
         const bitboard black_strong_squares = black_pawn_attacks & ~white_pawn_attacks;
 
-        /* Look for en passant captures (one bitboard for pc, rather than white and black individually) */
-        const bitboard en_passant_double_push = singleton_bitboard ( aux_info.double_push_pos ).only_if ( aux_info.double_push_pos );
-        bitboard en_passant_captors = bb ( pc, ptype::pawn ) & ( en_passant_double_push.shift ( compass::e ) | en_passant_double_push.shift ( compass::w ) );
+        /* Get pawn captures (legal pawn attacks).
+         * Non-pinned pawns can attack without restriction.
+         * Pinned pawns can attack only if they started and ended within a diagonal pin vector.
+         * If in check, ensure that the movements protected the king.
+         * All en passant captures will be included here, and removed afterwards if they cause check.
+         */
+        bitboard white_pawn_captures_e = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::ne ) & white_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::black ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::white == aux_info.en_passant_color ) ) & white_legalize_attacks;
+        bitboard white_pawn_captures_w = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::nw ) & white_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::black ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::white == aux_info.en_passant_color ) ) & white_legalize_attacks;
+        bitboard black_pawn_captures_e = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::se ) & black_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::white ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::black == aux_info.en_passant_color ) ) & black_legalize_attacks;
+        bitboard black_pawn_captures_w = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::sw ) & black_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::white ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::black == aux_info.en_passant_color ) ) & black_legalize_attacks;
 
-        /* Test each of the en passant captures to ensure the king is not left in check */
-        for ( bitboard en_passant_captors_temp  = en_passant_captors; en_passant_captors_temp; )
+        /* Check white en passant captures don't lead to check */
+        if ( white_pawn_captures_e.test ( aux_info.en_passant_target ) )
         {
-            /* Get the next captor and unset that bit */
-            const int pos = en_passant_captors_temp.trailing_zeros ();
-            en_passant_captors_temp.reset ( pos );
-
-            /* Create and make the move */
-            const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos, 0 };
-            make_move_internal ( ep_move );
-
-            /* If in check or the pawn leaves a pin vector, remove this captor */
-            if ( is_in_check ( pc ) ) en_passant_captors.reset ( pos );
-
-            /* Undo the move */
+            make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target - 9, aux_info.en_passant_target, true } );
+            if ( is_in_check ( pc ) ) white_pawn_captures_e.reset ( aux_info.en_passant_target );
+            unmake_move_internal ();
+        } if ( white_pawn_captures_w.test ( aux_info.en_passant_target ) )
+        {
+            make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target - 7, aux_info.en_passant_target, true } );
+            if ( is_in_check ( pc ) ) white_pawn_captures_w.reset ( aux_info.en_passant_target );
+            unmake_move_internal ();
+        } 
+        
+        /* Check black en passant captures don't lead to check */
+        if ( black_pawn_captures_e.test ( aux_info.en_passant_target ) )
+        {
+            make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target + 7, aux_info.en_passant_target, true } );
+            if ( is_in_check ( pc ) ) black_pawn_captures_e.reset ( aux_info.en_passant_target );
+            unmake_move_internal ();
+        } if ( black_pawn_captures_w.test ( aux_info.en_passant_target ) )
+        {
+            make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target + 9, aux_info.en_passant_target, true } );
+            if ( is_in_check ( pc ) ) black_pawn_captures_w.reset ( aux_info.en_passant_target );
             unmake_move_internal ();
         }
 
@@ -808,8 +813,8 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
         black_partial_defence_union |= black_pawn_attacks;
 
         /* Sum mobility */
-        white_mobility += white_pawn_pushes.popcount () + white_pawn_captures_e.popcount () + white_pawn_captures_w.popcount () + en_passant_captors.only_if ( pc == pcolor::white ).popcount ();
-        black_mobility += black_pawn_pushes.popcount () + black_pawn_captures_e.popcount () + black_pawn_captures_w.popcount () + en_passant_captors.only_if ( pc == pcolor::black ).popcount ();
+        white_mobility += white_pawn_pushes.popcount () + white_pawn_captures_e.popcount () + white_pawn_captures_w.popcount ();
+        black_mobility += black_pawn_pushes.popcount () + black_pawn_captures_e.popcount () + black_pawn_captures_w.popcount ();
 
         /* Incorporate the number of pawns into value */
         value += PAWN * ( bb ( pcolor::white, ptype::pawn ).popcount () - bb ( pcolor::black, ptype::pawn ).popcount () );
@@ -884,11 +889,11 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
             value += BISHOP_OR_KNIGHT_ON_STRONG_SQUARE * ( white_bishop_or_knight_strong_squares.popcount () - black_bishop_or_knight_strong_squares.popcount () );
         }
 
-        /* Incorporate passed pawns in endgame into value */
+        /* Incorporate passed pawns into value */
         {
             const bitboard white_passed_pawns = white_behind_passed_pawns.shift ( compass::n ) & bb ( pcolor::white, ptype::pawn );
             const bitboard black_passed_pawns = black_behind_passed_pawns.shift ( compass::s ) & bb ( pcolor::black, ptype::pawn );
-            value += PASSED_PAWNS_IN_ENDGAME * endgame * ( white_passed_pawns.popcount () - black_passed_pawns.popcount () );
+            value += PASSED_PAWNS * ( white_passed_pawns.popcount () - black_passed_pawns.popcount () );
         }
     }
 

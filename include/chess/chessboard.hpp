@@ -130,7 +130,7 @@ inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other
 inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
 {
     /* Compare and return. The games do not have to have the same history. */
-    return ( ( bbs == other.bbs ) && ( aux_info.castling_rights == other.aux_info.castling_rights ) && ( aux_info.castling_rights == other.aux_info.double_push_pos ) );
+    return ( bbs == other.bbs ) && ( aux_info.castling_rights == other.aux_info.castling_rights ) && ( aux_info.en_passant_target == other.aux_info.en_passant_target ) && ( aux_info.en_passant_color == other.aux_info.en_passant_color );
 }
 
 /** @name  copy_with_ab_working
@@ -257,8 +257,9 @@ inline std::size_t chess::chessboard::hash::operator () ( const chessboard& cb )
     hash_value ^= cb.bb ( pcolor::white ).bit_rotl ( 48 ) ^ cb.bb ( pcolor::black ).bit_rotl ( 56 );
 
     /* Incorporate aux info into hash */
-    hash_value ^= bitboard { static_cast<unsigned> ( cb.get_aux_info ().castling_rights ) };
-    hash_value ^= bitboard { static_cast<unsigned> ( cb.get_aux_info ().double_push_pos ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.castling_rights   ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.en_passant_target ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.en_passant_color  ) };
 
     /* Return the hash */
     return hash_value.get_value ();
@@ -277,8 +278,9 @@ inline std::size_t chess::chessboard::hash::operator () ( const game_state_t& cb
     for ( int i = 0; i < 8; ++i ) hash_value ^= cb.bbs [ i ].bit_rotl ( i * 8 );
 
     /* Incorporate aux info into hash */
-    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.castling_rights ) };
-    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.double_push_pos ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.castling_rights   ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.en_passant_target ) };
+    hash_value ^= bitboard { static_cast<unsigned> ( cb.aux_info.en_passant_color  ) };
 
     /* Return the hash */
     return hash_value.get_value ();

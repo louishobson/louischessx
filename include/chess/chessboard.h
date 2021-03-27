@@ -189,8 +189,8 @@ public:
      * 
         * @brief  Construct with all the requied information
         */
-    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, int _en_passant_pos = 0, bool _check = false, bool _checkmate = false ) noexcept
-        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant_pos { _en_passant_pos }, check { _check }, checkmate { _checkmate }
+    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, bool _en_passant = false, bool _check = false, bool _checkmate = false ) noexcept
+        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant { _en_passant }, check { _check }, checkmate { _checkmate }
     {}
 
 
@@ -219,21 +219,29 @@ public:
     /* Store the piece type that moved, the type that will be captured, and the promoted type if applicable */
     ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
 
-    /* Store the initial, final position, en passant position (if applicable; zero means no en passant) */
-    int from = 0, to = 0, en_passant_pos = 0;
+    /* Store the initial, final position */
+    int from = 0, to = 0;
 
-    /* Store whether the move causes check or is a checkmate */
-    bool check = false, checkmate = false;
+    /* Store whether the move is an en passant capture, causes check or is a checkmate */
+    bool en_passant = false, check = false, checkmate = false;
 
 
 
     /* OTHER METHODS */
 
+    /** @name  en_passant_capture_pos
+     * 
+     * @brief  Assuming this is an en passant capture, get the position of the captured pawn
+     *         Given by the rank of departure and the field of destination.
+     * @return int
+     */
+    int en_passant_capture_pos () const noexcept { return ( from / 8 ) * 8 + ( to % 8 ); }
+
     /** @name  is_kingside/queenside_castle
      * 
-        * @brief  Returns true if this move refers to a kingside or queenside castle
-        * @return boolean
-        */
+     * @brief  Returns true if this move refers to a kingside or queenside castle
+     * @return boolean
+     */
     bool is_kingside_castle  () const noexcept { return pt == ptype::king && from + 2 == to; }
     bool is_queenside_castle () const noexcept { return pt == ptype::king && from - 2 == to; }
 
@@ -330,12 +338,12 @@ public:
          */
         unsigned castling_rights = 0b11110000;
 
-        /* Double push position:
-         * The position of the pawn which double pushed in the previous move.
-         * If there is no such pawn, the value is 0.
+        /* En passant target position and color:
+         * The position behind the pawn which double pushed in the previous move, and the color which can capture that pawn.
+         * If there is no such pawn, the target is 0, and color is no_piece.
          * This is used to determine whether an en passant capture is allowed.
          */
-        int double_push_pos = 0;
+        int en_passant_target = 0; pcolor en_passant_color = pcolor::no_piece;
 
         /* Default comparison operator */
         bool operator== ( const aux_info_t& other ) const noexcept = default;

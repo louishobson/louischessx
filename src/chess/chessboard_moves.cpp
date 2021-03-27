@@ -35,18 +35,15 @@ void chess::chessboard::check_move_is_valid ( const move_t& move )
     /* Check that the move is legal */
     if ( !get_move_set ( move.pc, move.pt, move.from, get_check_info ( move.pc ) ).test ( move.to ) ) throw std::runtime_error { "Illegal move final position in check_move_is_valid ()." };
 
-    /* Get whether this move is an en passant capture */
-    if ( aux_info.double_push_pos && move.pt == ptype::pawn && move.to - aux_info.double_push_pos == ( move.pc == pcolor::white ? +8 : -8 ) ) 
+    /* Check, if the move is en passant, that it is valid */
+    if ( move.en_passant ) 
     {
         /* Check that the capture type and en passant pos is correct */
-        if ( move.capture_pt != ptype::pawn || move.en_passant_pos != aux_info.double_push_pos ) throw std::runtime_error { "Invalid capture type or en passant pos (expected en passant) in check_move_is_valid ()." };
+        if ( move.pt != ptype::pawn || move.capture_pt != ptype::pawn || move.pc != aux_info.en_passant_color || move.to != aux_info.en_passant_target ) throw std::runtime_error { "Invalid capture type or en passant pos (expected en passant) in check_move_is_valid ()." };
     } else
 
     /* Else this is not an en passant capture */
     {
-        /* En passant pos should be 0 */
-        if ( move.en_passant_pos ) throw std::runtime_error { "Invalid en passant pos (unexpected en passant) in check_move_is_valid ()." };
-
         /* Get if this move is a capture */
         if ( ptype exp_capture_pt = find_type ( other_color ( move.pc ), move.to ); exp_capture_pt != ptype::no_piece )
         {
@@ -98,8 +95,8 @@ void chess::chessboard::make_move_internal ( const move_t& move )
     /* Get the aux info */
     const aux_info_t aux = aux_info;
 
-    /* Set the double push pos to zero (will be overriden if this is a pawn double push) */
-    aux_info.double_push_pos = 0; 
+    /* Set the en passant target and color to zero and no_piece (will be overriden if this is a pawn double push) */
+    aux_info.en_passant_target = 0; aux_info.en_passant_color = pcolor::no_piece;
 
     /* If this is a null move, add to the history, sanity check and return */
     if ( move.pt == ptype::no_piece )
@@ -118,10 +115,10 @@ void chess::chessboard::make_move_internal ( const move_t& move )
     get_bb ( move.pc, move.pt ).set ( move.to ); 
 
     /* Check if this is an en passant capture, and remove the pawn */
-    if ( move.en_passant_pos )
+    if ( move.en_passant )
     {
-        get_bb ( other_color ( move.pc ) ).reset              ( move.en_passant_pos );
-        get_bb ( other_color ( move.pc ), ptype::pawn ).reset ( move.en_passant_pos );
+        get_bb ( other_color ( move.pc ) ).reset              ( move.en_passant_capture_pos () );
+        get_bb ( other_color ( move.pc ), ptype::pawn ).reset ( move.en_passant_capture_pos () );
     } else
 
     /* Else if this is a normal capture, remove any captured pieces */
@@ -171,10 +168,9 @@ void chess::chessboard::make_move_internal ( const move_t& move )
         get_bb ( move.pc, ptype::pawn ).reset   ( move.to );
     }
 
-    /* If this move is a pawn double push, set double_push_pos to the final position of this pawn.
-     * | to - from | == 16 if the move is a double push.
-     */
-    if ( move.pt == ptype::pawn && std::abs ( move.to - move.from ) == 16 ) aux_info.double_push_pos = move.to;
+    /* If this move is a pawn double push, set the en passant target square and color */
+    if ( move.pt == ptype::pawn && move.to - move.from == +16 ) { aux_info.en_passant_target = move.to - 8; aux_info.en_passant_color = pcolor::black; } else
+    if ( move.pt == ptype::pawn && move.to - move.from == -16 ) { aux_info.en_passant_target = move.to + 8; aux_info.en_passant_color = pcolor::white; }
 
     /* Push the new state to the history */
     game_state_history.emplace_back ( * this, other_color ( move.pc ) );
@@ -331,26 +327,22 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
     /* If is on a straight pin vector, cannot be a valid pawn attack */
     if ( pawn.is_disjoint ( check_info.straight_pin_vectors ) )
     {
-        /* Get the attacks, and ensure that they protected the king */
-        bitboard attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n ( bb ( other_color ( pc ) ) ) : pawn.pawn_any_attack_s ( bb ( other_color ( pc ) ) ) ) & check_info.check_vectors_dep_check_count;
+        /* Get the general attacks */
+        bitboard attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
 
-        /* Look for an en passant opportunity. 
-         * There must have been a double pushed pawn on the previous move.
-         * The pawns must be adjacent and on the same rank.
-         */
-        if ( aux_info.double_push_pos && std::abs ( pos - aux_info.double_push_pos ) == 1 && pos / 8 == aux_info.double_push_pos / 8 ) 
-        {
-            /* Create a move for the en passant capture */
-            const move_t ep_move { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.double_push_pos + ( pc == pcolor::white ? +8 : -8 ), aux_info.double_push_pos }; 
-
-            /* Only add the en passant capture to the attack set if making the capture does not leave the king in check */
-            make_move_internal ( ep_move );
-            if ( !is_in_check ( pc ) ) attacks |= singleton_bitboard ( ep_move.to );
-            unmake_move_internal ();
-        }
+        /* Reduce to legal attacks */
+        attacks &= bb ( other_color ( pc ) ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pc == aux_info.en_passant_color ) & check_info.check_vectors_dep_check_count;
 
         /* If is on a diagonal pin vector, ensure the captures stayed on the pin vector */
         if ( pawn & check_info.diagonal_pin_vectors ) attacks &= check_info.diagonal_pin_vectors;
+
+        /* If an en passant capture seems possible, remove it if it leave the king in check */
+        if ( attacks.test ( aux_info.en_passant_target ) ) 
+        {
+            make_move_internal ( move_t { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.en_passant_target, true } );
+            if ( is_in_check ( pc ) ) attacks.reset ( aux_info.en_passant_target );
+            unmake_move_internal ();
+        }
 
         /* Union moves */
         moves |= attacks;                
