@@ -275,9 +275,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     const check_info_t check_info = get_check_info ( pc );
 
     /* Throw if the opposing king is in check */
-#if CHESS_VALIDATE
     if ( is_in_check ( npc ) ) throw std::runtime_error { "Opposing color is in check in alpha_beta_search_internal ()." };
-#endif
 
     /* Get king position */
     const int king_pos = bb ( pc, ptype::king ).trailing_zeros ();

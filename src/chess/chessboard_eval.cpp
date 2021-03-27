@@ -340,9 +340,7 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     const check_info_t black_check_info = get_check_info ( pcolor::black );
 
     /* Throw if opposing color is in check */
-#if CHESS_VALIDATE
-    if ( pc == pcolor::white ? black_check_info.check_count : white_check_info.check_count ) [[ unlikely ]] throw std::runtime_error { "Opposing color is in check in evaluate ()." };
-#endif
+    if ( pc == pcolor::white ? black_check_info.check_count : white_check_info.check_count ) throw std::runtime_error { "Opposing color is in check in evaluate ()." };
 
     /* Get king positions */
     const int white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros ();
