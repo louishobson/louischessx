@@ -101,8 +101,8 @@ void chess::chessboard::make_move_internal ( const move_t& move )
     /* If this is a null move, add to the history, sanity check and return */
     if ( move.pt == ptype::no_piece )
     {
-        game_state_history.emplace_back ( * this, other_color ( move.pc ) );
-        sanity_check_bbs ( other_color ( move.pc ) );
+        game_state_history.emplace_back ( * this, move.pc );
+        sanity_check_bbs ( move.pc );
         return;
     }
 
@@ -173,10 +173,10 @@ void chess::chessboard::make_move_internal ( const move_t& move )
     if ( move.pt == ptype::pawn && move.to - move.from == -16 ) { aux_info.en_passant_target = move.to + 8; aux_info.en_passant_color = pcolor::white; }
 
     /* Push the new state to the history */
-    game_state_history.emplace_back ( * this, other_color ( move.pc ) );
+    game_state_history.emplace_back ( * this, move.pc );
 
     /* Sanity check */
-    sanity_check_bbs ( other_color ( move.pc ) );
+    sanity_check_bbs ( move.pc );
 }
 
 /** @name  unmake_move_internal
@@ -331,7 +331,7 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
         bitboard attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
 
         /* Reduce to legal attacks */
-        attacks &= bb ( other_color ( pc ) ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pc == aux_info.en_passant_color ) & check_info.check_vectors_dep_check_count;
+        attacks &= ( bb ( other_color ( pc ) ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pc == aux_info.en_passant_color ) ) & check_info.check_vectors_dep_check_count;
 
         /* If is on a diagonal pin vector, ensure the captures stayed on the pin vector */
         if ( pawn & check_info.diagonal_pin_vectors ) attacks &= check_info.diagonal_pin_vectors;
@@ -497,10 +497,10 @@ chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, const ch
  * @brief  Sanity check the bitboards describing the board state. 
  *         If any cell is occupied by multiple pieces, or ptype::any_piece bitboards are not correct, an exception is thrown.
  *         Does nothing if CHESS_VALIDATE is not set to true.
- * @param  _pc: The player whose move it is
+ * @param  _last_pc: The player who last moved
  * @return void
  */
-void chess::chessboard::sanity_check_bbs ( const pcolor _pc ) const chess_validate_throw
+void chess::chessboard::sanity_check_bbs ( const pcolor _last_pc ) const chess_validate_throw
 {
     /* Only if validation is enabled */
 #if CHESS_VALIDATE
@@ -534,7 +534,7 @@ void chess::chessboard::sanity_check_bbs ( const pcolor _pc ) const chess_valida
     }
 
     /* Check the most recent history is correct */
-    if ( game_state_t { * this, _pc } != game_state_history.back () ) throw std::runtime_error { "Sanity check failed." };
+    if ( game_state_t { * this, _last_pc } != game_state_history.back () ) throw std::runtime_error { "Sanity check failed." };
 
 #endif
 }

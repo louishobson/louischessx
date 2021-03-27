@@ -91,7 +91,7 @@ inline chess::chessboard::chessboard ()
     /* Default initialize all non-static attributes */
 {
     /* Set the initial history */
-    game_state_history.push_back ( get_game_state ( pcolor::white ) ); 
+    game_state_history.push_back ( get_game_state ( pcolor::no_piece ) ); 
 }
 
 /** @name  copy constructor
@@ -218,9 +218,9 @@ inline chess::ptype chess::chessboard::find_type ( const pcolor pc, const int po
  * 
  * @brief  Construct from a chessboard state
  * @param  cb: The chessboard to construct from
- * @param  _pc: The player who's move it is next
+ * @param  _last_pc: The player who last moved (to lead to this state)
  */
-inline chess::chessboard::game_state_t::game_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw : pc ( _pc ), bbs 
+inline chess::chessboard::game_state_t::game_state_t ( const chessboard& cb, pcolor _last_pc ) chess_validate_throw : last_pc ( _last_pc ), bbs 
 {
     cb.bb ( pcolor::white ),
     cb.bb ( pcolor::black ),
@@ -269,8 +269,8 @@ inline std::size_t chess::chessboard::hash::operator () ( const game_state_t& cb
     /* Set the hash to a random integer initially */
     bitboard hash_value { 0xcf4c987a6b0979 };
 
-    /* Incorporate pc into hash */
-    hash_value ^= bitboard { static_cast<unsigned> ( cast_penum ( cb.pc ) ) };
+    /* Incorporate last_pc into hash */
+    hash_value ^= bitboard { static_cast<unsigned> ( cast_penum ( cb.last_pc ) ) };
 
     /* Combine all bitboards into the hash */
     #pragma clang loop unroll ( full )

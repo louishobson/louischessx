@@ -398,9 +398,9 @@ public:
          * 
          * @brief  Construct from a chessboard state
          * @param  cb: The chessboard to construct from
-         * @param  _pc: The player whose move it is next
+         * @param  _last_pc: The player who last moved (in order to give this state)
          */
-        game_state_t ( const chessboard& cb, pcolor _pc ) chess_validate_throw;
+        game_state_t ( const chessboard& cb, pcolor _last_pc ) chess_validate_throw;
 
 
         
@@ -431,8 +431,8 @@ public:
 
         /* ATTRIBUTES */
 
-        /* Which player's turn it is */
-        pcolor pc;
+        /* The player who last moved (to lead to this state) */
+        pcolor last_pc = pcolor::no_piece;
 
         /* Bitboards to store the state */
         std::array<bitboard, 8> bbs;
@@ -603,10 +603,10 @@ public:
     /** @name  get_game_state
      * 
      * @brief  Create a game_state_t struct for the current board
-     * @param  pc: The player whose move it is now
+     * @param  last_pc: The player whose who last moved (to lead to this state)
      * @return game_state_t
      */
-    game_state_t get_game_state ( pcolor pc ) const noexcept { return game_state_t { * this, pc }; };
+    game_state_t get_game_state ( pcolor last_pc ) const noexcept { return game_state_t { * this, last_pc }; };
 
 
 
@@ -803,6 +803,11 @@ public:
      */
     std::string simple_format_board () const;
 
+    /** @name  fen_serialize_board
+     * 
+     * @brief  Serialize the board based on Forsyth–Edwards notation
+     * @param  
+
     /** @name  fide_serialize_move
      * 
      * @brief  Take a move valid for this position and serialize it based on the FIDE standard
@@ -930,10 +935,10 @@ private:
      * @brief  Sanity check the bitboards describing the board state. 
      *         If any cell is occupied by multiple pieces, or ptype::any_piece bitboards are not correct, an exception is thrown.
      *         Does nothing if CHESS_VALIDATE is not set to true.
-     * @param  _pc: The player whose move it is
+     * @param  _last_pc: The player who last moved
      * @return void
      */
-    void sanity_check_bbs ( pcolor _pc ) const chess_validate_throw;
+    void sanity_check_bbs ( pcolor _last_pc ) const chess_validate_throw;
 
 };
 
