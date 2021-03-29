@@ -656,7 +656,7 @@ public:
      * @param  pc: The color whose move it is next
      * @return Integer value, positive for pc, negative for not pc
      */
-    chess_hot int evaluate ( pcolor pc ) chess_validate_throw;
+    chess_hot int evaluate ( pcolor pc );
 
 
 
@@ -775,9 +775,12 @@ public:
      * @brief  Determines the color of piece at a board position.
      *         Note: an out of range position leads to undefined behavior.
      * @param  pos: Board position
+     * @param  rank: The rank of the position
+     * @param  file: The file of the position
      * @return One of pcolor
      */
     pcolor find_color ( int pos ) const chess_validate_throw;
+    pcolor find_color ( int rank, int file ) const chess_validate_throw { return find_color ( rank * 8 + file ); }
 
     /** @name  find_type
      * 
@@ -785,11 +788,12 @@ public:
      *         Note: an out of range position leads to undefined behavior.
      * @param  pc:  The known piece color
      * @param  pos: Board position
-     * @param  pos_bb: Singleton bitboard
+     * @param  rank: The rank of the position
+     * @param  file: The file of the position
      * @return One of ptype
      */
     ptype find_type ( pcolor pc, int pos ) const chess_validate_throw;
-    ptype find_type ( pcolor pc, bitboard pos_bb ) const chess_validate_throw;
+    ptype find_type ( pcolor pc, int rank, int file ) const chess_validate_throw { return find_type ( pc, rank * 8 + file ); }
 
 
 
@@ -806,7 +810,10 @@ public:
     /** @name  fen_serialize_board
      * 
      * @brief  Serialize the board based on Forsyth–Edwards notation
-     * @param  
+     * @param  pc: The color who's turn it is next
+     * @return string
+     */
+    std::string fen_serialize_board ( pcolor pc ) const;
 
     /** @name  fide_serialize_move
      * 
@@ -828,10 +835,6 @@ public:
 
 
 private:
-
-    /* PRIVATE TYPES */
-
-
 
     /* ATTRIBUTES */
 

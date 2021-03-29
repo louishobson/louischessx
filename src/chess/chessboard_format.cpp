@@ -63,31 +63,114 @@ chess::ptype chess::chessboard::character_to_ptype ( char c ) noexcept
 std::string chess::chessboard::simple_format_board () const
 {
     /* Add to string one bit at a time.
-     * i ^ 56 changes the endianness of i, such that the top row is read first.
+     * pos ^ 56 changes the endianness of pos, such that the top row is read first.
      * Multiplying by 2 skips the spaces inbetween cells.
      */
     std::string out ( 128, ' ' );
-    for ( int i = 0; i < 64; ++i ) 
+    for ( int pos = 0; pos < 64; ++pos ) 
     {
         /* Get the piece color */
-        const pcolor pc = find_color ( i ^ 56 ); 
+        const pcolor pc = find_color ( pos ^ 56 ); 
 
         /* If there is no piece, output a dot, otherwise find the correct character to output */
-        if ( pc == pcolor::no_piece ) out [ i * 2 ] = '.'; else
+        if ( pc == pcolor::no_piece ) out.at ( pos * 2 ) = '.'; else
         {
             /* Find the type */
-            const ptype pt = find_type ( pc, i ^ 56 );
+            const ptype pt = find_type ( pc, pos ^ 56 );
             
             /* Add the right character */
-            out [ i * 2 ] = ptype_to_character ( pt );
-            if ( pc == pcolor::black ) out [ i * 2 ] = std::tolower ( out [ i * 2 ] );
+            out.at ( pos * 2 ) = ptype_to_character ( pt );
+            if ( pc == pcolor::black ) out.at ( pos * 2 ) = std::tolower ( out.at ( pos * 2 ) );
         }
     
         /* Possibly add a newline */
-        if ( ( i & 7 ) == 7 ) out [ i * 2 + 1 ] = '\n';
+        if ( ( pos & 7 ) == 7 ) out.at ( pos * 2 + 1 ) = '\n';
     };
 
     /* Return the formatted string */
+    return out;
+}
+
+
+
+/* FEN BOARD SERIALIZATION */
+
+
+
+/** @name  fen_serialize_board
+ * 
+ * @brief  Serialize the board based on Forsyth–Edwards notation
+ * @param  pc: The color who's turn it is next
+ * @return string
+ */
+std::string chess::chessboard::fen_serialize_board ( const pcolor pc ) const
+{
+    /* Create the output string */
+    std::string out;
+
+    /* Iterate for each rank, top to bottom */
+    for ( int rank = 7; rank >= 0; --rank ) 
+    {
+        /* Store the number of consecutive empty cells on this rank */
+        int empty = 0;
+
+        /* Iterate through the files */
+        for ( int file = 0; file < 8; ++file )
+        {
+            /* Get the piece color at this position */
+            const pcolor this_pc = find_color ( rank, file );
+
+            /* If there is no piece at the position, increment empty */
+            if ( this_pc == pcolor::no_piece ) ++empty; else
+            {
+                /* Else there is a piece. Firstly if empty != 0, output its value and set it to 0. */
+                if ( empty ) { out += std::to_string ( empty ); empty = 0; }
+
+                /* Get the type of piece and output the character for this position */
+                out += ptype_to_character ( find_type ( this_pc, rank, file ) );
+
+                /* If the color of the piece is back, set the character to lowercase */
+                if ( this_pc == pcolor::black ) out.back () = std::tolower ( out.back () );
+            }
+        }
+
+        /* If empty != 0, output its value */
+        if ( empty ) out += std::to_string ( empty );
+
+        /* Output a slash if this is not the last rank, otherwise just a space */
+        if ( rank ) out += "/"; else out += " ";
+    }
+
+    /* Add a character for who's turn it is next */
+    if ( pc == pcolor::white ) out += "w "; else out += "b ";
+
+    /* If neither side has caslting rights, put a dash next */
+    if ( !has_any_castling_rights ( pcolor::white ) && !has_any_castling_rights ( pcolor::black ) ) out += "- "; else
+    {
+        /* Else add the castling rights */
+        if ( has_kingside_castling_rights  ( pcolor::white ) ) out += "K";
+        if ( has_queenside_castling_rights ( pcolor::white ) ) out += "Q";
+        if ( has_kingside_castling_rights  ( pcolor::black ) ) out += "k";
+        if ( has_queenside_castling_rights ( pcolor::black ) ) out += "q";
+
+        /* Add a space */
+        out += " ";
+    }
+
+    /* If there is not an en passant target sqaure, output a dash */
+    if ( !aux_info.en_passant_target ) out += "- "; else
+    {
+        /* Else output the en passant target square */
+        out += bitboard::name_cell ( aux_info.en_passant_target ) + " ";
+    }
+
+    /* TODO: Implement half-move clock since last capture or pawn push */
+    out += "0 ";
+
+    /* Add the fullmove mumber */
+    out += std::to_string ( ( game_state_history.size () - 1 ) / 2 + 1 );
+
+    /* Return out */
     return out;
 }
 

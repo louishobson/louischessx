@@ -111,11 +111,6 @@ chess::chessboard::check_info_t chess::chessboard::get_check_info ( pcolor pc ) 
 
     /* KING, KNIGHTS AND PAWNS */
 
-    /* Throw if kings are adjacent (this should never occur) */
-#if CHESS_VALIDATE
-    if ( bitboard::king_attack_lookup ( king_pos ) & bb ( npc, ptype::king ) ) [[ unlikely ]] throw std::runtime_error { "Adjacent king found in check_info ()." };
-#endif
-
     /* Add checking knights */
     check_info.check_vectors |= bitboard::knight_attack_lookup ( king_pos ) & bb ( npc, ptype::knight );
 
@@ -238,7 +233,7 @@ bool chess::chessboard::is_protected ( pcolor pc, int pos ) const chess_validate
  * @param  pc: The color who's move it is next
  * @return Integer value, positive for pc, negative for not pc
  */
-int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
+int chess::chessboard::evaluate ( pcolor pc )
 {
     /* TERMINOLOGY */
 
@@ -338,9 +333,6 @@ int chess::chessboard::evaluate ( pcolor pc ) chess_validate_throw
     /* Get the check info */
     const check_info_t white_check_info = get_check_info ( pcolor::white );
     const check_info_t black_check_info = get_check_info ( pcolor::black );
-
-    /* Throw if opposing color is in check */
-    if ( pc == pcolor::white ? black_check_info.check_count : white_check_info.check_count ) throw std::runtime_error { "Opposing color is in check in evaluate ()." };
 
     /* Get king positions */
     const int white_king_pos = bb ( pcolor::white, ptype::king ).trailing_zeros ();
