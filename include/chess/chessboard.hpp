@@ -65,15 +65,15 @@ inline void chess::check_penum ( const pcolor pc, const ptype pt ) chess_validat
 {
     /* Only if validation is enabled */
 #if CHESS_VALIDATE
-    if ( pc == pcolor::no_piece ) throw std::runtime_error { "Recieved a piece color of no_piece where no_piece is not acceptable" };
-    if ( pt == ptype::no_piece  ) throw std::runtime_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
+    if ( pc == pcolor::no_piece ) throw chess_internal_error { "Recieved a piece color of no_piece where no_piece is not acceptable" };
+    if ( pt == ptype::no_piece  ) throw chess_internal_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
 #endif
 }
 inline void chess::check_penum ( const ptype pt ) chess_validate_throw
 {
     /* Only if validation is enabled */
 #if CHESS_VALIDATE
-    if ( pt == ptype::no_piece  ) throw std::runtime_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
+    if ( pt == ptype::no_piece  ) throw chess_internal_error { "Recieved a piece type of no_piece where no_piece is not acceptable" };
 #endif
 }
 

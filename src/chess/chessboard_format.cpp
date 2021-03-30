@@ -174,6 +174,18 @@ std::string chess::chessboard::fen_serialize_board ( const pcolor pc ) const
     return out;
 }
 
+/** @name  fen_deserialize_board
+ * 
+ * @brief  Deserialize a string based on Forsyth–Edwards notation, and replace this board with it.
+ *         The game history will be emptied, and this state will be considered the opening state.
+ * @param  desc: The board description
+ * @return void
+ */
+void chess::chessboard::fen_deserialize_board ( const std::string& desc )
+{
+
+}
+
 
 
 /* FIDE MOVE SERIALIZATION */
@@ -278,8 +290,8 @@ chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const 
     std::regex move_regex { "^" "([PNBRQK]?)" "([a-h]?)([1-8]?)" "(?=.*?[a-h][1-8])" "(x?)" "([a-h][1-8])" "[=/]?([NBRQ]?)" };
 
     /* Run the search, throw if no matches were found */
-    std::smatch move_match; ;
-    if ( !std::regex_search ( desc, move_match, move_regex ) ) throw std::runtime_error { "Could not format move description in fide_deserialize_move ()." };
+    std::smatch move_match;
+    if ( !std::regex_search ( desc, move_match, move_regex ) ) throw chess_input_error { "Could not format move description in fide_deserialize_move ()." };
 
 
 
@@ -332,10 +344,10 @@ chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const 
     }
 
     /* If from_bb is empty, throw */
-    if ( from_bb.is_empty () ) throw std::runtime_error { "Could not find a matching departure position in fide_deserialize_move ()." };
+    if ( from_bb.is_empty () ) throw chess_input_error { "Could not find a matching departure position in fide_deserialize_move ()." };
 
     /* If from_bb is not a singleton, throw */
-    if ( !from_bb.is_singleton () ) throw std::runtime_error { "Could not find a unique departure position in fide_deserialize_move ()." };
+    if ( !from_bb.is_singleton () ) throw chess_input_error { "Could not find a unique departure position in fide_deserialize_move ()." };
 
     /* Set the departure position */
     move.from = from_bb.trailing_zeros ();
@@ -345,15 +357,15 @@ chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const 
     /* VALIDATION */
 
     /* Throw if a capture char is not given when required, or given when not required */
-    if ( move.capture_pt != ptype::no_piece && !capture_char ) throw std::runtime_error { "Expected a capture character, 'x', in fide_deserialize_move ()." }; 
-    if ( move.capture_pt == ptype::no_piece &&  capture_char ) throw std::runtime_error { "Receieved an unexpected capture character, 'x', in fide_deserialize_move ()." }; 
+    if ( move.capture_pt != ptype::no_piece && !capture_char ) throw chess_input_error { "Expected a capture character, 'x', in fide_deserialize_move ()." }; 
+    if ( move.capture_pt == ptype::no_piece &&  capture_char ) throw chess_input_error { "Receieved an unexpected capture character, 'x', in fide_deserialize_move ()." }; 
 
     /* Get if a promotion type is required */
     const bool promote_pt_required = ( move.pt == ptype::pawn && ( move.pc == pcolor::white ? move.to >= 56 : move.to < 8 ) );
 
     /* Throw if a promotion type is not given when required, or one is given when not required */
-    if (  promote_pt_required && move.promote_pt == ptype::no_piece ) throw std::runtime_error { "Expected promotion type (move is a promotion) in fide_deserialize_move ()." };
-    if ( !promote_pt_required && move.promote_pt != ptype::no_piece ) throw std::runtime_error { "Unexpected promotion type (move should not promote) in fide_deserialize_move ()." };
+    if (  promote_pt_required && move.promote_pt == ptype::no_piece ) throw chess_input_error { "Expected promotion type (move is a promotion) in fide_deserialize_move ()." };
+    if ( !promote_pt_required && move.promote_pt != ptype::no_piece ) throw chess_input_error { "Unexpected promotion type (move should not promote) in fide_deserialize_move ()." };
 
 
 

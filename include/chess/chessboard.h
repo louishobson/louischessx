@@ -130,6 +130,22 @@ namespace chess
 
 
 
+    /* CHESS EXCEPTION STRUCTS */
+
+    /* struct chess_input_error
+     *
+     * Thrown by chess methods when input is invalid. The board is always left in the same state as before the method was called, if this exception is thrown.
+     */
+    struct chess_input_error;
+
+    /* struct chess_internal_error
+     *
+     * Thrown by chess methods when an internal error has occured. The board is left in an undefined state, if this exception is thrown.
+     */
+    struct chess_internal_error;
+
+
+
     /* MOVE CLASS */
     
     /* class move_t
@@ -159,6 +175,30 @@ namespace chess
     class game_controller;
 
 }
+
+
+
+/* CHESS EXCEPTION STRUCTS */
+
+/* struct chess_input_error
+ *
+ * Thrown by chess methods when input is invalid. The board is always left in the same state as before the method was called, if this exception is thrown.
+ */
+struct chess::chess_input_error : public std::invalid_argument
+{
+    /* Inherit the constructor from std::invalid_argument */
+    using std::invalid_argument::invalid_argument;
+};
+
+/* struct chess_internal_error
+ *
+ * Thrown by chess methods when an internal error has occured. The board is left in an undefined state, if this exception is thrown.
+ */
+struct chess::chess_internal_error : public std::runtime_error
+{
+    /* Inherit the constructor from std::runtime_error */
+    using std::runtime_error::runtime_error;
+};
 
 
 
@@ -652,7 +692,6 @@ public:
     /** @name  evaluate
      * 
      * @brief  Symmetrically evaluate the board state.
-     *         Note that although is non-const, a call to this function will leave the board unmodified.
      * @param  pc: The color whose move it is next
      * @return Integer value, positive for pc, negative for not pc
      */
@@ -738,6 +777,7 @@ public:
     /** @name  alpha_beta_search
      * 
      * @brief  Set up and apply the alpha-beta search.
+     * @throw  If throws, the chessboard is left in an undefined state. Otherwise the state will be unmodified on return.
      * @param  pc: The color whose move it is next.
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
@@ -753,6 +793,7 @@ public:
      * 
      * @brief  Apply an alpha-beta search over a range of depths.
      *         Specifying an end point could to an early return rather than starting later searches.
+     * @throw  If throws, the chessboard is left in an undefined state. Otherwise the state will be unmodified on return.
      * @param  pc: The color whose move it is next.
      * @param  depths: A list of depth values to search.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
@@ -773,7 +814,6 @@ public:
     /** @name  find_color
      *
      * @brief  Determines the color of piece at a board position.
-     *         Note: an out of range position leads to undefined behavior.
      * @param  pos: Board position
      * @param  rank: The rank of the position
      * @param  file: The file of the position
@@ -785,7 +825,6 @@ public:
     /** @name  find_type
      * 
      * @brief  Determines the type of piece at a board position.
-     *         Note: an out of range position leads to undefined behavior.
      * @param  pc:  The known piece color
      * @param  pos: Board position
      * @param  rank: The rank of the position
@@ -814,6 +853,15 @@ public:
      * @return string
      */
     std::string fen_serialize_board ( pcolor pc ) const;
+
+    /** @name  fen_deserialize_board
+     * 
+     * @brief  Deserialize a string based on Forsyth–Edwards notation, and replace this board with it.
+     *         The game history will be emptied, and this state will be considered the opening state.
+     * @param  desc: The board description
+     * @return void
+     */
+    void fen_deserialize_board ( const std::string& desc );
 
     /** @name  fide_serialize_move
      * 
