@@ -387,29 +387,26 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             /* Set to have found a best move */
             ttable_best_move = best_move.pt != ptype::no_piece;
 
-            /* Check the usability and compare depths */
-            if ( bk_depth <= search_it->second.bk_depth && !( search_it->second.draw_tainted && bk_depth != search_it->second.bk_depth ) ) 
+            /* Only use the value if all of the below is true:
+             * This is not the root node.
+             * The bk_depth of the ttable entry is more than or equal to that of this node.
+             * If the entry is draw tainted, then the bk_depth of the ttable entry must be exactly equal to that of this node.
+             */
+            if ( fd_depth != 0 && bk_depth <= search_it->second.bk_depth && !( search_it->second.draw_tainted && bk_depth != search_it->second.bk_depth ) ) 
             {
                 /* If we are deeper than the value in the ttable, then don't store new values in it */
                 if ( bk_depth < search_it->second.bk_depth ) use_ttable = false;
 
-                /* If the bound is exact, set alpha = beta = value.
+                /* If the bound is exact, return the bound.
                  * If it is a lower bound, modify alpha.
                  * If it is an upper bound, modify beta.
                  */
-                if ( search_it->second.bound == ab_ttable_entry_t::bound_t::exact ) alpha = beta = search_it->second.value; else
+                if ( search_it->second.bound == ab_ttable_entry_t::bound_t::exact ) return search_it->second.value;
                 if ( search_it->second.bound == ab_ttable_entry_t::bound_t::lower ) alpha = std::max ( alpha, search_it->second.value ); else
                 if ( search_it->second.bound == ab_ttable_entry_t::bound_t::upper ) beta  = std::min ( beta,  search_it->second.value );
 
                 /* Possibly return now on an alpha-beta cutoff */
-                if ( alpha >= beta ) 
-                {
-                    /* Cutting off, but if this is the root node, set the root moves */
-                    if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( best_move, alpha ) );
-
-                    /* Now cut off */
-                    return alpha; 
-                }
+                if ( alpha >= beta ) return alpha;
             }
         }
     }
