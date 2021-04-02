@@ -28,15 +28,14 @@
  *         search_cv will then be notified and the thread will exit.
  *         The game state will be stored, so can be safely modified after this function returns.
  * @param  cb: The chessboard state to run the search on.
- * @param  mv: The opponent move that lead to that state.
  * @param  pc: The player color to search.
  * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
  * @return An iterator to the search data in active_searches.
  */
-chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const move_t& mv, const pcolor pc, const bool direct_response )
+chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const bool direct_response )
 {
     /* Create the search data */
-    active_searches.emplace_back ( cb, mv, pc, false );
+    active_searches.emplace_back ( cb, pc, false );
 
     /* Get an iterator to the active search */
     search_data_it_t search_data_it = --active_searches.end ();
@@ -48,9 +47,9 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
         chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
 
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
-        std::unique_lock lock { search_mx };
+        std::unique_lock search_lock { search_mx };
         completed_searches.push_back ( search_data_it );
-        lock.unlock ();
+        search_lock.unlock ();
 
         /* Notify the condition variable */
         search_cv.notify_all ();
@@ -77,7 +76,7 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
 void chess::game_controller::start_precomputation ( const pcolor pc )
 {
     /* Stop any active searches */
-    for ( search_data_t& search_data : active_searches ) { search_data.end_flag = true; search_data.ab_result_future.wait (); }
+    stop_precomputation ();
 
     /* Empty active_searches and completed_searches */
     active_searches.clear (); completed_searches.clear (); 
@@ -93,14 +92,14 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, opponent_end_flag );
 
         /* Aquire a lock on search_mx */
-        std::unique_lock lock { search_mx };
+        std::unique_lock search_lock { search_mx };
 
         /* Start num_parallel_searches threads (or less if there are few opposing moves) */
         for ( int i = 0; i < num_parallel_searches && i < opponent_ab_result.moves.size (); ++i )
         {
             /* Make the move, start the search, then unmake the move */
             cb.make_move_internal ( opponent_ab_result.moves.at ( i ).first );
-            start_search ( cb, opponent_ab_result.moves.at ( i ).first, pc );
+            start_search ( cb, pc );
             cb.unmake_move_internal ();  
         }
 
@@ -108,7 +107,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         for ( int i = 0; i < opponent_ab_result.moves.size (); ++i )
         {
             /* Block on the condition variable. Block until there are is another completed search, or the end flag is set */
-            search_cv.wait ( lock, [ this, i ] () { return i < completed_searches.size () || search_end_flag; } );
+            search_cv.wait ( search_lock, [ this, i ] () { return i < completed_searches.size () || search_end_flag; } );
 
             /* If the end flag is set, break */
             if ( search_end_flag ) break;
@@ -118,29 +117,26 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
             {
                 /* Start another search by making the next move, starting the search, and unmaking the move */
                 cb.make_move_internal ( opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
-                start_search ( cb, opponent_ab_result.moves.at ( i + num_parallel_searches ).first, pc );
+                start_search ( cb, pc );
                 cb.unmake_move_internal ();  
             }
         }
 
+        /* Get a boolean for whether a new search based on the new state should be started before exiting */
+        bool should_start_search = ( known_opponent_move.pt != ptype::no_piece );
+
+        /* If a search should be started (because known_opponent_move is set), make the move on cb */
+        cb.make_move ( known_opponent_move );
+
         /* Unlock search_mx */
-        lock.unlock ();
+        search_lock.unlock ();
 
-        /* Boolean for if there is a known move and it has not been started. Set initially to whether there is a known opposing move or not. */
-        bool known_move_search_not_started = ( known_opponent_move.load ().pt != ptype::no_piece ); 
+        /* If the end flag is set, cancel all searches, except if the search matches the new current state */
+        if ( search_end_flag ) for ( search_data_t& search_data : active_searches ) if ( !should_start_search || search_data.cb != cb )
+            { search_data.end_flag = true; search_data.ab_result_future.wait (); } else should_start_search = false;
 
-        /* If the end flag is set, cancel all searches, except if the search is for the known opposing move */
-        if ( search_end_flag ) for ( search_data_t& search_data : active_searches ) if ( search_data.opponent_move != known_opponent_move ) 
-            { search_data.end_flag = true; search_data.ab_result_future.wait (); } else known_move_search_not_started = false;
-
-        /* If the known move search has not been started, start it now */
-        if ( known_move_search_not_started )
-        {
-            /* Make the known opponent move, start the search, and unmake the move */
-            cb.make_move_internal ( known_opponent_move );
-            start_search ( cb, known_opponent_move, pc, true );
-            cb.unmake_move_internal ();  
-        }
+        /* If should_start_search is set, start it now */
+        if ( should_start_search ) start_search ( cb, pc, true );
     } };
 }
 
@@ -154,18 +150,21 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
  */
 chess::game_controller::search_data_it_t chess::game_controller::stop_precomputation ( const move_t& opponent_move )
 {
-    /* Set known_opponent_move */
-    known_opponent_move = opponent_move;
+    /* Aquire the search lock */
+    std::unique_lock search_lock ( search_mx );
 
-    /* Set the end search flag to true and notify */
-    search_end_flag = true; search_cv.notify_all ();
+    /* Set known_opponent_move and end flag */
+    known_opponent_move = opponent_move; search_end_flag = true;
+
+    /* Unlock and notify */
+    search_lock.unlock (); search_cv.notify_all ();
 
     /* Join the controller thread */
     if ( search_controller.joinable () ) search_controller.join ();
 
-    /* Try to find an active search based on opponent_move */
+    /* Try to find an active search based on game_cb */
     for ( search_data_it_t search_data_it = active_searches.begin (); search_data_it != active_searches.end (); ++search_data_it ) 
-        if ( search_data_it->opponent_move == opponent_move ) return search_data_it;
+        if ( search_data_it->cb == game_cb ) return search_data_it;
 
     /* Not found, so return a one past the end iterator */
     return active_searches.end ();
