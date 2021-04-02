@@ -525,9 +525,6 @@ public:
         /* An enum for whether the ttable entry is exact or an upper or lower bound */
         enum class bound_t { exact, upper, lower };
 
-        /* An enum for the usability of the ttable entry */
-        enum class usability_t { safe, tainted, unsafe };
-
         /* The value of the ttable entry */
         int value;
 
@@ -537,8 +534,8 @@ public:
         /* The bound of the ttable entry */
         bound_t bound;
 
-        /* The usability of the ttable entry */
-        usability_t usability;
+        /* Boolean as to whether the entry is draw-tainted */
+        bool draw_tainted;
 
         /* The best move at this state */
         move_t best_move;
