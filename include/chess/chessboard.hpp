@@ -130,7 +130,7 @@ inline chess::chessboard& chess::chessboard::operator= ( const chessboard& other
 inline bool chess::chessboard::operator== ( const chessboard& other ) const noexcept
 {
     /* Compare and return. The games do not have to have the same history. */
-    return ( bbs == other.bbs ) && ( aux_info.castling_rights == other.aux_info.castling_rights ) && ( aux_info.en_passant_target == other.aux_info.en_passant_target ) && ( aux_info.en_passant_color == other.aux_info.en_passant_color );
+    return ( bbs == other.bbs ) && ( aux_info == other.aux_info );
 }
 
 /** @name  copy_with_ab_working
@@ -165,6 +165,25 @@ inline chess::chessboard chess::chessboard::copy_and_move_ab_working () const
 
     /* Return cb */
     return cb;
+}
+
+/** @name  reset_to_empty
+ * 
+ * @brief  Resets the board and history to an empty board
+ * @return void
+ */
+inline void chess::chessboard::reset_to_empty ()
+{
+    /* Reset the bitboards */
+    bbs = {};
+
+    /* Reset the aux info */
+    aux_info.castling_rights   = 0;
+    aux_info.en_passant_target = 0;
+    aux_info.en_passant_color  = pcolor::no_piece;
+
+    /* Reset the history */
+    game_state_history = { get_game_state ( pcolor::no_piece ) };
 }
 
 
