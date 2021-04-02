@@ -206,14 +206,24 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* CONSTANTS */
 
-    /* Set the maximum fd_depth at which the transposition table will be searched and written to */
-    constexpr int TTABLE_MAX_FD_DEPTH = 6;
+    /* Set the minimum bk_depth at which the transposition table will be searched and written to.
+     * Should not be too small, as this will increase ttable usage and reduce its effectiveness (CPU cycles and memory usage).
+     */
+    constexpr int TTABLE_MIN_BK_DEPTH = 2;
+
+    /* Set the minimum fd_depth at which the value from the transposition table will be used.
+     * Should NOT be 0, since this may cause a too early cutoff.
+     * Should be more than or equal to DRAW_MAX_FD_DEPTH.
+     * Should also not be too small, as this will increase the likelihood of innaccuracies of affecting the search result.
+     */
+    constexpr int TTABLE_USE_VALUE_MIN_FD_DEPTH = 4;
 
     /* The maximum fd_depth at which a draw state will be detected. 
      * Depths less than (not equal to) DRAW_MAX_FD_DEPTH will be marked as draw-tainted inside the transposition table.
      * This will cause their value to only br trusted on a state of equal depth.
      * DRAW_MAX_FD_DEPTH should NOT be more than 4.
      * This would cause the draw condition to depend on variable search history which will cause inconsistencies if saved.
+     * A value of 4 is a good idea, since it will detect the cycle long enough before it happens, so it can choose a best alternative move, if there is one.
      */
     constexpr int DRAW_MAX_FD_DEPTH = 4;
 
@@ -222,17 +232,25 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      */
     constexpr int QUIESCENCE_MAX_Q_DEPTH = 16;
 
-    /* The mimumum fd_depth that a null move may be tried */
-    constexpr int NULL_MOVE_MIN_FD_DEPTH = 3;
+    /* The mimumum fd_depth that a null move may be tried.
+     * Should be more than or equal to DRAW_MAX_FD_DEPTH.
+     * Should not be too low, as this will increase the likelihood of innaccuracies of affecting the search result.
+     */
+    constexpr int NULL_MOVE_MIN_FD_DEPTH = 4;
 
-    /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth */
-    constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 2, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 2, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
+    /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth.
+     * The leftover depth should NOT be 0 (as this will introduce serious errors).
+     * The maximum leftover depth reduces the overhead of computing a null move search to too large a depth.
+     */
+    constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 2, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 1, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
 
     /* The number of pieces such that if any player has less than this, the game is considered endgame */
     constexpr int ENDGAME_PIECES = 8;
 
-    /* The maximum bk_depth at which an end flag or point cutoff is noticed */
-    constexpr int END_CUTOFF_MAX_FD_DEPTH = 4;
+    /* The minimum bk_depth at which an end flag or point cutoff is noticed.
+     * Reading from the clock and atomically checking the end_flag is costly, so avoid doing it in later nodes.
+     */
+    constexpr int END_CUTOFF_MIN_BK_DEPTH = 4;
 
 
 
@@ -329,9 +347,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Get whether the ttable should be used. All of:
      * Must not be trying a null move.
      * Must not be quiescing.
-     * Must have fd_depth <= TTABLE_MAX_FD_DEPTH
+     * Must have bk_depth >= TTABLE_MAX_FD_DEPTH
      */
-    bool use_ttable = !null_depth && !q_depth && fd_depth <= TTABLE_MAX_FD_DEPTH;
+    bool use_ttable = !null_depth && !q_depth && bk_depth >= TTABLE_MIN_BK_DEPTH;
 
     /* Get whether delta pruning should be used. All of:
      * Must not be the endgame.
@@ -388,15 +406,12 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
             ttable_best_move = best_move.pt != ptype::no_piece;
 
             /* Only use the value if all of the below is true:
-             * This is not the root node.
+             * Has fd_depth >= TTABLE_USE_VALUE_MIN_FD_DEPTH.
              * The bk_depth of the ttable entry is more than or equal to that of this node.
              * If the entry is draw tainted, then the bk_depth of the ttable entry must be exactly equal to that of this node.
              */
-            if ( fd_depth != 0 && bk_depth <= search_it->second.bk_depth && !( search_it->second.draw_tainted && bk_depth != search_it->second.bk_depth ) ) 
+            if ( fd_depth >= TTABLE_USE_VALUE_MIN_FD_DEPTH && bk_depth <= search_it->second.bk_depth && !( search_it->second.draw_tainted && bk_depth != search_it->second.bk_depth ) ) 
             {
-                /* If we are deeper than the value in the ttable, then don't store new values in it */
-                if ( bk_depth < search_it->second.bk_depth ) use_ttable = false;
-
                 /* If the bound is exact, return the bound.
                  * If it is a lower bound, modify alpha.
                  * If it is an upper bound, modify beta.
@@ -407,6 +422,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
                 /* Possibly return now on an alpha-beta cutoff */
                 if ( alpha >= beta ) return alpha;
+
+                /* If we are deeper than the value in the ttable, then don't store new values in it */
+                if ( bk_depth < search_it->second.bk_depth ) use_ttable = false;
             }
         }
     }
@@ -466,7 +484,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         /* Unmake a null move */
         unmake_move_internal ();
 
-        /* If proved successful, return beta.
+        /* If there is an alpha-beta cutoff, even though this player missed a turn, then return beta.
+         * This is because this position must be very powerful, so the other player is going to want to avoid it.
          * Don't return score, since the null move will cause extremes of values otherwise.
          */
         if ( score >= beta ) return beta;
@@ -503,7 +522,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         if ( !q_depth ) ++ab_working->sum_moves; else ++ab_working->sum_q_moves;
 
         /* If end flag is set or past the end point, return true */
-        if ( fd_depth <= END_CUTOFF_MAX_FD_DEPTH && ( end_flag || chess_clock::now () > end_point ) ) return true;
+        if ( bk_depth >= END_CUTOFF_MIN_BK_DEPTH && ( end_flag || chess_clock::now () > end_point ) ) return true;
 
         /* If at the root node, add to the root moves. */
         if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move, new_value ) );
