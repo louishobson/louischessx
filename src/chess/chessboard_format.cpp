@@ -179,11 +179,82 @@ std::string chess::chessboard::fen_serialize_board ( const pcolor pc ) const
  * @brief  Deserialize a string based on Forsyth–Edwards notation, and replace this board with it.
  *         The game history will be emptied, and this state will be considered the opening state.
  * @param  desc: The board description
- * @return void
+ * @return The color who's move it is next
  */
-void chess::chessboard::fen_deserialize_board ( const std::string& desc )
+chess::pcolor chess::chessboard::fen_deserialize_board ( const std::string& desc )
 {
+    /* Create regex for capturing the parts */
+    std::regex state_regex { "^((?:[1-8PNBRQKpnbrqk]{1,8}/){7}[1-8PNBRQKpnbrqk]{1,8}) ([wb]) (?:-|(?=[KQkq])(K?)(Q?)(k?)(q?)) (?:-|([a-h][1-8])) ([0-9]+) ([0-9]+)" };
 
+    /* Run the search, throw if no matches were found */
+    std::smatch state_match;
+    if ( !std::regex_search ( desc, state_match, state_regex ) ) throw chess_input_error { "Could not format board state description in fen_deserialize_board ()." };
+
+    /* Create a new chessboard to decode desc into. Make the chessboard initially empty, but with full castling rights. */
+    chessboard cb; cb.reset_to_empty (); cb.aux_info = {};
+
+    /* Iterate through the board string */
+    int rank = 7, file = 0;
+    for ( const char piece_char : state_match.str ( 1 ) )
+    {
+        /* Get if the character is a slash */
+        if ( piece_char == '/' ) 
+        {
+            /* If file doesn't equal 8, throw */
+            if ( file != 8 ) throw chess_input_error { "Invalid length in board state description in fen_deserialize_board ()." };
+
+            /* Decrement rank, and set file to 0 */
+            --rank; file = 0;
+        } else
+
+        /* Else get if the character is a number */
+        if ( std::isdigit ( piece_char ) )
+        {
+            /* If file exceeds after adding the number, throw */
+            if ( ( file += piece_char - '0' ) > 8 ) throw chess_input_error { "Invalid file length in board state description in fen_deserialize_board ()." };
+        } else
+
+        /* Else the character must be a piece type */
+        {
+            /* Get the color of the piece */
+            const pcolor piece_pc = ( std::isupper ( piece_char ) ? pcolor::white : pcolor::black );
+
+            /* Set the correct color at this position */
+            cb.get_bb ( piece_pc ).set ( rank, file );
+
+            /* Set the correct piece at this position */
+            cb.get_bb ( piece_pc, character_to_ptype ( std::toupper ( piece_char ) ) ).set ( rank, file );
+
+            /* Increment file */
+            ++file;
+        }
+    }
+
+    /* Throw if file != 8 */
+    if ( file != 8 ) throw chess_input_error { "Invalid file length in board state description in fen_deserialize_board ()." };
+
+    /* Get the color who's move it is next */
+    const pcolor pc = ( state_match.str ( 2 ) == "w" ? pcolor::white : pcolor::black );
+
+    /* Look through the castling rights, and remove them as characters are not present */
+    if ( !state_match.length ( 3 ) ) cb.set_kingside_castle_lost  ( pcolor::white );
+    if ( !state_match.length ( 4 ) ) cb.set_queenside_castle_lost ( pcolor::white );
+    if ( !state_match.length ( 5 ) ) cb.set_kingside_castle_lost  ( pcolor::black );
+    if ( !state_match.length ( 6 ) ) cb.set_queenside_castle_lost ( pcolor::black );
+
+    /* Set the en passant target square if given. Assume the color that made the move is opposite to pc */
+    if ( state_match.length ( 7 ) ) { cb.aux_info.en_passant_target = bitboard::cell_pos ( state_match.str ( 7 ) ); cb.aux_info.en_passant_color = other_color ( pc ); }
+    
+    /* Ignore clocks for now */
+
+    /* Set the history of cb */
+    cb.game_state_history = { cb.get_game_state ( pcolor::no_piece ) };
+
+    /* Copy over the new chessboard */
+    * this = cb;
+
+    /* Return pc */
+    return pc;
 }
 
 

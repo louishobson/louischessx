@@ -361,6 +361,20 @@ public:
      */
     chessboard copy_and_move_ab_working () const;
 
+    /** @name  reset_to_initial
+     * 
+     * @brief  Resets the board and history to the default chess initial position
+     * @return void
+     */
+    void reset_to_initial () { * this = chessboard {}; }
+
+    /** @name  reset_to_empty
+     * 
+     * @brief  Resets the board and history to an empty board
+     * @return void
+     */
+    void reset_to_empty ();
+
 
 
     /* AUX INFO STRUCT */
@@ -627,8 +641,8 @@ public:
      * @param  pc: One of pcolor.
      * @return void
      */
-    void set_castle_made ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01010000 << cast_penum ( pc ) ); aux_info.castling_rights |= 0b00000001 << cast_penum ( pc ); }
-    void set_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01010000 << cast_penum ( pc ) ); aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
+    void set_castle_made ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01010100 << cast_penum ( pc ) ); aux_info.castling_rights |= 0b00000001 << cast_penum ( pc ); }
+    void set_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01010001 << cast_penum ( pc ) ); aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_kingside_castle_lost  ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b00010000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
     void set_queenside_castle_lost ( pcolor pc ) chess_validate_throw { check_penum ( pc ); aux_info.castling_rights &= ~( 0b01000000 << cast_penum ( pc ) ); if ( !has_any_castling_rights ( pc ) ) aux_info.castling_rights |= 0b00000100 << cast_penum ( pc ); }
 
@@ -859,9 +873,9 @@ public:
      * @brief  Deserialize a string based on Forsyth–Edwards notation, and replace this board with it.
      *         The game history will be emptied, and this state will be considered the opening state.
      * @param  desc: The board description
-     * @return void
+     * @return The color who's move it is next
      */
-    void fen_deserialize_board ( const std::string& desc );
+    pcolor fen_deserialize_board ( const std::string& desc );
 
     /** @name  fide_serialize_move
      * 
