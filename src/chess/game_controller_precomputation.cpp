@@ -122,21 +122,14 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
             }
         }
 
-        /* Get a boolean for whether a new search based on the new state should be started before exiting */
-        bool should_start_search = ( known_opponent_move.pt != ptype::no_piece );
+        /* If known_opponent_move is set, make the move on cb */
+        if ( known_opponent_move.pt != ptype::no_piece ) cb.make_move ( known_opponent_move );
 
-        /* If a search should be started (because known_opponent_move is set), make the move on cb */
-        cb.make_move ( known_opponent_move );
+        /* If the end flag is set, cancel all searches, except if the search matches the new current state */
+        if ( search_end_flag ) for ( search_data_t& search_data : active_searches ) if ( search_data.cb != cb ) search_data.end_flag = true;
 
         /* Unlock search_mx */
         search_lock.unlock ();
-
-        /* If the end flag is set, cancel all searches, except if the search matches the new current state */
-        if ( search_end_flag ) for ( search_data_t& search_data : active_searches ) if ( !should_start_search || search_data.cb != cb )
-            { search_data.end_flag = true; search_data.ab_result_future.wait (); } else should_start_search = false;
-
-        /* If should_start_search is set, start it now */
-        if ( should_start_search ) start_search ( cb, pc, true );
     } };
 }
 
@@ -162,10 +155,6 @@ chess::game_controller::search_data_it_t chess::game_controller::stop_precomputa
     /* Join the controller thread */
     if ( search_controller.joinable () ) search_controller.join ();
 
-    /* Try to find an active search based on game_cb */
-    for ( search_data_it_t search_data_it = active_searches.begin (); search_data_it != active_searches.end (); ++search_data_it ) 
-        if ( search_data_it->cb == game_cb ) return search_data_it;
-
-    /* Not found, so return a one past the end iterator */
-    return active_searches.end ();
+    /* Try to find an active search based on game_cb and return the iterator */
+    return std::find_if ( active_searches.begin (), active_searches.end (), [ this ] ( const search_data_t& search_data ) { return search_data.cb == game_cb; } );
 }
