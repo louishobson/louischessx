@@ -75,21 +75,25 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
     /* Resize the moves list to 1 if best_only is set */
     if ( best_only ) ab_result.moves.resize ( 1 );
 
-    /* Set the check count and checkmate info for each move */
-    std::for_each ( ab_result.moves.begin (), ab_result.moves.end (), [ & ] ( auto& move ) 
+    /* Set the check, checkmate and draw booleans for each move */
+    for ( auto& move : ab_result.moves )
     { 
         /* Make the move */
         make_move_internal ( move.first ); 
         
         /* Get the check bool */
-        move.first.check = get_check_info ( other_color ( pc ) ).check_count;
+        move.first.check = is_in_check ( other_color ( pc ) );
 
         /* Get if is a checkmate */
         move.first.checkmate = ( move.second == 10000 + depth - 1 );
 
+        /* Get if there is a draw */
+        if ( game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ) )
+            move.first.draw = true;
+
         /* Unmake the move */
         unmake_move_internal ();
-    } );
+    }
 
     /* Set failed low and failed high flags */
     ab_result.failed_low  = ab_result.moves.back  ().second <= alpha;

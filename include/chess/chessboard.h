@@ -229,8 +229,8 @@ public:
      * 
         * @brief  Construct with all the requied information
         */
-    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, bool _en_passant = false, bool _check = false, bool _checkmate = false ) noexcept
-        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant { _en_passant }, check { _check }, checkmate { _checkmate }
+    move_t ( pcolor _pc, ptype _pt, ptype _capture_pt, ptype _promote_pt, int _from, int _to, bool _en_passant = false, bool _check = false, bool _checkmate = false, bool _draw = false ) noexcept
+        : pc { _pc }, pt { _pt }, capture_pt { _capture_pt }, promote_pt { _promote_pt }, from { _from }, to { _to }, en_passant { _en_passant }, check { _check }, checkmate { _checkmate }, draw { _draw }
     {}
 
 
@@ -262,8 +262,8 @@ public:
     /* Store the initial, final position */
     int from = 0, to = 0;
 
-    /* Store whether the move is an en passant capture, causes check or is a checkmate */
-    bool en_passant = false, check = false, checkmate = false;
+    /* Store whether the move is an en passant capture, causes check, is a checkmate, or causes a draw */
+    bool en_passant = false, check = false, checkmate = false, draw = false;
 
 
 
