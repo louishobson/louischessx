@@ -23,6 +23,25 @@
 
 
 
+/* CONSTRUCTORS AND DESTRUCTORS */
+
+
+
+/** @name  destructor
+ * 
+ * @brief  Cancels any precomputation before destructing.
+ */
+inline chess::game_controller::~game_controller ()
+{
+    /* Stop any precomputation */
+    stop_precomputation ();
+
+    /* Empty active_searches and completed_searches */
+    active_searches.clear (); completed_searches.clear ();
+}
+
+
+
 /** @name  reset_game
  * 
  * @brief  Reset the chess game to its initial state.

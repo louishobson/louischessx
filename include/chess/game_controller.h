@@ -65,6 +65,12 @@ public:
      */
     game_controller () = default;
 
+    /** @name  destructor
+     * 
+     * @brief  Cancels any precomputation before destructing.
+     */
+    ~game_controller ();
+
 
 
     /** @name  reset_game
@@ -202,7 +208,7 @@ public:
     /** @name  output_move
      * 
      * @brief  Takes an ab_result and outputs the best move, if there is one, as well as a result if the game has ended.
-     *         Expects next_pc == computer_pc. Also starts precomputation.
+     *         Also starts precomputation if not in force mode.
      * @param  ab_result: The result of the search on this state.
      * @return void
      */
