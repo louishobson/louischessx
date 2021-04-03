@@ -47,7 +47,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
 
     /* Call and time the internal method */
     const auto t0 = chess_clock::now ();
-    alpha_beta_search_internal ( pc, depth, best_only, end_flag, end_point, alpha, beta );
+    const int best_value = alpha_beta_search_internal ( pc, depth, best_only, end_flag, end_point, alpha, beta );
     const auto t1 = chess_clock::now ();
 
     /* Create the ab result struct */
@@ -55,6 +55,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
 
     /* Set the values */
     ab_result.moves       = std::move ( ab_working->root_moves );
+    ab_result.best_value  = best_value;
     ab_result.depth       = depth; 
     ab_result.num_nodes   = ab_working->num_nodes;
     ab_result.num_q_nodes = ab_working->num_q_nodes;
@@ -91,7 +92,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
     } );
 
     /* Set failed low and failed high flags */
-    ab_result.failed_low  = ab_result.moves.front ().second <= alpha;
+    ab_result.failed_low  = ab_result.moves.back  ().second <= alpha;
     ab_result.failed_high = ab_result.moves.front ().second >= beta;
     
     /* Return the alpha beta result */
@@ -130,28 +131,29 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
         /* Run the search */
         ab_result_t new_ab_result = alpha_beta_search ( pc, depths.at ( i ), best_only, end_flag, ( finish_first && i == 0 ? chess_clock::time_point::max () : end_point ), alpha, beta );
 
-        /* If incomplete, or there were no moves found break */
-        if ( new_ab_result.incomplete || new_ab_result.moves.empty () ) break;
+        /* If the search is incomplete, break */
+        if ( new_ab_result.incomplete ) break;
 
         /* Move the ab_working values from the search into this */
         ab_working = std::move ( new_ab_result._ab_working );
 
+        /* If there were no possible moves, break */
+        if ( new_ab_result.moves.empty () ) break;
+
         /* If the search failed high or low, increase alpha or beta */
-        if ( new_ab_result.failed_low  ) { alpha *= std::abs ( alpha ); --i; } else
-        if ( new_ab_result.failed_high ) { beta  *= std::abs ( beta  ); --i; } else
+        if ( new_ab_result.failed_low  ) { alpha *= 10; --i; } else
+        if ( new_ab_result.failed_high ) { beta  *= 10; --i; } else
 
         /* Else the search was successful */
         {
             /* Set the latest result */
             ab_result = std::move ( new_ab_result );
 
-            /* If this is the last depth, or the best move from the search is either a losing checkmate, or
-             * both a winning checkmate and best_only is true, then break 
-             */
-            if ( i + 1 == depths.size () || ab_result.moves.front ().second <= -10000 || ( best_only && ab_result.moves.front ().second >= 10000 ) ) break;
+            /* If this is the last depth, or every move is a losing checkmate, or every move is a winning checkmate, break */
+            if ( i + 1 == depths.size () || ab_result.moves.front ().second <= -10000 || ab_result.moves.back ().second >= 10000 ) break;
 
-            /* Set both upper and lower bounds initially to the best move +- 25 */
-            alpha = ab_result.moves.front ().second - 25;
+            /* Set both upper and lower bounds initially to the best and worst moves +- 25 */
+            alpha = ab_result.moves.back  ().second - 25;
             beta  = ab_result.moves.front ().second + 25;
 
             /* If this depth was odd, and the next is even, the value is likely to go down, so decrease alpha by 50 */

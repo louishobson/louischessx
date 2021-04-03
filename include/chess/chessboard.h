@@ -577,6 +577,9 @@ public:
         /* An array of move value pairs */
         std::vector<std::pair<move_t, int>> moves;
 
+        /* The best possible value reachable detected by the search */
+        int best_value = 0;
+
         /* The depth before quiescence */
         int depth = 0; 
         
