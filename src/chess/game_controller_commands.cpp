@@ -113,7 +113,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
         computer_pc = next_pc;
 
         /* Start a search and get the result */
-        chessboard::ab_result_t ab_result = start_search ( game_cb, next_pc, true )->ab_result_future.get ();
+        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, true )->ab_result_future.get ();
         
         /* Output the move, if any */
         output_move ( ab_result );
@@ -134,7 +134,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
         computer_pc = other_color ( next_pc );
 
         /* Start pondering */
-        start_precomputation ( next_pc );
+        start_precomputation ( computer_pc );
     } else
 
     /** @name  move MOVE
@@ -157,18 +157,22 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
             /* Try to make the move and swap next_pc */
             game_cb.make_move ( move ); next_pc = other_color ( next_pc );
 
-            /* Stop any precomputation */
-            search_data_it_t search_data_it = stop_precomputation ( move );
+            /* If not in forced mode, respond to the usermove */
+            if ( computer_pc == next_pc )
+            {
+                /* Stop any precomputation */
+                search_data_it_t search_data_it = stop_precomputation ( move );
 
-            /* Start the correct search if had not already been started */
-            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, next_pc, true );
+                /* Start the correct search if had not already been started */
+                if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, true );
 
-            /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
-            if ( search_data_it->ab_result_future.wait_for ( max_response_duration + std::chrono::milliseconds { 500 } ) == std::future_status::timeout ) search_data_it->end_flag = true;
-            chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
-            
-            /* Output the move, if any */
-            output_move ( ab_result );
+                /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
+                if ( search_data_it->ab_result_future.wait_for ( max_response_duration + std::chrono::milliseconds { 500 } ) == std::future_status::timeout ) search_data_it->end_flag = true;
+                chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
+                
+                /* Output the move, if any */
+                output_move ( ab_result );
+            }
         } 
         
         /* Catch an exception from the above and output an error */
@@ -233,12 +237,15 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
 /** @name  output_move
  * 
  * @brief  Takes an ab_result and outputs the best move, if there is one, as well as a result if the game has ended.
- *         Expects next_pc == computer_pc. Also starts precomputation.
+ *         Also starts precomputation if not in force mode.
  * @param  ab_result: The result of the search on this state.
  * @return void
  */
 void chess::game_controller::output_move ( const chessboard::ab_result_t& ab_result )
 {
+    /* Check that it is the computer's move */
+    if ( next_pc != computer_pc ) { throw chess_input_error { "Error (unexpected move): computer tried to output a move when it's not its turn" }; return; } 
+
     /* If there are any moves the computer can make */
     if ( ab_result.moves.size () ) 
     {
@@ -248,8 +255,9 @@ void chess::game_controller::output_move ( const chessboard::ab_result_t& ab_res
         /* Swap the next color */
         next_pc = other_color ( next_pc ); 
 
-        /* If is a win or a draw, output a result */
-        if ( ab_result.moves.front ().first.checkmate ) chess_out << ( next_pc == pcolor::white ? "1-0 {Black mates}" : "0-1 {White mates}" ) << std::endl; else
+        /* If is a win, stalemate or draw, output a result */
+        if ( ab_result.moves.front ().first.checkmate ) chess_out << ( computer_pc == pcolor::white ? "1-0 {White mates}" : "0-1 {Black mates}" ) << std::endl; else
+        if ( ab_result.moves.front ().first.stalemate ) chess_out << "1/2-1/2 {Stalemate}" << std::endl; else
         if ( ab_result.moves.front ().first.draw      ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
 
         /* Else, since the game has not ended, start precomputation */
@@ -259,8 +267,14 @@ void chess::game_controller::output_move ( const chessboard::ab_result_t& ab_res
     /* Else if there are no moves, it will be a checkmate or draw */
     else
     {
+        /* Evaluate the current position */
+        const int value = game_cb.evaluate ( computer_pc );
+
         /* Check if it is a checkmate */
-        if ( ab_result.best_value <= -10000 ) chess_out << ( next_pc == pcolor::white ? "0-1 {Black mates}" : "1-0 {White mates}" ) << std::endl;
+        if ( value == -10000 ) chess_out << ( computer_pc == pcolor::white ? "0-1 {Black mates}" : "1-0 {White mates}" ) << std::endl; else
+
+        /* Else if is a stalemate */
+        if ( value == 0 ) chess_out << "1/2-1/2 {Stalemate}" << std::endl;
 
         /* Else it must be a draw */
         else chess_out << "1/2-1/2 {Draw by repetition}" << std::endl;
