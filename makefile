@@ -15,7 +15,7 @@ AR=ar
 ARFLAGS=-rc
 
 # object files
-OBJ=test.o src/chess/bitboard.o src/chess/chessboard_eval.o src/chess/chessboard_search.o src/chess/chessboard_format.o src/chess/chessboard_moves.o src/chess/game_controller_precomputation.o
+OBJ=test.o src/chess/bitboard.o src/chess/chessboard_eval.o src/chess/chessboard_search.o src/chess/chessboard_format.o src/chess/chessboard_moves.o src/chess/game_controller_precomputation.o src/chess/game_controller_commands.o
 
 
 
