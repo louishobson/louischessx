@@ -47,7 +47,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
 
     /* Call and time the internal method */
     const auto t0 = chess_clock::now ();
-    const int best_value = alpha_beta_search_internal ( pc, depth, best_only, end_flag, end_point, alpha, beta );
+    alpha_beta_search_internal ( pc, depth, best_only, end_flag, end_point, alpha, beta );
     const auto t1 = chess_clock::now ();
 
     /* Create the ab result struct */
@@ -55,7 +55,6 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
 
     /* Set the values */
     ab_result.moves       = std::move ( ab_working->root_moves );
-    ab_result.best_value  = best_value;
     ab_result.depth       = depth; 
     ab_result.num_nodes   = ab_working->num_nodes;
     ab_result.num_q_nodes = ab_working->num_q_nodes;
@@ -90,12 +89,12 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
         /* Get if is a checkmate */
         move.first.checkmate = value == 10000;
 
+        /* Get if is a stalemate */
+        move.first.stalemate = value == 0;
+
         /* Get if there is a draw */
         if ( game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ) )
             move.first.draw = true;
-
-        /* Get if is a stalemate */
-        move.first.stalemate = value == 0;
 
         /* Unmake the move */
         unmake_move_internal ();
