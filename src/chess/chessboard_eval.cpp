@@ -964,13 +964,14 @@ int chess::chessboard::evaluate ( pcolor pc )
         value += KING_QUEEN_MOBILITY * ( white_king_queen_fill.popcount () - black_king_queen_fill.popcount () );
     }
 
-    /* CHECKMATE */
+    /* CHECKMATE AND STALEMATE */
 
-    /* Return maximum if one color has no mobility and the other does.
-     * On a stalemate, currently continue normally.
-     */
-    if ( ( white_mobility == 0 ) & ( black_mobility != 0 ) ) return ( pc == pcolor::white ? -CHECKMATE :  CHECKMATE );
-    if ( ( black_mobility == 0 ) & ( white_mobility != 0 ) ) return ( pc == pcolor::white ?  CHECKMATE : -CHECKMATE );
+    /* If one color has no mobility and the other does, return maxima/minima or 0, depending on check count */
+    if ( ( white_mobility == 0 ) & ( black_mobility != 0 ) ) if ( white_check_info.check_count ) return ( pc == pcolor::white ? -CHECKMATE :  CHECKMATE ); else return 0;
+    if ( ( black_mobility == 0 ) & ( white_mobility != 0 ) ) if ( black_check_info.check_count ) return ( pc == pcolor::white ?  CHECKMATE : -CHECKMATE ); else return 0;
+
+    /* If neither color has any mobility, return 0 */
+    if ( white_mobility == 0 && black_mobility == 0 ) return 0;
 
 
 

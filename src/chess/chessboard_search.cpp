@@ -75,21 +75,27 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
     /* Resize the moves list to 1 if best_only is set */
     if ( best_only ) ab_result.moves.resize ( 1 );
 
-    /* Set the check, checkmate and draw booleans for each move */
+    /* Set the check, checkmate stalemate and draw booleans for each move */
     for ( auto& move : ab_result.moves )
-    { 
+    {
         /* Make the move */
         make_move_internal ( move.first ); 
         
+        /* Evaluate */
+        const int value = evaluate ( pc );
+
         /* Get the check bool */
         move.first.check = is_in_check ( other_color ( pc ) );
 
         /* Get if is a checkmate */
-        move.first.checkmate = ( move.second == 10000 + depth - 1 );
+        move.first.checkmate = value == 10000;
 
         /* Get if there is a draw */
         if ( game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ) )
             move.first.draw = true;
+
+        /* Get if is a stalemate */
+        move.first.stalemate = value == 0;
 
         /* Unmake the move */
         unmake_move_internal ();
@@ -316,15 +322,13 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* Alpha-beta info */
 
-    /* Store the current best value.
-     * Losing sooner is worse (and winning sooner is better), which the minus depth accounts for
-     */
+    /* Store the current best value. Assume checkmate until improved upon. */
     int best_value = -10000 - bk_depth;
 
     /* Store the best move */
     move_t best_move;
 
-    /* Get the original alpha */
+    /* Store the original alpha */
     const int orig_alpha = alpha;
 
     /* add to the number of nodes visited */
@@ -533,13 +537,11 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         /* If at the root node, add to the root moves. */
         if ( fd_depth == 0 ) ab_working->root_moves.push_back ( std::make_pair ( move, new_value ) );
 
-        /* If the new value is better than the best value, update the best value and move.
-         * If the new best value is greater than alpha then:
+        /* If the new best value is greater than alpha then:
          *     If this is not the root node, reassign alpha to the best value, else
          *     if this is the root node and best_only is true, reassign alpha to best value - 1 (-1 since this will avoid duplicate best values). 
          * If alpha is now greater than beta, return true due to an alpha-beta cutoff.
          */
-        if ( new_value > best_value ) { best_value = new_value; best_move = move; }
         if ( fd_depth ) alpha = std::max ( alpha, best_value ); else if ( best_only ) alpha = std::max ( alpha, best_value - 1 );
         if ( alpha >= beta )
         {
@@ -635,8 +637,10 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
 
     /* COLLATE MOVE SETS */
-
     {
+        /* Store whether there are any possible moves */
+        bool pc_can_move = false;
+
         /* Iterate through the pieces */
         #pragma clang loop unroll ( full )
         #pragma GCC unroll 6
@@ -654,12 +658,18 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
                 /* Get the move set */
                 const bitboard move_set = get_move_set ( pc, pt, pos, check_info );
 
+                /* Update pc_can_move */
+                pc_can_move |= move_set.is_nonempty ();
+
                 /* If the move set is non-empty or pt is the king, store the moves.
                  * The king's move set must be present to search for castling moves.
                  */
                 if ( move_set || pt == ptype::king ) access_move_sets ( pt ).push_back ( std::make_pair ( pos, move_set ) );
             }
         }
+    
+        /* If there are no possible moves, return on a checkmate or stalemeate depending if in check or not */
+        if ( !pc_can_move ) if ( check_info.check_count ) return -10000 - bk_depth; else return 0;
     }
 
 
