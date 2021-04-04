@@ -173,7 +173,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
          * Note that if the last search was successful and this is the last search, the loop would have already ended. 
          */
         const chess_clock::duration pred_duration = 
-            std::chrono::duration_cast<chess_clock::duration> ( std::pow ( std::min ( new_ab_result.av_moves, 4.0 ), depths.at ( i + 1 ) - new_ab_result.depth ) * new_ab_result.duration );
+            std::chrono::duration_cast<chess_clock::duration> ( std::pow ( 3.0, depths.at ( i + 1 ) - new_ab_result.depth ) * new_ab_result.duration );
 
         /* Force end the search now if this exceeds the end point */
         if ( chess_clock::now () + pred_duration > end_point ) break;
