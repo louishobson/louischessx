@@ -26,7 +26,7 @@
  * @param  cmd: The command to handle, with its arguments separated by spaces, without the newline.
  * @return True if the command was handled, false if it was unrecognised (thus ignored).
  */
-bool chess::game_controller::handle_command ( const std::string& cmd )
+bool chess::game_controller::handle_command ( const std::string& cmd ) try
 {
     /* The following if-else chain detects commands and handles them */
 
@@ -38,24 +38,12 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
      */
     if ( cmd.starts_with ( "xboard" ) )
     {
-        /* Wait for the protover command */
+        /* Wait for the protover command and check for at least version 2 */
         std::string next_cmd; std::getline ( chess_in, next_cmd );
+        if ( !next_cmd.starts_with ( "protover" ) || std::stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
 
-        /* Check that it is the protover command, and that this is version 2 */
-        if ( !next_cmd.starts_with ( "protover " ) || std::stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
-
-        /* Iterate through features, send them, and make sure they're accepted */
-        for ( const char * feature : feature_requests )
-        {
-            /* Send the feature */
-            chess_out << feature << std::endl;
-
-            /* Wait for the feature response */
-            std::string feature_response; std::getline ( chess_in, feature_response );
-
-            /* Throw if the response is not accepted */
-            if ( !feature_response.starts_with ( "accepted" ) ) throw chess_input_error { "Feature requests rejected by the interface." };
-        }
+        /* Iterate through features and send them */
+        for ( const char * feature : feature_requests ) chess_out << "feature " << feature << std::endl;
     } else
 
     /** @name  new
@@ -70,6 +58,9 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
 
         /* Reset the board and next player to move */
         game_cb.reset_to_initial (); next_pc = pcolor::white;
+
+        /* Set the computer pc to black, and start precomputation */
+        computer_pc = pcolor::black; start_precomputation ( computer_pc );
     } else
 
     /** @name  variant
@@ -113,10 +104,10 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
         computer_pc = next_pc;
 
         /* Start a search and get the result */
-        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, true )->ab_result_future.get ();
+        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, move_t {}, true )->ab_result_future.get ();
         
         /* Output the move, if any */
-        output_move ( ab_result );
+        make_and_output_move ( ab_result );
     } else
 
     /** @name  playother
@@ -145,38 +136,31 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
      */
     if ( cmd.starts_with ( "usermove" ) )
     {
-        /* Try all of the below */
-        try
+        /* Check that it is not the computer's move */
+        if ( next_pc == computer_pc ) throw chess_input_error { "User tried to move on computer's turn." };
+
+        /* Try to decode the move description */
+        const move_t move = game_cb.fide_deserialize_move ( next_pc, cmd.substr ( 9 ) );
+
+        /* Try to make the move and swap next_pc */
+        game_cb.make_move ( move ); next_pc = other_color ( next_pc );
+
+        /* If not in forced mode, respond to the usermove */
+        if ( computer_pc == next_pc )
         {
-            /* Check that it is not the computer's move */
-            if ( next_pc == computer_pc ) { throw chess_input_error { "Error (unexpected move): it is not your turn!" }; return false; }
+            /* Stop any precomputation */
+            search_data_it_t search_data_it = stop_precomputation ( move );
 
-            /* Try to decode the move description, and make the move */
-            const move_t move = game_cb.fide_deserialize_move ( next_pc, cmd.substr ( 9 ) );
+            /* Start the correct search if had not already been started */
+            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, true );
 
-            /* Try to make the move and swap next_pc */
-            game_cb.make_move ( move ); next_pc = other_color ( next_pc );
-
-            /* If not in forced mode, respond to the usermove */
-            if ( computer_pc == next_pc )
-            {
-                /* Stop any precomputation */
-                search_data_it_t search_data_it = stop_precomputation ( move );
-
-                /* Start the correct search if had not already been started */
-                if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, true );
-
-                /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
-                if ( search_data_it->ab_result_future.wait_for ( max_response_duration + std::chrono::milliseconds { 500 } ) == std::future_status::timeout ) search_data_it->end_flag = true;
-                chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
-                
-                /* Output the move, if any */
-                output_move ( ab_result );
-            }
-        } 
-        
-        /* Catch an exception from the above and output an error */
-        catch ( const std::exception& e ) { chess_out << "Error (failed usermove): " << e.what () << std::endl; return false; }
+            /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
+            if ( search_data_it->ab_result_future.wait_for ( max_response_duration + std::chrono::seconds { 1 } ) == std::future_status::timeout ) search_data_it->end_flag = true;
+            chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
+            
+            /* Output the move, if any */
+            make_and_output_move ( ab_result );
+        }
     } else
 
     /** @name  ping N
@@ -198,8 +182,8 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
      */
     if ( cmd.starts_with ( "draw" ) )
     {
-        /* If in force mode, return an error */
-        if ( computer_pc == pcolor::no_piece ) { chess_out << "Error (invalid draw): offered draw while in forced mode." << std::endl; return false; }
+        /* If in force mode, throw an input error */
+        if ( computer_pc == pcolor::no_piece ) throw chess_input_error { "Offered draw while in force mode." };
 
         /* If the evaluation of game_cb is <= -100 for the computer, then accept */
         if ( game_cb.evaluate ( computer_pc ) <= -100 ) chess_out << "offer draw" << std::endl;
@@ -216,41 +200,72 @@ bool chess::game_controller::handle_command ( const std::string& cmd )
         /* Stop any precomputation */
         stop_precomputation ();
 
-        /* Encase the deserialization in a try block */
-        try
-        {
-            /* Set the game state */
-            next_pc = game_cb.fen_deserialize_board ( cmd.substr ( 9 ) );
-        }
-        catch ( const std::exception& e )
-        {
-            /* Catch and output an error */
-            chess_out << "Error (failed setboard): " << e.what () << std::endl; return false;
-        }
+        /* Set the game state */
+        next_pc = game_cb.fen_deserialize_board ( cmd.substr ( 9 ) );
     }
 
+    /* Command handled, so return true */
     return true;
+} 
+
+/* Catch an input error */
+catch ( const chess_input_error& e )
+{
+    /* Output the error */
+    chess_error << "Error (" << e.what () << "): " << cmd << std::endl;
+
+    /* Return false */
+    return false;
+} 
+
+/* Catch an internal error */
+catch ( const chess_internal_error& e )
+{
+    /* Output the error */
+    chess_error << "Error (" << e.what () << "): " << cmd << std::endl;
+
+    /* Resign */
+    chess_out << "resign" << std::endl;
+
+    /* Rethrow */
+    throw;
 }
 
 
 
-/** @name  output_move
+/** @name  make_and_output_move
  * 
- * @brief  Takes an ab_result and outputs the best move, if there is one, as well as a result if the game has ended.
+ * @brief  Takes an ab_result and performs, then outputs the best move, if there is one, as well as a result if the game has ended.
  *         Also starts precomputation if not in force mode.
  * @param  ab_result: The result of the search on this state.
  * @return void
  */
-void chess::game_controller::output_move ( const chessboard::ab_result_t& ab_result )
+void chess::game_controller::make_and_output_move ( const chessboard::ab_result_t& ab_result )
 {
     /* Check that it is the computer's move */
-    if ( next_pc != computer_pc ) { throw chess_input_error { "Error (unexpected move): computer tried to output a move when it's not its turn" }; return; } 
+    if ( next_pc != computer_pc ) throw chess_internal_error { "Computer tried to output a move when it's not its turn." }; 
+
+    /* If the depth is 0, the ab_result is invalid, so throw */
+    if ( ab_result.depth == 0 ) throw chess_internal_error { "Invalid ab_result in make_and_output_move ()." };
 
     /* If there are any moves the computer can make */
     if ( ab_result.moves.size () ) 
     {
         /* Output the move */
         chess_out << "move " << game_cb.fide_serialize_move ( ab_result.moves.front ().first ) << std::endl;
+
+        /* Output information about the last move */
+        chess_out << "# duration = " << std::chrono::duration_cast<std::chrono::milliseconds> ( ab_result.duration ).count () << "ms"
+                  << "\n# depth = " << ab_result.depth 
+                  << "\n# av. q. depth = " << ab_result.av_q_depth 
+                  << "\n# nodes visited = " << ab_result.num_nodes 
+                  << "\n# q. nodes visited = " << ab_result.num_q_nodes 
+                  << "\n# av. moves per node  = " << ab_result.av_moves 
+                  << "\n# av. moves per q. node  = " << ab_result.av_q_moves
+                  << std::endl;
+
+        /* Make the move */
+        game_cb.make_move ( ab_result.moves.front ().first );
 
         /* Swap the next color */
         next_pc = other_color ( next_pc ); 
@@ -261,22 +276,26 @@ void chess::game_controller::output_move ( const chessboard::ab_result_t& ab_res
         if ( ab_result.moves.front ().first.draw      ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
 
         /* Else, since the game has not ended, start precomputation */
-        start_precomputation ( next_pc );
+        start_precomputation ( computer_pc );
     }
 
     /* Else if there are no moves, it will be a checkmate or draw */
     else
     {
-        /* Evaluate the current position */
-        const int value = game_cb.evaluate ( computer_pc );
+        /* Get if the computer is in check or has possible moves */
+        const chessboard::check_info_t computer_check_info = game_cb.get_check_info ( computer_pc );
+        const bool computer_has_mobility = game_cb.has_mobility ( computer_pc, computer_check_info );
 
-        /* Check if it is a checkmate */
-        if ( value == -10000 ) chess_out << ( computer_pc == pcolor::white ? "0-1 {Black mates}" : "1-0 {White mates}" ) << std::endl; else
+        /* If computer is in check with no mobility, this state is a checkmate */
+        if ( computer_check_info.check_count && !computer_has_mobility ) chess_out << ( computer_pc == pcolor::white ? "0-1 {Black mates}" : "1-0 {White mates}" ) << std::endl; else
 
-        /* Else if is a stalemate */
-        if ( value == 0 ) chess_out << "1/2-1/2 {Stalemate}" << std::endl;
+        /* Else if the computer is not in check and doesn't have any mobility, then this is a stalemate */
+        if ( !computer_check_info.check_count && !computer_has_mobility ) chess_out << "1/2-1/2 {Stalemate}" << std::endl; else
 
-        /* Else it must be a draw */
-        else chess_out << "1/2-1/2 {Draw by repetition}" << std::endl;
+        /* Else check if this is a draw state */
+        if ( game_cb.is_draw_state () ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
+
+        /* Else the ab_result has no moves for an unknown reason, so produce an internal error */
+        throw chess_internal_error { "Cannot discern why ab_result has no possible moves." };
     }
 }

@@ -96,6 +96,9 @@ public:
         /* The player to move */
         pcolor pc;
 
+        /* The move that lead to this state */
+        move_t opponent_move;
+
         /* The end flag for the search */
         std::atomic_bool end_flag;
 
@@ -140,7 +143,7 @@ public:
     /* The input, output and error streams to use */
     std::istream& chess_in = std::cin;
     std::ostream& chess_out = std::cout;
-    std::ostream& chess_error = std::clog;
+    std::ostream& chess_error = std::cout;
 
 
 
@@ -161,9 +164,9 @@ public:
      */
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6, 7 };
-    int num_parallel_searches = 7;
-    chess_clock::duration max_search_duration = std::chrono::seconds { 20 };
-    chess_clock::duration max_response_duration = std::chrono::seconds { 10 };
+    int num_parallel_searches = 6;
+    chess_clock::duration max_search_duration = std::chrono::milliseconds { 20000 };
+    chess_clock::duration max_response_duration = std::chrono::milliseconds { 5000 };
 
 
 
@@ -205,14 +208,14 @@ public:
      */
     bool handle_command ( const std::string& cmd );
 
-    /** @name  output_move
+    /** @name  make_and_output_move
      * 
-     * @brief  Takes an ab_result and outputs the best move, if there is one, as well as a result if the game has ended.
+     * @brief  Takes an ab_result and performs, then outputs the best move, if there is one, as well as a result if the game has ended.
      *         Also starts precomputation if not in force mode.
      * @param  ab_result: The result of the search on this state.
      * @return void
      */
-    void output_move ( const chessboard::ab_result_t& ab_result );
+    void make_and_output_move ( const chessboard::ab_result_t& ab_result );
 
 
 
@@ -226,10 +229,11 @@ public:
      *         The game state will be stored, so can be safely modified after this function returns.
      * @param  cb: The chessboard state to run the search on.
      * @param  pc: The player color to search.
+     * @param  opponent_move: The opponent move which lead to this state, empty move by default.
      * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
      * @return An iterator to the search data in active_searches.
      */
-    search_data_it_t start_search ( const chessboard& cb, pcolor pc, bool direct_response = false );
+    search_data_it_t start_search ( const chessboard& cb, pcolor pc, const move_t& opponent_move = move_t {}, bool direct_response = false );
 
     /** @name  start_precomputation
      * 
@@ -246,7 +250,7 @@ public:
      * 
      * @brief  Stop precomputation, if it's running.
      * @param  oppponent_move: The now known opponent move. Defaults to no move, but if provided will set known_opponent_move which has an effect described by start_precomputation.
-     * @return Iterator to a search which was made based on the current game_cb, or one past the end iterator if not found.
+     * @return Iterator to a search which was made based on opponent_move, or one past the end iterator if not found.
      */
     search_data_it_t stop_precomputation ( const move_t& opponent_move = {} );
 

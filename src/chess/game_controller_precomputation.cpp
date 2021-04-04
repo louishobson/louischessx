@@ -29,13 +29,14 @@
  *         The game state will be stored, so can be safely modified after this function returns.
  * @param  cb: The chessboard state to run the search on.
  * @param  pc: The player color to search.
+ * @param  opponent_move: The opponent move which lead to this state, empty move by default.
  * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
  * @return An iterator to the search data in active_searches.
  */
-chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const bool direct_response )
+chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, const bool direct_response )
 {
     /* Create the search data */
-    active_searches.emplace_back ( cb, pc, false );
+    active_searches.emplace_back ( cb, pc, opponent_move, false );
 
     /* Get an iterator to the active search */
     search_data_it_t search_data_it = --active_searches.end ();
@@ -99,7 +100,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         {
             /* Make the move, start the search, then unmake the move */
             cb.make_move_internal ( opponent_ab_result.moves.at ( i ).first );
-            start_search ( cb, pc );
+            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first );
             cb.unmake_move_internal ();  
         }
 
@@ -117,16 +118,13 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
             {
                 /* Start another search by making the next move, starting the search, and unmaking the move */
                 cb.make_move_internal ( opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
-                start_search ( cb, pc );
+                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
                 cb.unmake_move_internal ();  
             }
         }
 
-        /* If known_opponent_move is set, make the move on cb */
-        if ( known_opponent_move.pt != ptype::no_piece ) cb.make_move ( known_opponent_move );
-
-        /* If the end flag is set, cancel all searches, except if the search matches the new current state */
-        if ( search_end_flag ) for ( search_data_t& search_data : active_searches ) if ( search_data.cb != cb ) search_data.end_flag = true;
+        /* Cancel all searches, except if the search matches known_opponent_move */
+        for ( search_data_t& search_data : active_searches ) if ( search_data.opponent_move != known_opponent_move ) search_data.end_flag = true;
 
         /* Unlock search_mx */
         search_lock.unlock ();
@@ -155,6 +153,6 @@ chess::game_controller::search_data_it_t chess::game_controller::stop_precomputa
     /* Join the controller thread */
     if ( search_controller.joinable () ) search_controller.join ();
 
-    /* Try to find an active search based on game_cb and return the iterator */
-    return std::find_if ( active_searches.begin (), active_searches.end (), [ this ] ( const search_data_t& search_data ) { return search_data.cb == game_cb; } );
+    /* Try to find an active search based on opponent_move and return the iterator */
+    return std::find_if ( active_searches.begin (), active_searches.end (), [ &opponent_move ] ( const search_data_t& search_data ) { return search_data.opponent_move == opponent_move; } );
 }
