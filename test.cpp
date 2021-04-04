@@ -53,69 +53,78 @@ int main ()
     //cb.get_bb ( chess::pcolor::black ).set_value                       ( 0b101111010011110011100111ull << 40 );
 
     chess::game_controller gc;
-    gc.start_precomputation ( chess::pcolor::black );
-    gc.search_controller.join ();
-
-
-
-    /* Game loop */
+    
     while ( true )
     {
-        /* Print board state */
-        std::cout << cb.simple_format_board () << "\n";
+        std::string cmd; std::getline ( gc.chess_in, cmd ); if ( cmd.back () == '\n' ) cmd.pop_back ();
 
-        /* Search */
-        std::atomic_bool end_flag = false;
-        //auto ab_result_future = cb.alpha_beta_search ( chess::pcolor::white, 8, end_flag );
-        auto t0 = chess::chess_clock::now ();
-        auto ab_result = cb.alpha_beta_iterative_deepening ( chess::pcolor::white, { 3, 4, 5, 6, 7, 8, 9, 10 }, true, end_flag, chess::chess_clock::now () + std::chrono::seconds { 10 } );
-        auto t1 = chess::chess_clock::now ();
+        gc.handle_command ( cmd );
 
-        /* Print the time taken and depth info */
-        std::cout << "time = " << std::chrono::duration_cast<std::chrono::milliseconds> ( ab_result.duration ).count () << "ms\n";
-        std::cout << "total time = " << std::chrono::duration_cast<std::chrono::milliseconds> ( t1 - t0 ).count () << "ms\n";
-        std::cout << "depth = " << ab_result.depth 
-                  << "\nav. q. depth = " << ab_result.av_q_depth 
-                  << "\nnodes visited = " << ab_result.num_nodes 
-                  << "\nq. nodes visited = " << ab_result.num_q_nodes 
-                  << "\nav. moves per node  = " << ab_result.av_moves 
-                  << "\nav. moves per q. node  = " << ab_result.av_q_moves
-                  << "\n\n";
-
-        /* Break if there were no moves */
-        if ( ab_result.moves.size () == 0 ) break;
-
-        /* Print the moves and their values */
-        for ( const auto& move : ab_result.moves ) std::cout << cb.fide_serialize_move ( move.first ) << ": " << move.second << "\n";
-
-        /* Print the move and make it */
-        cb.make_move ( ab_result.moves.front ().first );
-
-        /* Print board state */
-        std::cout << "\n" << cb.simple_format_board () << "\n";
-
-        /* Get the user's input */
-        while ( true )
-        {
-            /* Get the move */
-            std::string move;
-            std::getline ( std::cin, move );
-            std::cout << "\n";
-
-            /* Try to make it. On failure retry */;
-            try
-            {
-                cb.make_move ( cb.fide_deserialize_move ( chess::pcolor::black, move ) );
-            } catch ( const std::exception& e )
-            {
-                std::cout << "Input failed because: " << e.what () << "\n\n";
-                continue;
-            }
-
-            /* Success, so break */
-            break;
-        }
+        if ( cmd.starts_with ( "quit" ) ) return 0;
     }
+
+
+
+
+
+    ///* Game loop */
+    //while ( true )
+    //{
+    //    /* Print board state */
+    //    std::cout << cb.simple_format_board () << "\n";
+//
+    //    /* Search */
+    //    std::atomic_bool end_flag = false;
+    //    //auto ab_result_future = cb.alpha_beta_search ( chess::pcolor::white, 8, end_flag );
+    //    auto t0 = chess::chess_clock::now ();
+    //    auto ab_result = cb.alpha_beta_iterative_deepening ( chess::pcolor::white, { 3, 4, 5, 6, 7, 8, 9, 10 }, true, end_flag, chess::chess_clock::now () + std::chrono::seconds { 15 } );
+    //    auto t1 = chess::chess_clock::now ();
+//
+    //    /* Print the time taken and depth info */
+    //    std::cout << "time = " << std::chrono::duration_cast<std::chrono::milliseconds> ( ab_result.duration ).count () << "ms\n";
+    //    std::cout << "total time = " << std::chrono::duration_cast<std::chrono::milliseconds> ( t1 - t0 ).count () << "ms\n";
+    //    std::cout << "depth = " << ab_result.depth 
+    //              << "\nav. q. depth = " << ab_result.av_q_depth 
+    //              << "\nnodes visited = " << ab_result.num_nodes 
+    //              << "\nq. nodes visited = " << ab_result.num_q_nodes 
+    //              << "\nav. moves per node  = " << ab_result.av_moves 
+    //              << "\nav. moves per q. node  = " << ab_result.av_q_moves
+    //              << "\n\n";
+//
+    //    /* Break if there were no moves */
+    //    if ( ab_result.moves.size () == 0 ) break;
+//
+    //    /* Print the moves and their values */
+    //    for ( const auto& move : ab_result.moves ) std::cout << cb.fide_serialize_move ( move.first ) << ": " << move.second << "\n";
+//
+    //    /* Print the move and make it */
+    //    cb.make_move ( ab_result.moves.front ().first );
+//
+    //    /* Print board state */
+    //    std::cout << "\n" << cb.simple_format_board () << "\n" << cb.fen_serialize_board ( chess::pcolor::black ) << "\n\n";
+//
+    //    /* Get the user's input */
+    //    while ( true )
+    //    {
+    //        /* Get the move */
+    //        std::string move;
+    //        std::getline ( std::cin, move );
+    //        std::cout << "\n";
+//
+    //        /* Try to make it. On failure retry */;
+    //        try
+    //        {
+    //            cb.make_move ( cb.fide_deserialize_move ( chess::pcolor::black, move ) );
+    //        } catch ( const std::exception& e )
+    //        {
+    //            std::cout << "Input failed because: " << e.what () << "\n\n";
+    //            continue;
+    //        }
+//
+    //        /* Success, so break */
+    //        break;
+    //    }
+    //}
 
 
     
