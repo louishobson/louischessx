@@ -108,27 +108,6 @@ public:
 
 
 
-    /* STATIC ATTRIBUTES */
-
-    /* Feature requests from the interface */
-    static constexpr std::array<const char *, 12> feature_requests
-    {
-        "done=0",          /* Pause timeout on feature requests */
-        "ping=1",          /* Allow the ping command */
-        "setboard=1",      /* Allow the setboard command */
-        "playother=1",     /* Allow the playother command */
-        "san=1",           /* Force standard algebraic notation for moves */
-        "usermove=1",      /* Force user moves to be given only with the usermove command */
-        "time=0",          /* Set time updates to be ignored */
-        "sigint=0",        /* Stop interrupt signals from being sent */
-        "sigterm=0",       /* Stop terminate signals from being send */
-        "myname=LouisBot", /* Name this engine */
-        "colors=0",        /* Don't send the 'white' or 'black' commands */
-        "done=1"           /* End of features */
-    };
-
-
-
     /* ATTRIBUTES */
 
     /* Store the main chessboard state */
@@ -165,8 +144,8 @@ public:
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6, 7 };
     int num_parallel_searches = 4;
-    chess_clock::duration max_search_duration = std::chrono::milliseconds { 20000 };
-    chess_clock::duration max_response_duration = std::chrono::milliseconds { 5000 };
+    chess_clock::duration max_search_duration = std::chrono::seconds { 20 };
+    chess_clock::duration max_response_duration = std::chrono::seconds { 10 };
 
 
 

@@ -736,6 +736,13 @@ public:
      */
     void make_move ( const move_t& move ) { check_move_is_valid ( move ); make_move_internal ( move ); }
 
+    /** @name  unmake_move
+     * 
+     * @brief  Unmake the last move that was made.
+     * @return void.
+     */
+    void unmake_move () { if ( game_state_history.empty () ) throw chess_input_error { "Cannot unmake move, since game history is empty, in unmake_move ()." }; unmake_move_internal (); }
+
     /** @name  get_move_set
      * 
      * @brief  Gets the move set for a given type and position of piece
