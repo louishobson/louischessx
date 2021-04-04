@@ -34,8 +34,10 @@
 # VSCode files
 *.vscode/
 
-# Dumps
+# Dumps and debugs
 *.dump
+*.dbg
+*.debug
 
 # Locks
 *.~lock.*
