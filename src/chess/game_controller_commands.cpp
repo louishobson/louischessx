@@ -211,8 +211,11 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
 /* Catch an input error */
 catch ( const chess_input_error& e )
 {
-    /* Output the error */
-    chess_error << "Error (" << e.what () << "): " << cmd << std::endl;
+    /* If the command was a usermove, send an illegal move command */
+    if ( cmd.starts_with ( "usermove" ) ) chess_out << "Illegal move (" << e.what () << "): " << cmd << std::endl;
+
+    /* Else output as a normal error */
+    else chess_error << "Error (" << e.what () << "): " << cmd << std::endl;
 
     /* Return false */
     return false;
