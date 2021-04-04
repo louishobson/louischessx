@@ -55,7 +55,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
                   << "feature myname=LouisBot\n" /* Name this engine */
                   << "feature colors=0\n"        /* Don't send the 'white' or 'black' commands */
                   << "feature done=1\n"          /* End of features */
-                  << std::fflush;
+                  << std::flush;
     } else
 
     /** @name  new
