@@ -164,7 +164,7 @@ public:
      */
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6, 7 };
-    int num_parallel_searches = 6;
+    int num_parallel_searches = 4;
     chess_clock::duration max_search_duration = std::chrono::milliseconds { 20000 };
     chess_clock::duration max_response_duration = std::chrono::milliseconds { 5000 };
 
