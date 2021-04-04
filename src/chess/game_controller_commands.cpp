@@ -42,8 +42,20 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         std::string next_cmd; std::getline ( chess_in, next_cmd );
         if ( !next_cmd.starts_with ( "protover" ) || std::stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
 
-        /* Iterate through features and send them */
-        for ( const char * feature : feature_requests ) chess_out << "feature " << feature << std::endl;
+        /* Send feature requests */
+        chess_out << "feature done=0\n"          /* Pause timeout on feature requests */
+                  << "feature ping=1\n"          /* Allow the ping command */
+                  << "feature setboard=1\n"      /* Allow the setboard command */
+                  << "feature playother=1\n"     /* Allow the playother command */
+                  << "feature san=1\n"           /* Force standard algebraic notation for moves */
+                  << "feature usermove=1\n"      /* Force user moves to be given only with the usermove command */
+                  << "feature time=0\n"          /* Set time updates to be ignored */
+                  << "feature sigint=0\n"        /* Stop interrupt signals from being sent */
+                  << "feature sigterm=0\n"       /* Stop terminate signals from being send */
+                  << "feature myname=LouisBot\n" /* Name this engine */
+                  << "feature colors=0\n"        /* Don't send the 'white' or 'black' commands */
+                  << "feature done=1\n"          /* End of features */
+                  << std::fflush;
     } else
 
     /** @name  new
@@ -202,6 +214,40 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
 
         /* Set the game state */
         next_pc = game_cb.fen_deserialize_board ( cmd.substr ( 9 ) );
+    } else
+
+    /** @name  undo
+     * 
+     * @brief  Undo the last move. Should be in force mode.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "undo" ) )
+    {
+        /* Check is in force mode */
+        if ( computer_pc != pcolor::no_piece ) throw chess_input_error { "Recieved 'undo' command when the computer is not in force mode." };
+
+        /* Undo the last move */
+        game_cb.unmake_move ();
+    } else
+
+    /** @name  remove
+     * 
+     * @brief  Undo the last two moves. Should not be the computer's turn.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "remove" ) )
+    {
+        /* Stop precomputation */
+        stop_precomputation ();
+
+        /* Throw if it is the computers turn */
+        if ( next_pc == computer_pc ) throw chess_input_error { "Recieved 'remove' command when it is the computer's turn." };
+
+        /* Undo the last two moves */
+        game_cb.unmake_move (); game_cb.unmake_move ();
+
+        /* Restart precomputation */
+        start_precomputation ( computer_pc );
     }
 
     /* Command handled, so return true */
