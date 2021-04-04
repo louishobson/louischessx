@@ -47,6 +47,9 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
         /* Wait for the search to complete */
         chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
 
+        /* Delete the working values */
+        ab_result._ab_working.reset ( nullptr );
+
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
         std::unique_lock search_lock { search_mx };
         completed_searches.push_back ( search_data_it );
