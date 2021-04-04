@@ -140,10 +140,10 @@ public:
      * The maximum time duration an search can take, at which point other opponent responses will be tried. See above about what happens if the opponent moves before or after this time us up.
      * The maximum time AFTER the opponent has moved that the computer should take searching before making a move
      */
-    std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10 };
-    std::vector<int> opponent_search_depths = { 3, 4, 5, 6, 7 };
+    std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9 };
+    std::vector<int> opponent_search_depths = { 3, 4, 5, 6 };
     int num_parallel_searches = 4;
-    chess_clock::duration max_search_duration = std::chrono::seconds { 20 };
+    chess_clock::duration max_search_duration = std::chrono::seconds { 25 };
     chess_clock::duration max_response_duration = std::chrono::seconds { 10 };
 
 
@@ -193,7 +193,7 @@ public:
      * @param  ab_result: The result of the search on this state.
      * @return void
      */
-    void make_and_output_move ( const chessboard::ab_result_t& ab_result );
+    void make_and_output_move ( chessboard::ab_result_t& ab_result );
 
 
 

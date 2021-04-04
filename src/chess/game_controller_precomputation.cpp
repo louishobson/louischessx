@@ -36,7 +36,7 @@
 chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, const bool direct_response )
 {
     /* Create the search data */
-    active_searches.emplace_back ( cb, pc, opponent_move, false );
+    active_searches.emplace_back ( cb.copy_with_ab_working (), pc, opponent_move, false );
 
     /* Get an iterator to the active search */
     search_data_it_t search_data_it = --active_searches.end ();
@@ -46,9 +46,6 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
     {
         /* Wait for the search to complete */
         chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
-
-        /* Delete the working values */
-        ab_result._ab_working.reset ( nullptr );
 
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
         std::unique_lock search_lock { search_mx };
@@ -89,11 +86,14 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
     search_end_flag = false; known_opponent_move = move_t {};
 
     /* Start the new thread */
-    search_controller = std::thread { [ this, cb { game_cb }, pc ] () mutable
+    search_controller = std::thread { [ this, cb { game_cb.copy_with_ab_working () }, pc ] () mutable
     {
         /* Get the opponent moves */
         std::atomic_bool opponent_end_flag = false;
         chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, opponent_end_flag );
+
+        /* Copy back over the ab_working */
+        cb.ab_working = std::move ( opponent_ab_result._ab_working );
 
         /* Aquire a lock on search_mx */
         std::unique_lock search_lock { search_mx };

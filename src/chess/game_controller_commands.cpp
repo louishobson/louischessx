@@ -167,7 +167,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, true );
 
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
-            if ( search_data_it->ab_result_future.wait_for ( max_response_duration + std::chrono::seconds { 1 } ) == std::future_status::timeout ) search_data_it->end_flag = true;
+            if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
             chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
             
             /* Output the move, if any */
@@ -289,7 +289,7 @@ catch ( const chess_internal_error& e )
  * @param  ab_result: The result of the search on this state.
  * @return void
  */
-void chess::game_controller::make_and_output_move ( const chessboard::ab_result_t& ab_result )
+void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_result )
 {
     /* Check that it is the computer's move */
     if ( next_pc != computer_pc ) throw chess_internal_error { "Computer tried to output a move when it's not its turn." }; 
@@ -315,6 +315,9 @@ void chess::game_controller::make_and_output_move ( const chessboard::ab_result_
 
         /* Make the move */
         game_cb.make_move ( ab_result.moves.front ().first );
+
+        /* Copy over ab_working */
+        game_cb.ab_working = std::move ( ab_result._ab_working );
 
         /* Swap the next color */
         next_pc = other_color ( next_pc ); 
