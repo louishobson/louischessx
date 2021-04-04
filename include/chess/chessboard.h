@@ -25,7 +25,6 @@
 #include <chess/macros.h>
 #include <cmath>
 #include <initializer_list>
-#include <iostream>
 #include <iterator>
 #include <future>
 #include <memory>
