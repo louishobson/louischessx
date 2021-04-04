@@ -67,15 +67,7 @@ void chess::chessboard::check_move_is_valid ( const move_t& move )
         if ( move.promote_pt != ptype::no_piece ) throw chess_input_error { "Invalid promotion type (move should not promote) in check_move_is_valid ()." };
     }
 
-    /* Make the move */
-    make_move_internal ( move );
-
-    /* Ensure the check and checkmate flags are correct. Ensure the move is unmade before throwing. */
-    if ( move.check != is_in_check ( other_color ( move.pc ) ) ) { unmake_move_internal (); throw chess_input_error { "Incorrct check flag in check_move_is_valid ()." }; }
-    if ( move.checkmate != ( evaluate ( move.pc ) == 10000 ) )   { unmake_move_internal (); throw chess_input_error { "Incorrct checkmate flag in check_move_is_valid ()." }; }
-
-    /* Unmake the move */
-    unmake_move_internal ();
+    /* Don't worry about the check, checkmate, stalemate or draw flags */
 }
 
 
@@ -308,6 +300,38 @@ chess::bitboard chess::chessboard::get_move_set ( pcolor pc, ptype pt, int pos, 
 #endif
 }
 
+
+
+/** @name  has_mobility
+ * 
+ * @brief  Gets whether a color has any mobility
+ * @param  pc: The color to check for mobility
+ * @param  check_info: The check info for pc.
+ * @return boolean
+ */
+bool chess::chessboard::has_mobility ( pcolor pc, const check_info_t& check_info )
+{
+    /* Iterate through the pieces */
+    for ( const ptype pt : ptype_inc_value ) 
+    {
+        /* Iterate through pieces */
+        for ( bitboard pieces = bb ( pc, pt ); pieces; )
+        {
+            /* Get a position of a piece and reset it */
+            const int pos = pieces.trailing_zeros ();
+            pieces.reset ( pos );
+
+            /* Return true if the move set is non-empty */
+            if ( get_move_set ( pc, pt, pos, check_info ) ) return true;
+        }
+    }
+
+    /* No moves, so return false */
+    return false;
+}
+
+
+
 /** @name  get_pawn_move_set
  * 
  * @brief  Gets the move set for a pawn
@@ -365,6 +389,8 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
     return moves;
 }
 
+
+
 /** @name  get_knight_move_set
  * 
  * @brief  Gets the move set for a knight
@@ -384,6 +410,8 @@ chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const 
     /* Return the attacks, ensuring they protected the king */
     return bitboard::knight_attack_lookup ( pos ) & ~bb ( pc ) & check_info.check_vectors_dep_check_count;
 }
+
+
 
 /** @name  get_sliding_move_set
  * 
@@ -442,6 +470,8 @@ chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const
     /* Return the move set */
     return moves;
 }
+
+
 
 /** @name  get_king_move_set
  *  

@@ -700,6 +700,13 @@ public:
     bool can_queenside_castle ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
     bool can_castle           ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw { return can_kingside_castle ( pc, check_info ) | can_queenside_castle ( pc, check_info ); }
 
+    /** @name  is_draw_state
+     * 
+     * @brief  Returns true if this state is a draw state by repetition.
+     * @return boolean
+     */
+    bool is_draw_state () const noexcept { return game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ); }
+
     /** @name  evaluate
      * 
      * @brief  Symmetrically evaluate the board state.
@@ -740,6 +747,15 @@ public:
      */
     bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info );
     bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) const { return chessboard { * this }.get_move_set ( pc, pt, pos, check_info ); };
+
+    /** @name  has_mobility
+     * 
+     * @brief  Gets whether a color has any mobility
+     * @param  pc: The color to check for mobility
+     * @param  check_info: The check info for pc.
+     * @return boolean
+     */
+    bool has_mobility ( pcolor pc, const check_info_t& check_info );
 
     /** @name  get_pawn_move_set
      * 
