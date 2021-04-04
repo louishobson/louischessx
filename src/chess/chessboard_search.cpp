@@ -79,22 +79,16 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
     {
         /* Make the move */
         make_move_internal ( move.first ); 
-        
-        /* Evaluate */
-        const int value = evaluate ( pc );
 
-        /* Get the check bool */
-        move.first.check = is_in_check ( other_color ( pc ) );
+        /* Get the check info and mobility for npc */
+        const check_info_t npc_check_info = get_check_info ( other_color ( pc ) );
+        const bool npc_has_mobility       = has_mobility   ( other_color ( pc ), npc_check_info );
 
-        /* Get if is a checkmate */
-        move.first.checkmate = value == 10000;
-
-        /* Get if is a stalemate */
-        move.first.stalemate = value == 0;
-
-        /* Get if there is a draw */
-        if ( game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ) )
-            move.first.draw = true;
+        /* Get the check, checkmate, stalemate and draw booleans */
+        move.first.check     =  npc_check_info.check_count;
+        move.first.checkmate =  npc_check_info.check_count && !npc_has_mobility;
+        move.first.stalemate = !npc_check_info.check_count && !npc_has_mobility;
+        move.first.draw      = is_draw_state ();
 
         /* Unmake the move */
         unmake_move_internal ();
@@ -131,8 +125,8 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
     /* The result of the highest depth complete search */
     ab_result_t ab_result;
 
-    /* Set aspiration window initially to minima and maxima */
-    int alpha = -20000, beta = 20000;
+    /* Set aspiration window initially to minima and maxima. Also create counters for how many times the search has failed low and high. */
+    int alpha = -20000, beta = 20000, failed_low_counter = 0, failed_high_counter = 0;
 
     /* Iterate through the depths */
     for ( int i = 0; i < depths.size (); ++i )
@@ -150,8 +144,8 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
         if ( new_ab_result.moves.empty () ) break;
 
         /* If the search failed high or low, increase alpha or beta */
-        if ( new_ab_result.failed_low  ) { alpha *= 10; --i; } else
-        if ( new_ab_result.failed_high ) { beta  *= 10; --i; } else
+        if ( new_ab_result.failed_low  ) { alpha -= 100 * std::pow ( 5, failed_low_counter++  ); --i; } else
+        if ( new_ab_result.failed_high ) { beta  += 100 * std::pow ( 5, failed_high_counter++ ); --i; } else
 
         /* Else the search was successful */
         {
@@ -160,6 +154,9 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
 
             /* If this is the last depth, or every move is a losing checkmate, or every move is a winning checkmate, break */
             if ( i + 1 == depths.size () || ab_result.moves.front ().second <= -10000 || ab_result.moves.back ().second >= 10000 ) break;
+
+            /* Reset the failed low and high counters */
+            failed_low_counter = failed_high_counter = 0;
 
             /* Set both upper and lower bounds initially to the best and worst moves +- 25 */
             alpha = ab_result.moves.back  ().second - 25;
@@ -176,7 +173,7 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
          * Note that if the last search was successful and this is the last search, the loop would have already ended. 
          */
         const chess_clock::duration pred_duration = 
-            std::chrono::duration_cast<chess_clock::duration> ( std::min ( std::pow ( new_ab_result.av_moves, depths.at ( i + 1 ) - new_ab_result.depth ), 5.0 ) * new_ab_result.duration );
+            std::chrono::duration_cast<chess_clock::duration> ( std::pow ( std::min ( new_ab_result.av_moves, 4.0 ), depths.at ( i + 1 ) - new_ab_result.depth ) * new_ab_result.duration );
 
         /* Force end the search now if this exceeds the end point */
         if ( chess_clock::now () + pred_duration > end_point ) break;
@@ -349,9 +346,8 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      * Must not be trying a null move.
      * Must not be quiescing.
      * Must have fd_depth <= DRAW_MAX_FD_DEPTH.
-     * Must have a game state history of at least 9.
      */
-    const bool check_for_draw_cycle = !null_depth && !q_depth && fd_depth <= DRAW_MAX_FD_DEPTH && game_state_history.size () >= 9;
+    const bool check_for_draw_cycle = !null_depth && !q_depth && fd_depth <= DRAW_MAX_FD_DEPTH;
 
     /* Get whether the ttable should be used. All of:
      * Must not be trying a null move.
@@ -389,11 +385,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Only if the forwards depth is less than or equal to DRAW_MAX_FD_DEPTH.
      * Also there have been more than 8 moves (>= 9 states) in the game.
      */
-    if ( check_for_draw_cycle )
-    {
-        /* Check if the last 8 moves have moved us in two cycles */
-        if ( game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ) ) return 0;
-    }
+    if ( check_for_draw_cycle && is_draw_state () ) return 0;
 
 
     
@@ -641,8 +633,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         bool pc_can_move = false;
 
         /* Iterate through the pieces */
-        #pragma clang loop unroll ( full )
-        #pragma GCC unroll 6
         for ( const ptype pt : ptype_inc_value ) 
         {
             /* Iterate through pieces */
