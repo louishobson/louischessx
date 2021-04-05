@@ -348,25 +348,17 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
     /* Create an empty set of moves */
     bitboard moves;
 
+    /* Get the general attacks */
+    const bitboard general_attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
+
     /* If is on a straight pin vector, cannot be a valid pawn attack */
     if ( pawn.is_disjoint ( check_info.straight_pin_vectors ) )
     {
-        /* Get the general attacks */
-        const bitboard general_attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
-
         /* Get the legal attacks, not including en passant capture */
         bitboard attacks = general_attacks & bb ( other_color ( pc ) ) & check_info.check_vectors_dep_check_count;
 
         /* If is on a diagonal pin vector, ensure the captures stayed on the pin vector */
         if ( pawn & check_info.diagonal_pin_vectors ) attacks &= check_info.diagonal_pin_vectors;
-
-        /* Add an en passant capture if it is possible, and does not leave the king in check */
-        if ( general_attacks.only_if ( pc == aux_info.en_passant_color ).test ( aux_info.en_passant_target ) ) 
-        {
-            make_move_internal ( move_t { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.en_passant_target } );
-            if ( !is_in_check ( pc ) ) attacks.set ( aux_info.en_passant_target );
-            unmake_move_internal ();
-        }
 
         /* Union moves */
         moves |= attacks;                
@@ -383,6 +375,16 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
 
         /* Union moves */
         moves |= pushes;
+    }
+
+    /* Look for en passant capture, and if it does not cause check, add it to moves */
+    const int en_passant_target = aux_info.en_passant_target;
+    if ( general_attacks.only_if ( pc == aux_info.en_passant_color ).test ( en_passant_target ) ) 
+    {
+
+        make_move_internal ( move_t { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, en_passant_target } );
+        if ( !is_in_check ( pc ) ) moves.set ( en_passant_target );
+        unmake_move_internal ();
     }
 
     /* Return the moves */
