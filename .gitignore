@@ -39,5 +39,8 @@
 *.dbg
 *.debug
 
+# pgn files
+*.pgn
+
 # Locks
 *.~lock.*
