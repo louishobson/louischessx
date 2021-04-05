@@ -36,10 +36,10 @@ void chess::chessboard::check_move_is_valid ( const move_t& move )
     if ( !get_move_set ( move.pc, move.pt, move.from, get_check_info ( move.pc ) ).test ( move.to ) ) throw chess_input_error { "Illegal move final position in check_move_is_valid ()." };
 
     /* Check, if the move is en passant, that it is valid */
-    if ( move.en_passant ) 
+    if ( move.pt == ptype::pawn && move.pc == aux_info.en_passant_color && move.to == aux_info.en_passant_target ) 
     {
-        /* Check that the capture type and en passant pos is correct */
-        if ( move.pt != ptype::pawn || move.capture_pt != ptype::pawn || move.pc != aux_info.en_passant_color || move.to != aux_info.en_passant_target ) throw chess_input_error { "Invalid capture type or en passant pos (expected en passant) in check_move_is_valid ()." };
+        /* Check that the capture type is correct */
+        if ( move.capture_pt != ptype::pawn ) throw chess_input_error { "Invalid capture type or en passant pos (expected en passant) in check_move_is_valid ()." };
     } else
 
     /* Else this is not an en passant capture */
@@ -107,7 +107,7 @@ void chess::chessboard::make_move_internal ( const move_t& move )
     get_bb ( move.pc, move.pt ).set ( move.to ); 
 
     /* Check if this is an en passant capture, and remove the pawn */
-    if ( move.en_passant )
+    if ( move.pt == ptype::pawn && move.pc == aux_info.en_passant_color && move.to == aux_info.en_passant_target )
     {
         get_bb ( other_color ( move.pc ) ).reset              ( move.en_passant_capture_pos () );
         get_bb ( other_color ( move.pc ), ptype::pawn ).reset ( move.en_passant_capture_pos () );
@@ -352,19 +352,19 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
     if ( pawn.is_disjoint ( check_info.straight_pin_vectors ) )
     {
         /* Get the general attacks */
-        bitboard attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
+        const bitboard general_attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
 
-        /* Reduce to legal attacks */
-        attacks &= ( bb ( other_color ( pc ) ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pc == aux_info.en_passant_color ) ) & check_info.check_vectors_dep_check_count;
+        /* Get the legal attacks */
+        bitboard attacks = general_attacks & bb ( other_color ( pc ) ) & check_info.check_vectors_dep_check_count;
 
         /* If is on a diagonal pin vector, ensure the captures stayed on the pin vector */
         if ( pawn & check_info.diagonal_pin_vectors ) attacks &= check_info.diagonal_pin_vectors;
 
-        /* If an en passant capture seems possible, remove it if it leave the king in check */
-        if ( attacks.test ( aux_info.en_passant_target ) ) 
+        /* Add an en passant capture if it is possible, and does not leave the king in check */
+        if ( general_attacks.only_if ( pc == aux_info.en_passant_color ).test ( aux_info.en_passant_target ) ) 
         {
-            make_move_internal ( move_t { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.en_passant_target, true } );
-            if ( is_in_check ( pc ) ) attacks.reset ( aux_info.en_passant_target );
+            make_move_internal ( move_t { pc, ptype::pawn, ptype::pawn, ptype::no_piece, pos, aux_info.en_passant_target } );
+            if ( !is_in_check ( pc ) ) attacks.set ( aux_info.en_passant_target );
             unmake_move_internal ();
         }
 

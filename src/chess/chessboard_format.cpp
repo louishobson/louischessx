@@ -388,9 +388,8 @@ chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const 
     /* Determine the capture type from the destination position */
     move.capture_pt = find_type ( other_color ( move.pc ), move.to );
 
-    /* Determine if the move is an en passant capture. If found to be so, set en_passant to true and change the capture type to pawn. */
-    if ( move.pt == ptype::pawn && move.pc == aux_info.en_passant_color && move.to == aux_info.en_passant_target ) 
-        { move.en_passant = true; move.capture_pt == ptype::pawn; }
+    /* Determine if the move is an en passant capture. If found to be so, change the capture type to pawn. */
+    if ( move.pt == ptype::pawn && move.pc == aux_info.en_passant_color && move.to == aux_info.en_passant_target ) move.capture_pt == ptype::pawn;
 
 
 

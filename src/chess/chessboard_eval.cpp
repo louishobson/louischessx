@@ -763,36 +763,36 @@ int chess::chessboard::evaluate ( pcolor pc )
          * Non-pinned pawns can attack without restriction.
          * Pinned pawns can attack only if they started and ended within a diagonal pin vector.
          * If in check, ensure that the movements protected the king.
-         * All en passant captures will be included here, and removed afterwards if they cause check.
+         * En passant will be added later
          */
-        bitboard white_pawn_captures_e = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::ne ) & white_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::black ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::white == aux_info.en_passant_color ) ) & white_legalize_attacks;
-        bitboard white_pawn_captures_w = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::nw ) & white_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::black ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::white == aux_info.en_passant_color ) ) & white_legalize_attacks;
-        bitboard black_pawn_captures_e = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::se ) & black_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::white ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::black == aux_info.en_passant_color ) ) & black_legalize_attacks;
-        bitboard black_pawn_captures_w = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::sw ) & black_check_info.diagonal_pin_vectors ) ) & ( bb ( pcolor::white ) | singleton_bitboard ( aux_info.en_passant_target ).only_if ( pcolor::black == aux_info.en_passant_color ) ) & black_legalize_attacks;
+        bitboard white_pawn_captures_e = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::ne ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::ne ) & white_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::black ) & white_legalize_attacks;
+        bitboard white_pawn_captures_w = ( white_non_pinned_pawns.pawn_attack ( diagonal_compass::nw ) | ( white_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::nw ) & white_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::black ) & white_legalize_attacks;
+        bitboard black_pawn_captures_e = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::se ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::se ) & black_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
+        bitboard black_pawn_captures_w = ( black_non_pinned_pawns.pawn_attack ( diagonal_compass::sw ) | ( black_diagonal_pinned_pawns.pawn_attack ( diagonal_compass::sw ) & black_check_info.diagonal_pin_vectors ) ) & bb ( pcolor::white ) & black_legalize_attacks;
 
-        /* Check white en passant captures don't lead to check */
-        if ( white_pawn_captures_e.test ( aux_info.en_passant_target ) )
+        /* Add white en passant captures if they don't lead to check */
+        if ( bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ).only_if ( aux_info.en_passant_color == pcolor::white ).test ( aux_info.en_passant_target ) )
         {
-            make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target - 9, aux_info.en_passant_target, true } );
-            if ( is_in_check ( pc ) ) white_pawn_captures_e.reset ( aux_info.en_passant_target );
+            make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target - 9, aux_info.en_passant_target } );
+            if ( !is_in_check ( pc ) ) white_pawn_captures_e.set ( aux_info.en_passant_target );
             unmake_move_internal ();
-        } if ( white_pawn_captures_w.test ( aux_info.en_passant_target ) )
+        } if ( bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw ).only_if ( aux_info.en_passant_color == pcolor::white ).test ( aux_info.en_passant_target ) )
         {
-            make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target - 7, aux_info.en_passant_target, true } );
-            if ( is_in_check ( pc ) ) white_pawn_captures_w.reset ( aux_info.en_passant_target );
+            make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target - 7, aux_info.en_passant_target } );
+            if ( !is_in_check ( pc ) ) white_pawn_captures_w.set ( aux_info.en_passant_target );
             unmake_move_internal ();
-        } 
+        }
         
-        /* Check black en passant captures don't lead to check */
-        if ( black_pawn_captures_e.test ( aux_info.en_passant_target ) )
+        /* Add black en passant captures if they don't lead to check */
+        if ( bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se ).only_if ( aux_info.en_passant_color == pcolor::black ).test ( aux_info.en_passant_target ) )
         {
-            make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target + 7, aux_info.en_passant_target, true } );
-            if ( is_in_check ( pc ) ) black_pawn_captures_e.reset ( aux_info.en_passant_target );
+            make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target + 7, aux_info.en_passant_target } );
+            if ( !is_in_check ( pc ) ) black_pawn_captures_e.set ( aux_info.en_passant_target );
             unmake_move_internal ();
-        } if ( black_pawn_captures_w.test ( aux_info.en_passant_target ) )
+        } if ( bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw ).only_if ( aux_info.en_passant_color == pcolor::black ).test ( aux_info.en_passant_target ) )
         {
-            make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target + 9, aux_info.en_passant_target, true } );
-            if ( is_in_check ( pc ) ) black_pawn_captures_w.reset ( aux_info.en_passant_target );
+            make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, aux_info.en_passant_target + 9, aux_info.en_passant_target } );
+            if ( !is_in_check ( pc ) ) black_pawn_captures_w.set ( aux_info.en_passant_target );
             unmake_move_internal ();
         }
 
