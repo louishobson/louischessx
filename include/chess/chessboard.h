@@ -795,7 +795,7 @@ public:
      * @param  min_bk_depth: The minimum bk_depth for which an entry is allowed to stay.
      * @return A new ttable with unreachable positions erased.
      */
-    ab_ttable_t purge_ttable ( ab_ttable_t ttable, int min_bk_depth = 6 ) const;
+    ab_ttable_t purge_ttable ( ab_ttable_t ttable, int min_bk_depth = 0 ) const;
 
     /** @name  alpha_beta_search
      * 
