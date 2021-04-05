@@ -143,7 +143,7 @@ public:
      * The maximum time duration an search can take, at which point other opponent responses will be tried. See above about what happens if the opponent moves before or after this time us up.
      * The maximum time AFTER the opponent has moved that the computer should take searching before making a move
      */
-    std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9 };
+    std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6 };
     int num_parallel_searches = 4;
     chess_clock::duration max_search_duration = std::chrono::seconds { 30 };
