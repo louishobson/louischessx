@@ -354,7 +354,7 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
         /* Get the general attacks */
         const bitboard general_attacks = ( pc == pcolor::white ? pawn.pawn_any_attack_n () : pawn.pawn_any_attack_s () );
 
-        /* Get the legal attacks */
+        /* Get the legal attacks, not including en passant capture */
         bitboard attacks = general_attacks & bb ( other_color ( pc ) ) & check_info.check_vectors_dep_check_count;
 
         /* If is on a diagonal pin vector, ensure the captures stayed on the pin vector */
