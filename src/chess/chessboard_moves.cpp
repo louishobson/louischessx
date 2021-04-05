@@ -87,12 +87,10 @@ void chess::chessboard::make_move_internal ( const move_t& move )
     /* Get the aux info */
     const aux_info_t aux = aux_info;
 
-    /* Set the en passant target and color to zero and no_piece (will be overriden if this is a pawn double push) */
-    aux_info.en_passant_target = 0; aux_info.en_passant_color = pcolor::no_piece;
-
-    /* If this is a null move, add to the history, sanity check and return */
+    /* If this is a null move, reset en passant variables, add to the history, sanity check and return */
     if ( move.pt == ptype::no_piece )
     {
+        aux_info.en_passant_target = 0; aux_info.en_passant_color = pcolor::no_piece;
         game_state_history.emplace_back ( * this, move.pc );
         sanity_check_bbs ( move.pc );
         return;
@@ -162,7 +160,10 @@ void chess::chessboard::make_move_internal ( const move_t& move )
 
     /* If this move is a pawn double push, set the en passant target square and color */
     if ( move.pt == ptype::pawn && move.to - move.from == +16 ) { aux_info.en_passant_target = move.to - 8; aux_info.en_passant_color = pcolor::black; } else
-    if ( move.pt == ptype::pawn && move.to - move.from == -16 ) { aux_info.en_passant_target = move.to + 8; aux_info.en_passant_color = pcolor::white; }
+    if ( move.pt == ptype::pawn && move.to - move.from == -16 ) { aux_info.en_passant_target = move.to + 8; aux_info.en_passant_color = pcolor::white; } else
+    
+    /* Else reset en passant target square and color to 0 and no_piece */
+    { aux_info.en_passant_target = 0; aux_info.en_passant_color = pcolor::no_piece; }
 
     /* Push the new state to the history */
     game_state_history.emplace_back ( * this, move.pc );
