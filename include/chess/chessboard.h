@@ -467,6 +467,19 @@ public:
         bitboard bb ( ptype pt )            const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) + 2 ]; }
         bitboard bb ( pcolor pc, ptype pt ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pc ) ] & bbs [ cast_penum ( pt ) + 2 ]; }
 
+        /** @name  castle_made, castle_lost, has_kingside_castling_rights, has_queenside_castling_rights, has_any_castling_rights
+         * 
+         * @brief  Gets information about castling rights
+         * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
+         * @return boolean
+         */
+        bool castle_made ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000001 << cast_penum ( pc ) ); }
+        bool castle_lost ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000100 << cast_penum ( pc ) ); }
+        bool has_kingside_castling_rights  ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00010000 << cast_penum ( pc ) ); }
+        bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
+        bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
+
+
 
 
         /* ATTRIBUTES */
@@ -779,9 +792,10 @@ public:
      * 
      * @brief  Take a transposition table, and remove entries which are no longer reachable from the current board state.
      * @param  ttable: The transposition table to erase elements from.
+     * @param  min_bk_depth: The minimum bk_depth for which an entry is allowed to stay.
      * @return A new ttable with unreachable positions erased.
      */
-    ab_ttable_t purge_ttable ( ab_ttable_t ttable ) const;
+    ab_ttable_t purge_ttable ( ab_ttable_t ttable, int min_bk_depth = 6 ) const;
 
     /** @name  alpha_beta_search
      * 

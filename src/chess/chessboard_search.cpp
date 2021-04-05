@@ -23,15 +23,27 @@
  * 
  * @brief  Take a transposition table, and remove entries which are no longer reachable from the current board state.
  * @param  ttable: The transposition table to erase elements from.
+ * @param  min_bk_depth: The minimum bk_depth for which an entry is allowed to stay.
  * @return A new ttable with unreachable positions erased.
  */
-chess::chessboard::ab_ttable_t chess::chessboard::purge_ttable ( ab_ttable_t ttable ) const
+chess::chessboard::ab_ttable_t chess::chessboard::purge_ttable ( ab_ttable_t ttable, const int min_bk_depth ) const
 {
     /* Erase elements */
-    std::erase_if ( ttable, [ this ] ( const ab_ttable_t::value_type& entry )
+    std::erase_if ( ttable, [ this, min_bk_depth ] ( const ab_ttable_t::value_type& entry )
     {
+        /* Erase if the depth is less than min_bk_depth */
+        if ( entry.second.bk_depth < min_bk_depth ) return true;
+
         /* Erase if the count of any piece type is not the same */
         for ( pcolor pc : { pcolor::white, pcolor::black } ) for ( ptype pt : ptype_inc_value ) if ( entry.first.bb ( pc, pt ).popcount () > bb ( pc, pt ).popcount () ) return true;
+
+        /* Purge if the entry has more castling rights */
+        if ( castle_made ( pcolor::white ) != entry.first.castle_made ( pcolor::white ) ) return true;
+        if ( castle_made ( pcolor::black ) != entry.first.castle_made ( pcolor::black ) ) return true;
+        if ( !has_kingside_castling_rights  ( pcolor::white ) && entry.first.has_kingside_castling_rights  ( pcolor::white ) ) return true;
+        if ( !has_queenside_castling_rights ( pcolor::white ) && entry.first.has_queenside_castling_rights ( pcolor::white ) ) return true;
+        if ( !has_kingside_castling_rights  ( pcolor::black ) && entry.first.has_kingside_castling_rights  ( pcolor::black ) ) return true;
+        if ( !has_queenside_castling_rights ( pcolor::black ) && entry.first.has_queenside_castling_rights ( pcolor::black ) ) return true;
 
         /* Loop through the pawns in the ttable state, which are not present in the current state */
         for ( bitboard moved_pawns = entry.first.bb ( pcolor::white, ptype::pawn ) & ~bb ( pcolor::white, ptype::pawn ); moved_pawns; )
