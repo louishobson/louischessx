@@ -33,13 +33,13 @@ chess::chessboard::ab_ttable_t chess::chessboard::purge_ttable ( ab_ttable_t tta
         /* Erase if the count of any piece type is not the same */
         for ( pcolor pc : { pcolor::white, pcolor::black } ) for ( ptype pt : ptype_inc_value ) if ( entry.first.bb ( pc, pt ).popcount () > bb ( pc, pt ).popcount () ) return true;
 
-        /* Loop through the white pawns that have moved */
+        /* Loop through the pawns in the ttable state, which are not present in the current state */
         for ( bitboard moved_pawns = entry.first.bb ( pcolor::white, ptype::pawn ) & ~bb ( pcolor::white, ptype::pawn ); moved_pawns; )
         {
             /* Get the next pawn */
             int pos = moved_pawns.trailing_zeros (); moved_pawns.reset ( pos );
 
-            /* If there is not a pawn which can reach this position, which is also unaccounted for in this entry, then return true */
+            /* If there is no pawn in the current state, which can feasibly reach pos and is not already in the ttable state, then purge this ttable state */
             if ( !( bitboard::pawn_pyramid_s_lookup ( pos ) & bb ( pcolor::white, ptype::pawn ) & ~entry.first.bb ( pcolor::white, ptype::pawn ) ) ) return true;
         }
 
