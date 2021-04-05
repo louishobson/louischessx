@@ -57,9 +57,9 @@ int main ()
     while ( true )
     {
         std::string cmd; std::getline ( gc.chess_in, cmd ); if ( cmd.back () == '\n' ) cmd.pop_back ();
-
+//
         gc.handle_command ( cmd );
-
+//
         if ( cmd.starts_with ( "quit" ) ) return 0;
     }
 
@@ -144,15 +144,21 @@ int main ()
     }
     */
 
-    /*
-    for ( int i = 0; i < 64; ++i )
-    {
-        chess::bitboard bb { 1ull << i };
-        //std::cout << "0x" << std::hex << std::setw ( 16 ) << std::setfill ( '0' ) << bb.queen_all_attack ().get_value ();
-        std::cout << bb.queen_all_attack ().format_board () << "\n";
-        //std::cout << ( ( i + 1 ) % 8 == 0 ? ",\n" : ", " );
-    }
-    */
+    
+    //for ( int i = 0; i < 64; ++i )
+    //{
+    //    chess::bitboard bb { 1ull << i }, temp;
+    //    while ( bb != temp )
+    //    {
+    //        temp = bb;
+    //        bb |= bb.shift ( chess::compass::n ) | bb.shift ( chess::compass::n ).shift ( chess::compass::e ) | bb.shift ( chess::compass::n ).shift ( chess::compass::w );
+    //    }
+
+    //    std::cout << "0x" << std::hex << std::setw ( 16 ) << std::setfill ( '0' ) << bb.get_value ();
+    //    //std::cout << bb.queen_all_attack ().format_board () << "\n";
+    //    std::cout << ( ( i + 1 ) % 8 == 0 ? ",\n" : ", " );
+    //}
+    
 
     /*
     std::srand ( std::time ( nullptr ) );
