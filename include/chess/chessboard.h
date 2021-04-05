@@ -533,9 +533,6 @@ public:
         /* The bound of the ttable entry */
         bound_t bound;
 
-        /* Boolean as to whether the entry is draw-tainted */
-        bool draw_tainted;
-
         /* The best move at this state */
         move_t best_move;
     };
@@ -917,6 +914,9 @@ private:
         
         /* Accumulate the number of full nodes and quiescence nodes visited */
         int num_nodes = 0, num_q_nodes = 0;
+
+        /* The largest fd_depth for which a draw state could occur */
+        int draw_max_fd_depth = 0;
 
         /* Array of sets of moves */
         std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
