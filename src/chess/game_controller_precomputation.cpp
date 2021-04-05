@@ -30,22 +30,23 @@
  * @param  cb: The chessboard state to run the search on.
  * @param  pc: The player color to search.
  * @param  opponent_move: The opponent move which lead to this state, empty move by default.
+ * @param  ttable: The transposition table from previous searches. Empty by default.
  * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
  * @return An iterator to the search data in active_searches.
  */
-chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, const bool direct_response )
+chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, chessboard::ab_ttable_t ttable, const bool direct_response )
 {
     /* Create the search data */
-    active_searches.emplace_back ( cb.copy_with_ab_working (), pc, opponent_move, false );
+    active_searches.emplace_back ( cb, pc, opponent_move, false );
 
     /* Get an iterator to the active search */
     search_data_it_t search_data_it = --active_searches.end ();
 
     /* Start an asynchronous wait for the search to finish */
-    active_searches.back ().ab_result_future = std::async ( std::launch::async, [ this, search_data_it, direct_response ] () mutable
+    active_searches.back ().ab_result_future = std::async ( std::launch::async, [ this, search_data_it, ttable { std::move ( ttable ) }, direct_response ] () mutable
     {
         /* Wait for the search to complete */
-        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
+        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, std::move ( ttable ), search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
 
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
         std::unique_lock search_lock { search_mx };
@@ -71,10 +72,9 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
  *         Setting search_end_flag to true then notifying search_cv will cancel all active searches and the controller thread will prompty finish execution.
  *         Setting known_opponent_move before doing the above will cause the controller thread to start the search in response to known_opponent_move, or not cancel it if already started. All other searches are cancelled.
  *         The game state will be stored, so can be safely modified after this function returns.
- * @param  pc: The color that searches are made for (based on the possible moves for other)
  * @return void
  */
-void chess::game_controller::start_precomputation ( const pcolor pc )
+void chess::game_controller::start_precomputation ()
 {
     /* Stop any active searches */
     stop_precomputation ();
@@ -86,14 +86,13 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
     search_end_flag = false; known_opponent_move = move_t {};
 
     /* Start the new thread */
-    search_controller = std::thread { [ this, cb { game_cb.copy_with_ab_working () }, pc ] () mutable
+    search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { current_ttable } ] () mutable
     {
         /* Get the opponent moves */
-        std::atomic_bool opponent_end_flag = false;
-        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, opponent_end_flag );
+        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ) );
 
-        /* Copy back over the ab_working */
-        cb.ab_working = std::move ( opponent_ab_result._ab_working );
+        /* Get the ttable back */
+        ttable = std::move ( opponent_ab_result.ttable );
 
         /* Aquire a lock on search_mx */
         std::unique_lock search_lock { search_mx };
@@ -103,7 +102,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
         {
             /* Make the move, start the search, then unmake the move */
             cb.make_move_internal ( opponent_ab_result.moves.at ( i ).first );
-            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first );
+            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first, cb.purge_ttable ( ttable ) );
             cb.unmake_move_internal ();  
         }
 
@@ -121,7 +120,7 @@ void chess::game_controller::start_precomputation ( const pcolor pc )
             {
                 /* Start another search by making the next move, starting the search, and unmaking the move */
                 cb.make_move_internal ( opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
-                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
+                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first, cb.purge_ttable ( ttable ) );
                 cb.unmake_move_internal ();  
             }
         }

@@ -25,6 +25,7 @@
 #include <chess/macros.h>
 #include <cmath>
 #include <initializer_list>
+#include <iostream>
 #include <iterator>
 #include <future>
 #include <memory>
@@ -346,20 +347,6 @@ public:
      */
     bool operator== ( const chessboard& other ) const noexcept;
 
-    /** @name  copy_with_ab_working
-     * 
-     * @brief  Produce a copy of this chessboard, however with ab_working copied to the copy.
-     * @return chessboard
-     */
-    chessboard copy_with_ab_working () const;
-
-    /** @name  copy_and_move_ab_working
-     * 
-     * @brief  Produce a copy of this chessboard, however with ab_working moves to the copy.
-     * @return chessboard
-     */
-    chessboard copy_and_move_ab_working () const;
-
     /** @name  reset_to_initial
      * 
      * @brief  Resets the board and history to the default chess initial position
@@ -542,29 +529,10 @@ public:
 
 
 
-    /* WORKING VALUES STRUCT */
+    /* TTABLE TYPEDEF */
 
-    /* A structure containing temporary alpha-beta search data */
-    struct ab_working_t
-    {
-        /* Accumulate the sum of quiescence depth and moves made */
-        unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
-        
-        /* Accumulate the number of full nodes and quiescence nodes visited */
-        int num_nodes = 0, num_q_nodes = 0;
-
-        /* Array of sets of moves */
-        std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
-
-        /* An array of root moves and their values */
-        std::vector<std::pair<move_t, int>> root_moves;
-
-        /* An array of the two most recent killer moves for each depth */
-        std::vector<std::array<move_t, 2>> killer_moves;
-
-        /* The transposition table */
-        std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ttable;
-    };
+    /* The transposition table type */
+    typedef std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ab_ttable_t;
 
 
 
@@ -591,8 +559,8 @@ public:
         /* The time taken for the search */
         chess_clock::duration duration;
 
-        /* Alpha beta working values from the search */
-        std::unique_ptr<ab_working_t> _ab_working;
+        /* The transposition table from the search */
+        ab_ttable_t ttable;
     };
 
 
@@ -807,6 +775,14 @@ public:
 
     /* SEARCH */
 
+    /** @name  purge_ttable
+     * 
+     * @brief  Take a transposition table, and remove entries which are no longer reachable from the current board state.
+     * @param  ttable: The transposition table to erase elements from.
+     * @return A new ttable with unreachable positions erased.
+     */
+    ab_ttable_t purge_ttable ( ab_ttable_t ttable ) const;
+
     /** @name  alpha_beta_search
      * 
      * @brief  Set up and apply the alpha-beta search.
@@ -814,13 +790,14 @@ public:
      * @param  pc: The color whose move it is next.
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
+     * @param  ttable: The transposition table to use for the search. Empty by default.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @return ab_result_t
      */
-    ab_result_t alpha_beta_search ( pcolor pc, int depth, bool best_only, const std::atomic_bool& end_flag = false, chess_clock::time_point end_point = chess_clock::time_point::max (), int alpha = -20000, int beta = +20000 );
+    ab_result_t alpha_beta_search ( pcolor pc, int depth, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::atomic_bool& end_flag = false, chess_clock::time_point end_point = chess_clock::time_point::max (), int alpha = -20000, int beta = +20000 );
 
     /** @name  alpha_beta_iterative_deepening
      * 
@@ -830,15 +807,14 @@ public:
      * @param  pc: The color whose move it is next.
      * @param  depths: A list of depth values to search.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
+     * @param  ttable: The transposition table to use for the search. Empty by default.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
      * @return ab_result_t
      */
-    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, const std::atomic_bool& end_flag = false,
-        chess_clock::time_point end_point = chess_clock::time_point::max (), 
-        bool finish_first = true 
-    );
+    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::atomic_bool& end_flag = false,
+        chess_clock::time_point end_point = chess_clock::time_point::max (), bool finish_first = true );
 
 
 
@@ -916,6 +892,32 @@ public:
 
 
 private:
+
+    /* TYPES */
+
+    /* A structure containing temporary alpha-beta search data */
+    struct ab_working_t
+    {
+        /* Accumulate the sum of quiescence depth and moves made */
+        unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
+        
+        /* Accumulate the number of full nodes and quiescence nodes visited */
+        int num_nodes = 0, num_q_nodes = 0;
+
+        /* Array of sets of moves */
+        std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
+
+        /* An array of root moves and their values */
+        std::vector<std::pair<move_t, int>> root_moves;
+
+        /* An array of the two most recent killer moves for each depth */
+        std::vector<std::array<move_t, 2>> killer_moves;
+
+        /* The transposition table */
+        std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ttable;
+    };
+
+
 
     /* ATTRIBUTES */
 

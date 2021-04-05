@@ -707,6 +707,19 @@ public:
 
     /* LOOKUPS */
 
+    /** @name  pawn_pyramid_n/s_lookup
+     * 
+     * @brief  Lookup the pawn pyramid for a position.
+     * @param  pos:  The absolute position [0,63]
+     * @param  rank: The rank of the bit [0,7]
+     * @param  file: The file of the bit [0,7]
+     * @return bitboard
+     */
+    static constexpr bitboard pawn_pyramid_n_lookup ( int pos ) noexcept { return bitboard { pawn_pyramid_n_lookups [ pos ] }; }
+    static constexpr bitboard pawn_pyramid_s_lookup ( int pos ) noexcept { return bitboard { pawn_pyramid_s_lookups [ pos ] }; }
+    static constexpr bitboard pawn_pyramid_n_lookup ( int rank, int file ) noexcept { return bitboard { pawn_pyramid_n_lookups [ rank * 8 + file ] }; }
+    static constexpr bitboard pawn_pyramid_s_lookup ( int rank, int file ) noexcept { return bitboard { pawn_pyramid_s_lookups [ rank * 8 + file ] }; }
+
     /** @name  king_attack_lookup, knight_attack_lookup
      * 
      * @brief  Lookup the possible moves of single king or knight
@@ -873,6 +886,34 @@ private:
     static constexpr unsigned long long knight_shift_masks [ 8 ] =
     {
         masks::knight_shift_ssw, masks::knight_shift_sse, masks::knight_shift_sww, masks::knight_shift_see, masks::knight_shift_nww, masks::knight_shift_nee, masks::knight_shift_nnw, masks::knight_shift_nne
+    };
+
+
+
+    /* PAWN LOOKUPS */
+
+    /* Pawn pyramids */
+    static constexpr unsigned long long pawn_pyramid_s_lookups [ 64 ] =
+    {
+        0x0000000000000001, 0x0000000000000002, 0x0000000000000004, 0x0000000000000008, 0x0000000000000010, 0x0000000000000020, 0x0000000000000040, 0x0000000000000080,
+        0x0000000000000103, 0x0000000000000207, 0x000000000000040e, 0x000000000000081c, 0x0000000000001038, 0x0000000000002070, 0x00000000000040e0, 0x00000000000080c0,
+        0x0000000000010307, 0x000000000002070f, 0x0000000000040e1f, 0x0000000000081c3e, 0x000000000010387c, 0x00000000002070f8, 0x000000000040e0f0, 0x000000000080c0e0,
+        0x000000000103070f, 0x0000000002070f1f, 0x00000000040e1f3f, 0x00000000081c3e7f, 0x0000000010387cfe, 0x000000002070f8fc, 0x0000000040e0f0f8, 0x0000000080c0e0f0,
+        0x0000000103070f1f, 0x00000002070f1f3f, 0x000000040e1f3f7f, 0x000000081c3e7fff, 0x00000010387cfeff, 0x0000002070f8fcfe, 0x00000040e0f0f8fc, 0x00000080c0e0f0f8,
+        0x00000103070f1f3f, 0x000002070f1f3f7f, 0x0000040e1f3f7fff, 0x0000081c3e7fffff, 0x000010387cfeffff, 0x00002070f8fcfeff, 0x000040e0f0f8fcfe, 0x000080c0e0f0f8fc,
+        0x000103070f1f3f7f, 0x0002070f1f3f7fff, 0x00040e1f3f7fffff, 0x00081c3e7fffffff, 0x0010387cfeffffff, 0x002070f8fcfeffff, 0x0040e0f0f8fcfeff, 0x0080c0e0f0f8fcfe,
+        0x0103070f1f3f7fff, 0x02070f1f3f7fffff, 0x040e1f3f7fffffff, 0x081c3e7fffffffff, 0x10387cfeffffffff, 0x2070f8fcfeffffff, 0x40e0f0f8fcfeffff, 0x80c0e0f0f8fcfeff
+    };
+    static constexpr unsigned long long  pawn_pyramid_n_lookups [ 64 ] =
+    {
+        0xff7f3f1f0f070301, 0xffff7f3f1f0f0702, 0xffffff7f3f1f0e04, 0xffffffff7f3e1c08, 0xfffffffffe7c3810, 0xfffffffefcf87020, 0xfffffefcf8f0e040, 0xfffefcf8f0e0c080,
+        0x7f3f1f0f07030100, 0xff7f3f1f0f070200, 0xffff7f3f1f0e0400, 0xffffff7f3e1c0800, 0xfffffffe7c381000, 0xfffffefcf8702000, 0xfffefcf8f0e04000, 0xfefcf8f0e0c08000,
+        0x3f1f0f0703010000, 0x7f3f1f0f07020000, 0xff7f3f1f0e040000, 0xffff7f3e1c080000, 0xfffffe7c38100000, 0xfffefcf870200000, 0xfefcf8f0e0400000, 0xfcf8f0e0c0800000,
+        0x1f0f070301000000, 0x3f1f0f0702000000, 0x7f3f1f0e04000000, 0xff7f3e1c08000000, 0xfffe7c3810000000, 0xfefcf87020000000, 0xfcf8f0e040000000, 0xf8f0e0c080000000,
+        0x0f07030100000000, 0x1f0f070200000000, 0x3f1f0e0400000000, 0x7f3e1c0800000000, 0xfe7c381000000000, 0xfcf8702000000000, 0xf8f0e04000000000, 0xf0e0c08000000000,
+        0x0703010000000000, 0x0f07020000000000, 0x1f0e040000000000, 0x3e1c080000000000, 0x7c38100000000000, 0xf870200000000000, 0xf0e0400000000000, 0xe0c0800000000000,
+        0x0301000000000000, 0x0702000000000000, 0x0e04000000000000, 0x1c08000000000000, 0x3810000000000000, 0x7020000000000000, 0xe040000000000000, 0xc080000000000000,
+        0x0100000000000000, 0x0200000000000000, 0x0400000000000000, 0x0800000000000000, 0x1000000000000000, 0x2000000000000000, 0x4000000000000000, 0x8000000000000000
     };
 
 

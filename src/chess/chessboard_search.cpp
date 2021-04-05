@@ -17,6 +17,49 @@
 
 
 
+/* TTABLE PURGING */
+
+/** @name  purge_ttable
+ * 
+ * @brief  Take a transposition table, and remove entries which are no longer reachable from the current board state.
+ * @param  ttable: The transposition table to erase elements from.
+ * @return A new ttable with unreachable positions erased.
+ */
+chess::chessboard::ab_ttable_t chess::chessboard::purge_ttable ( ab_ttable_t ttable ) const
+{
+    /* Erase elements */
+    std::erase_if ( ttable, [ this ] ( const ab_ttable_t::value_type& entry )
+    {
+        /* Erase if the count of any piece type is not the same */
+        for ( pcolor pc : { pcolor::white, pcolor::black } ) for ( ptype pt : ptype_inc_value ) if ( entry.first.bb ( pc, pt ).popcount () > bb ( pc, pt ).popcount () ) return true;
+
+        /* Loop through the white pawns that have moved */
+        for ( bitboard moved_pawns = entry.first.bb ( pcolor::white, ptype::pawn ) & ~bb ( pcolor::white, ptype::pawn ); moved_pawns; )
+        {
+            /* Get the next pawn */
+            int pos = moved_pawns.trailing_zeros (); moved_pawns.reset ( pos );
+
+            /* If there is not a pawn which can reach this position, which is also unaccounted for in this entry, then return true */
+            if ( !( bitboard::pawn_pyramid_s_lookup ( pos ) & bb ( pcolor::white, ptype::pawn ) & ~entry.first.bb ( pcolor::white, ptype::pawn ) ) ) return true;
+        }
+
+        /* Do the same for black */
+        for ( bitboard moved_pawns = entry.first.bb ( pcolor::black, ptype::pawn ) & ~bb ( pcolor::black, ptype::pawn ); moved_pawns; )
+        {
+            int pos = moved_pawns.trailing_zeros (); moved_pawns.reset ( pos );
+            if ( !( bitboard::pawn_pyramid_n_lookup ( pos ) & bb ( pcolor::black, ptype::pawn ) & ~entry.first.bb ( pcolor::black, ptype::pawn ) ) ) return true;
+        }
+
+        /* Do not delete */
+        return false;
+    } );
+
+    /* Return ttable */
+    return ttable;
+}
+
+
+
 /* ALPHA BETA SEARCH */
 
 
@@ -27,23 +70,30 @@
  * @param  pc: The color whose move it is next.
  * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
  * @param  best_only: If true, the search will be optimised as only the best move is returned.
+ * @param  ttable: The transposition table to use for the search. Empty by default.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
  * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
  * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
  * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
  * @return ab_result_t
  */
-chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const bool best_only, const std::atomic_bool& end_flag, const chess_clock::time_point end_point, const int alpha, const int beta )
+chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcolor pc, const int depth, const bool best_only, ab_ttable_t ttable, const std::atomic_bool& end_flag, const chess_clock::time_point end_point, const int alpha, const int beta )
 {
-    /* Allocate new memory if necessary */
-    if ( !ab_working ) ab_working.reset ( new ab_working_t );
+    /* Allocate ab_working */
+    ab_working.reset ( new ab_working_t );
 
-    /* Allocate excess memory  */
-    ab_working->move_sets.resize ( 32 );
+    /* Allocate excess memory  */ 
+    ab_working->move_sets.resize ( 32 ); 
     ab_working->killer_moves.resize ( 32 );
-
+    
     /* Reserve excess memory for root moves */
     ab_working->root_moves.reserve ( 32 );
+
+    /* Move over ttable */
+    ab_working->ttable = std::move ( ttable );
+
+    /* Reset counters */
+    ab_working->sum_q_depth = ab_working->sum_moves = ab_working->sum_q_moves = ab_working->num_nodes = ab_working->num_q_nodes = 0;
 
     /* Call and time the internal method */
     const auto t0 = chess_clock::now ();
@@ -63,7 +113,10 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
     ab_result.av_q_moves  = ab_working->sum_q_moves / static_cast<double> ( ab_working->num_q_nodes );
     ab_result.incomplete  = end_flag || chess_clock::now () > end_point;
     ab_result.duration    = t1 - t0;
-    ab_result._ab_working = std::move ( ab_working );
+    ab_result.ttable      = std::move ( ab_working->ttable );
+
+    /* Delete the working values */
+    ab_working.reset ( nullptr );
 
     /* If there are no possible moves, return now */
     if ( ab_result.moves.empty () ) return ab_result;
@@ -115,12 +168,13 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_search ( const pcol
  * @param  pc: The color whose move it is next.
  * @param  depths: A list of depth values to search.
  * @param  best_only: If true, the search will be optimised as only the best move is returned.
+ * @param  ttable: The transposition table to use for the search. Empty by default.
  * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
  * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
  * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
  * @return ab_result_t
  */
-chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const std::vector<int>& depths, const bool best_only, const std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first )
+chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening ( const pcolor pc, const std::vector<int>& depths, const bool best_only, ab_ttable_t ttable, const std::atomic_bool& end_flag, const chess_clock::time_point end_point, const bool finish_first )
 {
     /* The result of the highest depth complete search */
     ab_result_t ab_result;
@@ -132,13 +186,13 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
     for ( int i = 0; i < depths.size (); ++i )
     {
         /* Run the search */
-        ab_result_t new_ab_result = alpha_beta_search ( pc, depths.at ( i ), best_only, end_flag, ( finish_first && i == 0 ? chess_clock::time_point::max () : end_point ), alpha, beta );
+        ab_result_t new_ab_result = alpha_beta_search ( pc, depths.at ( i ), best_only, std::move ( ttable ), end_flag, ( finish_first && i == 0 ? chess_clock::time_point::max () : end_point ), alpha, beta );
+
+        /* Extract the ttable from new_ab_result */
+        ttable = std::move ( new_ab_result.ttable );
 
         /* If the search is incomplete, break */
         if ( new_ab_result.incomplete ) break;
-
-        /* Move the ab_working values from the search into this */
-        ab_working = std::move ( new_ab_result._ab_working );
 
         /* If there were no possible moves, break */
         if ( new_ab_result.moves.empty () ) break;
@@ -179,8 +233,8 @@ chess::chessboard::ab_result_t chess::chessboard::alpha_beta_iterative_deepening
         if ( chess_clock::now () + pred_duration > end_point ) break;
     }
 
-    /* Copy out ab_working from cb */
-    ab_result._ab_working = std::move ( ab_working );
+    /* Move ttable back into ab_result */
+    ab_result.ttable = std::move ( ttable );
     
     /* Return the result deepest complete search */
     return ab_result;

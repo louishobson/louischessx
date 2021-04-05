@@ -68,11 +68,14 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Cancel any ongoing search */
         stop_precomputation ();
 
-        /* Reset the board and next player to move */
-        game_cb.reset_to_initial (); next_pc = pcolor::white;
+        /* Reset the board and clear the current ttable */
+        game_cb.reset_to_initial (); current_ttable.clear ();
 
-        /* Set the computer pc to black, and start precomputation */
-        computer_pc = pcolor::black; start_precomputation ( computer_pc );
+        /* Set the next color to white, the computer to black */
+        next_pc = pcolor::white; computer_pc = pcolor::black; 
+
+        /* Start precomputation */
+        start_precomputation ();
     } else
 
     /** @name  variant
@@ -116,7 +119,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         computer_pc = next_pc;
 
         /* Start a search and get the result */
-        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, move_t {}, true )->ab_result_future.get ();
+        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, move_t {}, current_ttable, true )->ab_result_future.get ();
         
         /* Output the move, if any */
         make_and_output_move ( ab_result );
@@ -137,7 +140,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         computer_pc = other_color ( next_pc );
 
         /* Start pondering */
-        start_precomputation ( computer_pc );
+        start_precomputation ();
     } else
 
     /** @name  move MOVE
@@ -164,7 +167,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             search_data_it_t search_data_it = stop_precomputation ( move );
 
             /* Start the correct search if had not already been started */
-            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, true );
+            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( current_ttable ), true );
 
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
             if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
@@ -214,6 +217,9 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
 
         /* Set the game state */
         next_pc = game_cb.fen_deserialize_board ( cmd.substr ( 9 ) );
+
+        /* Clear the transposition table */
+        current_ttable.clear ();
     } else
 
     /** @name  undo
@@ -247,7 +253,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         game_cb.unmake_move (); game_cb.unmake_move ();
 
         /* Restart precomputation */
-        start_precomputation ( computer_pc );
+        start_precomputation ();
     }
 
     /* Command handled, so return true */
@@ -316,8 +322,8 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         /* Make the move */
         game_cb.make_move ( ab_result.moves.front ().first );
 
-        /* Copy over ab_working */
-        game_cb.ab_working = std::move ( ab_result._ab_working );
+        /* Set the current ttable */
+        current_ttable = game_cb.purge_ttable ( std::move ( ab_result.ttable ) );
 
         /* Swap the next color */
         next_pc = other_color ( next_pc ); 
@@ -328,7 +334,7 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         if ( ab_result.moves.front ().first.draw      ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
 
         /* Else, since the game has not ended, start precomputation */
-        start_precomputation ( computer_pc );
+        start_precomputation ();
     }
 
     /* Else if there are no moves, it will be a checkmate or draw */

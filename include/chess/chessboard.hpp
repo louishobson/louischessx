@@ -133,40 +133,6 @@ inline bool chess::chessboard::operator== ( const chessboard& other ) const noex
     return ( bbs == other.bbs ) && ( aux_info == other.aux_info );
 }
 
-/** @name  copy_with_ab_working
- * 
- * @brief  Produce a copy of this chessboard, however with ab_working copied to the copy.
- * @return chessboard
- */
-inline chess::chessboard chess::chessboard::copy_with_ab_working () const
-{
-    /* Make a copy */
-    chessboard cb { * this };
-
-    /* Copy ab_working */
-    if ( ab_working ) cb.ab_working.reset ( new ab_working_t { * ab_working } );
-
-    /* Return cb */
-    return cb;
-}
-
-/** @name  copy_and_move_ab_working
- * 
- * @brief  Produce a copy of this chessboard, however with ab_working moves to the copy.
- * @return chessboard
- */
-inline chess::chessboard chess::chessboard::copy_and_move_ab_working () const
-{
-    /* Make a copy */
-    chessboard cb { * this };
-
-    /* Move ab_working */
-    cb.ab_working = std::move ( ab_working );
-
-    /* Return cb */
-    return cb;
-}
-
 /** @name  reset_to_empty
  * 
  * @brief  Resets the board and history to an empty board
