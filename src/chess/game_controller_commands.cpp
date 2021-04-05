@@ -68,8 +68,8 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Cancel any ongoing search */
         stop_precomputation ();
 
-        /* Reset the board and clear the current ttable */
-        game_cb.reset_to_initial (); current_ttable.clear ();
+        /* Reset the board and clear the cumulative ttable */
+        game_cb.reset_to_initial (); cumulative_ttable.clear ();
 
         /* Set the next color to white, the computer to black */
         next_pc = pcolor::white; computer_pc = pcolor::black; 
@@ -119,7 +119,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         computer_pc = next_pc;
 
         /* Start a search and get the result */
-        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, move_t {}, current_ttable, true )->ab_result_future.get ();
+        chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, move_t {}, cumulative_ttable, true )->ab_result_future.get ();
         
         /* Output the move, if any */
         make_and_output_move ( ab_result );
@@ -167,7 +167,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             search_data_it_t search_data_it = stop_precomputation ( move );
 
             /* Start the correct search if had not already been started */
-            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( current_ttable ), true );
+            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( cumulative_ttable, ttable_min_bk_depth ), true );
 
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
             if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
@@ -219,7 +219,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         next_pc = game_cb.fen_deserialize_board ( cmd.substr ( 9 ) );
 
         /* Clear the transposition table */
-        current_ttable.clear ();
+        cumulative_ttable.clear ();
     } else
 
     /** @name  undo
@@ -322,8 +322,8 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         /* Make the move */
         game_cb.make_move ( ab_result.moves.front ().first );
 
-        /* Set the current ttable */
-        current_ttable = game_cb.purge_ttable ( std::move ( ab_result.ttable ) );
+        /* Set the cumulative ttable */
+        cumulative_ttable = game_cb.purge_ttable ( std::move ( ab_result.ttable ), ttable_min_bk_depth );
 
         /* Swap the next color */
         next_pc = other_color ( next_pc ); 

@@ -86,7 +86,7 @@ void chess::game_controller::start_precomputation ()
     search_end_flag = false; known_opponent_move = move_t {};
 
     /* Start the new thread */
-    search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { current_ttable } ] () mutable
+    search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { cumulative_ttable } ] () mutable
     {
         /* Get the opponent moves */
         chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ) );
@@ -102,7 +102,7 @@ void chess::game_controller::start_precomputation ()
         {
             /* Make the move, start the search, then unmake the move */
             cb.make_move_internal ( opponent_ab_result.moves.at ( i ).first );
-            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first, cb.purge_ttable ( ttable ) );
+            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first, cb.purge_ttable ( ttable, ttable_min_bk_depth ) );
             cb.unmake_move_internal ();  
         }
 
@@ -120,7 +120,7 @@ void chess::game_controller::start_precomputation ()
             {
                 /* Start another search by making the next move, starting the search, and unmaking the move */
                 cb.make_move_internal ( opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
-                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first, cb.purge_ttable ( ttable ) );
+                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first, cb.purge_ttable ( ttable, ttable_min_bk_depth ) );
                 cb.unmake_move_internal ();  
             }
         }

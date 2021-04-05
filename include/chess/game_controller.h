@@ -118,8 +118,8 @@ public:
     /* The color this program is playing as */
     pcolor computer_pc = pcolor::no_piece;
 
-    /* The current transposition table */
-    chessboard::ab_ttable_t current_ttable;
+    /* The cumulative transposition table */
+    chessboard::ab_ttable_t cumulative_ttable;
 
     /* The input, output and error streams to use */
     std::istream& chess_in = std::cin;
@@ -141,13 +141,15 @@ public:
      * A list of depths that will be searched to determine the opponent's best moves.
      * The number of parallel searches to make. If a search finishes, further searches will be started keeping a maximum of 6 simultaneous searches.
      * The maximum time duration an search can take, at which point other opponent responses will be tried. See above about what happens if the opponent moves before or after this time us up.
-     * The maximum time AFTER the opponent has moved that the computer should take searching before making a move
+     * The maximum time AFTER the opponent has moved that the computer should take searching before making a move.
+     * The minimum bk_depth for a ttable entry to not be purged.
      */
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6 };
     int num_parallel_searches = 4;
     chess_clock::duration max_search_duration = std::chrono::seconds { 30 };
     chess_clock::duration max_response_duration = std::chrono::seconds { 15 };
+    int ttable_min_bk_depth = 5;
 
 
 
