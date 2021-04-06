@@ -144,7 +144,7 @@ public:
      * The maximum time AFTER the opponent has moved that the computer should take searching before making a move.
      * The minimum bk_depth for a ttable entry to not be purged.
      */
-    std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 };
+    std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6 };
     int num_parallel_searches = 4;
     chess_clock::duration max_search_duration = std::chrono::seconds { 30 };
