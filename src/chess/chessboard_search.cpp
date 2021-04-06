@@ -284,7 +284,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* Set the minimum bk_depth at which the transposition table will be searched and written to.
      * Should not be too small, as this will increase ttable usage and reduce its effectiveness (CPU cycles and memory usage).
      */
-    constexpr int TTABLE_MIN_BK_DEPTH = 2;
+    constexpr int TTABLE_MIN_BK_DEPTH = 3;
 
     /* The maximum fd_depth at which the transposition table will be searched and written to.
      * This complements the above, in that it can stop absurdly large amounts of data from accumulating in the ttable.

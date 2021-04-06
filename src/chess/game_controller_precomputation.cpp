@@ -102,7 +102,7 @@ void chess::game_controller::start_precomputation ()
         {
             /* Make the move, start the search, then unmake the move */
             cb.make_move_internal ( opponent_ab_result.moves.at ( i ).first );
-            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first, cb.purge_ttable ( ttable, ttable_min_bk_depth ) );
+            start_search ( cb, pc, opponent_ab_result.moves.at ( i ).first, cb.purge_ttable ( ttable ) );
             cb.unmake_move_internal ();  
         }
 
@@ -120,7 +120,7 @@ void chess::game_controller::start_precomputation ()
             {
                 /* Start another search by making the next move, starting the search, and unmaking the move */
                 cb.make_move_internal ( opponent_ab_result.moves.at ( i + num_parallel_searches ).first );
-                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first, cb.purge_ttable ( ttable, ttable_min_bk_depth ) );
+                start_search ( cb, pc, opponent_ab_result.moves.at ( i + num_parallel_searches ).first, cb.purge_ttable ( ttable ) );
                 cb.unmake_move_internal ();  
             }
         }
