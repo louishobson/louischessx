@@ -167,7 +167,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             search_data_it_t search_data_it = stop_precomputation ( move );
 
             /* Start the correct search if had not already been started */
-            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( cumulative_ttable ), true );
+            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( cumulative_ttable, ttable_min_bk_depth ), true );
 
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
             if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
@@ -323,7 +323,7 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         game_cb.make_move ( ab_result.moves.front ().first );
 
         /* Set the cumulative ttable */
-        cumulative_ttable = game_cb.purge_ttable ( std::move ( ab_result.ttable ) );
+        cumulative_ttable = game_cb.purge_ttable ( std::move ( ab_result.ttable ), ttable_min_bk_depth );
 
         /* Swap the next color */
         next_pc = other_color ( next_pc ); 
