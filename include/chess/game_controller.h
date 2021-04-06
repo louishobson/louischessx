@@ -149,7 +149,7 @@ public:
     int num_parallel_searches = 4;
     chess_clock::duration max_search_duration = std::chrono::seconds { 30 };
     chess_clock::duration max_response_duration = std::chrono::seconds { 15 };
-    int ttable_min_bk_depth = 3;
+    int ttable_min_bk_depth = 4;
 
 
 
