@@ -324,7 +324,7 @@ std::string chess::chessboard::fide_serialize_move ( const move_t& move ) const
         /* Add the destination position */
         bitboard::name_cell ( move.to ) +
         /* Add the promotion type if necessary */
-        ( move.promote_pt != ptype::no_piece ? std::string { ptype_to_character ( move.capture_pt ) } : "" ) +
+        ( move.promote_pt != ptype::no_piece ? std::string { ptype_to_character ( move.promote_pt ) } : "" ) +
         /* Add a '#' for checkmate or '+' for check */
         ( move.checkmate ? "#" : ( move.check ? "+"  : "" ) );
 
