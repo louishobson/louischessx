@@ -118,6 +118,9 @@ public:
     /* The color this program is playing as */
     pcolor computer_pc = pcolor::no_piece;
 
+    /* The latest value a search by a computer produced */
+    int latest_best_value = 0;
+
     /* The cumulative transposition table */
     chessboard::ab_ttable_t cumulative_ttable;
 
@@ -142,6 +145,8 @@ public:
      * The number of parallel searches to make. If a search finishes, further searches will be started keeping a maximum of 6 simultaneous searches.
      * The maximum time duration an search can take, at which point other opponent responses will be tried. See above about what happens if the opponent moves before or after this time us up.
      * The maximum time AFTER the opponent has moved that the computer should take searching before making a move.
+     * The minimum bk_depth for an entry in the cumulative ttable entry to be considered worth keeping.
+     * The value of latest_best_value for a draw offer to be considered a good idea.
      */
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6 };
@@ -149,6 +154,7 @@ public:
     chess_clock::duration max_search_duration = std::chrono::seconds { 30 };
     chess_clock::duration max_response_duration = std::chrono::seconds { 15 };
     int ttable_min_bk_depth = 4;
+    int draw_offer_acceptance_value = -100;
 
 
 

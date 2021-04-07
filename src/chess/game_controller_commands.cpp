@@ -40,7 +40,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
     {
         /* Wait for the protover command and check for at least version 2 */
         std::string next_cmd; std::getline ( chess_in, next_cmd );
-        if ( !next_cmd.starts_with ( "protover" ) || std::stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
+        if ( !next_cmd.starts_with ( "protover " ) || next_cmd.size () < 10 || std::stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
 
         /* Send feature requests */
         chess_out << "feature done=0\n"          /* Pause timeout on feature requests */
@@ -149,10 +149,13 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      * @param  MOVE: The move in standard algebraic notation.
      * @return Move command, and/or result if a checkmate occurs.
      */
-    if ( cmd.starts_with ( "usermove" ) )
+    if ( cmd.starts_with ( "usermove " ) )
     {
         /* Check that it is not the computer's move */
         if ( next_pc == computer_pc ) throw chess_input_error { "User tried to move on computer's turn." };
+
+        /* Check that there is a move supplied */
+        if ( cmd.size () < 10 ) throw chess_input_error { "Move not supplied with usermove." };
 
         /* Try to decode the move description */
         const move_t move = game_cb.fide_deserialize_move ( next_pc, cmd.substr ( 9 ) );
@@ -184,8 +187,11 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      * @param  N: Some integer
      * @return pong N
      */
-    if ( cmd.starts_with ( "ping" ) )
+    if ( cmd.starts_with ( "ping " ) )
     {
+        /* Check that there is an N present */
+        if ( cmd.size () < 6 ) throw chess_input_error { "No argument supplied with ping." };
+
         /* Output pong N */
         chess_out << "pong " << cmd.substr ( 5 ) << std::endl;
     } else
@@ -200,8 +206,8 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* If in force mode, throw an input error */
         if ( computer_pc == pcolor::no_piece ) throw chess_input_error { "Offered draw while in force mode." };
 
-        /* If the evaluation of game_cb is <= -100 for the computer, then accept */
-        if ( game_cb.evaluate ( computer_pc ) <= -100 ) chess_out << "offer draw" << std::endl;
+        /* If latest_best_value <= draw_offer_acceptance_value for the computer, then accept */
+        if ( latest_best_value <= draw_offer_acceptance_value ) chess_out << "offer draw" << std::endl;
     } else
 
     /** @name  setboard FEN
@@ -321,6 +327,9 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
 
         /* Make the move */
         game_cb.make_move ( ab_result.moves.front ().first );
+
+        /* Set the latest best value */
+        latest_best_value = ab_result.moves.front ().second;
 
         /* Set the cumulative ttable */
         cumulative_ttable = game_cb.purge_ttable ( std::move ( ab_result.ttable ), ttable_min_bk_depth );
