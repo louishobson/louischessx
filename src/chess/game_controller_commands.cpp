@@ -282,8 +282,8 @@ catch ( const chess_input_error& e )
 /* Catch an internal error */
 catch ( const chess_internal_error& e )
 {
-    /* Output the error */
-    chess_error << "Error (" << e.what () << "): " << cmd << std::endl;
+    /* Output the error to the user */
+    chess_error << "tellusererror (" << e.what () << "): " << cmd << std::endl;
 
     /* Resign */
     chess_out << "resign" << std::endl;
