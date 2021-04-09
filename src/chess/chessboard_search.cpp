@@ -606,27 +606,15 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         if ( fd_depth ) alpha = std::max ( alpha, best_value ); else if ( best_only ) alpha = std::max ( alpha, best_value - 1 );
         if ( alpha >= beta )
         {
-            /* If the most recent killer move is similar, update its capture type, otherwise update the killer moves */
-            if ( access_killer_move ( 0 ).is_similar ( move ) ) 
-            {
-                /* Only update the capture type if it was not previously a non-capture.
-                    * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
-                    */
-                if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
-            } else
+            /* If the move is not a capture and most recent killer move is not similar, update the killer moves */
+            if ( move.capture_pt == ptype::no_piece && !access_killer_move ( 0 ).is_similar ( move ) ) 
             {
                 /* Swap the killer moves */
                 std::swap ( access_killer_move ( 0 ), access_killer_move ( 1 ) );
 
-                /* If the most recent killer move is now similar, update the capture type, else replace it */
-                if ( access_killer_move ( 0 ).is_similar ( move ) ) 
-                {
-                    /* Only update the capture type if it was not previously a non-capture.
-                        * If a move was killer and a non-capture, it must have been a very good move, so it's best to remember the fact it was a non-capture.
-                        */
-                    if ( access_killer_move ( 0 ).capture_pt != ptype::no_piece ) access_killer_move ( 0 ).capture_pt = move.capture_pt; 
-                } else access_killer_move ( 0 ) = move;
-            }    
+                /* If the most recent killer move is still not similar, replace it */
+                if ( !access_killer_move ( 0 ).is_similar ( move ) ) access_killer_move ( 0 ) = move;
+            }
 
             /* If is flagged to do so, add to the transposition table as a lower bound */
             if ( write_ttable ) if ( store_ttable_value )
@@ -654,7 +642,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
      * @param  move_set: The possible moves for that piece (not necessarily a singleton)
      * @return boolean, true for an alpha-beta cutoff, false otherwise
      */
-    auto apply_move_set = [ & ] ( ptype pt, int from, bitboard move_set ) -> bool
+    auto apply_move_set = [ & ] ( const ptype pt, const int from, bitboard move_set ) -> bool
     {
         /* Iterate through the individual moves */
         while ( move_set )
@@ -746,31 +734,6 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* SEARCH */
 
-    /* Look for killer moves */
-    for ( const auto& killer_move : ab_working->killer_moves.at ( fd_depth ) )
-    {
-        /* Look for the move */
-        if ( killer_move.pt != ptype::no_piece ) for ( auto& move_set : access_move_sets ( killer_move.pt ) )
-        {
-            /* See if this is the correct piece for the move */
-            if ( move_set.first == killer_move.from && move_set.second.test ( killer_move.to ) )
-            {
-                /* Check that the move is the same capture, or is now a capture when previously it wasn't */
-                if ( killer_move.capture_pt == ptype::no_piece || bb ( npc, killer_move.capture_pt ).test ( killer_move.to ) )
-                {
-                    /* Apply the killer move and return on alpha-beta cutoff */
-                    if ( apply_move_set ( killer_move.pt, move_set.first, singleton_bitboard ( killer_move.to ) ) ) return best_value;
-                    
-                    /* Unset that bit in the move set */
-                    move_set.second.reset ( killer_move.to );
-                }
-
-                /* killer move found, so break */
-                break;
-            }
-        }
-    }
-
     /* Look for pawn moves that promote that pawn */
     for ( auto& move_set : access_move_sets ( ptype::pawn ) )
     {
@@ -779,22 +742,49 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         move_set.second &= ~rank_8;
     }
 
-    /* Loop through the most valuable pieces to capture.
-     * Look at the captures on pieces not protected by pawns first.
-     */
-    for ( const ptype captee_pt : ptype_dec_value ) 
+    /* Loop through captees, most valuable to least valuable, only if there are pieces of that type */
+    for ( const ptype captee_pt : ptype_dec_value ) if ( bb ( npc, captee_pt ) )
     {
-        /* Get this enemy type of piece */
-        const bitboard enemy_captees = bb ( npc, captee_pt );
-
-        /* If there are any of these enemy pieces to capture, look for a friendly piece that can capture them */
-        if ( enemy_captees ) for ( const ptype captor_pt : ptype_inc_value )
+        /* Loop through captors, least valuable to most, and their move sets */
+        for ( const ptype captor_pt : ptype_inc_value ) for ( auto& move_set : access_move_sets ( captor_pt ) )
         {
-            /* Look though the different captors of this type */
-            for ( const auto& move_set : access_move_sets ( captor_pt ) )
+            /* Loop through all the pieces of captee_pt in the move set */
+            for ( bitboard captees = move_set.second & bb ( npc, captee_pt ); captees; )
             {
+                /* Get the next captee */
+                const int captee_pos = captees.trailing_zeros (); captees.reset ( captee_pos );
+                
+                /* If the captee is cheapter than the captor, and the static exchange is negative, disregard this capture for now */
+                if ( cast_penum ( captee_pt ) < cast_penum ( captor_pt ) && static_exchange_evaluation ( pc, captee_pos, captee_pt, move_set.first, captor_pt ) < 0 ) continue;
+
                 /* Try capturing, and return on alpha-beta cutoff */
-                if ( apply_move_set ( captor_pt, move_set.first, move_set.second & enemy_captees ) ) return best_value;
+                if ( apply_move_set ( captor_pt, move_set.first, singleton_bitboard ( captee_pos ) ) ) return best_value; 
+                
+                /* Search did not cause cutoff, so remove the captee from the captor's move set */
+                move_set.second.reset ( captee_pos );
+            }
+        }
+    }
+    
+
+
+    /* Look for killer moves */
+    for ( const auto& killer_move : ab_working->killer_moves.at ( fd_depth ) )
+    {
+        /* Loop through the move sets for the piece type of the killer move */
+        if ( killer_move.pt != ptype::no_piece ) for ( auto& move_set : access_move_sets ( killer_move.pt ) )
+        {
+            /* See if this is the correct piece for the move */
+            if ( move_set.first == killer_move.from && move_set.second.test ( killer_move.to ) )
+            {
+                /* Apply the killer move and return on alpha-beta cutoff */
+                if ( apply_move_set ( killer_move.pt, killer_move.from, singleton_bitboard ( killer_move.to ) ) ) return best_value;
+                
+                /* Unset that bit in the move set */
+                move_set.second.reset ( killer_move.to );
+
+                /* killer move found, so break */
+                break;
             }
         }
     }
@@ -819,19 +809,11 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         access_move_sets ( ptype::king ).front ().second.reset ( king_pos - 2 );
     }
 
-    /* Look for non-captures, unless quiescing */
-    if ( bk_depth != 0 )
+    /* If not quiescing, iterate through piece types and their move sets to try the remaining moves */
+    if ( bk_depth != 0 ) for ( const ptype pt : ptype_dec_move_value ) for ( const auto& move_set : access_move_sets ( pt ) )
     {
-        /* Iterate through all pieces */
-        for ( const ptype pt : ptype_dec_move_value )
-        {
-            /* Loop though the pieces of this type */
-            for ( const auto& move_set : access_move_sets ( pt ) )
-            {
-                /* Try the move, and return on alpha-beta cutoff */ 
-                if ( apply_move_set ( pt, move_set.first, move_set.second & pp ) ) return best_value;
-            }
-        }
+        /* Try the move, and return on alpha-beta cutoff */ 
+        if ( apply_move_set ( pt, move_set.first, move_set.second ) ) return best_value;
     }
 
 

@@ -260,7 +260,7 @@ public:
     ptype pt = ptype::no_piece, capture_pt = ptype::no_piece, promote_pt = ptype::no_piece;
 
     /* Store the initial, final position */
-    int from = 0, to = 0;
+    int from = -1, to = -1;
 
     /* Store whether the causes check, checkmate, stalemate or a draw */
     bool check = false, checkmate = false, stalemate = false, draw = false;
@@ -683,6 +683,28 @@ public:
      * @return boolean
      */
     bool is_draw_state () const noexcept { return game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ); }
+
+    /** @name  get_least_valuable_attacker
+     * 
+     * @brief  Takes a color and position and finds the least valuable piece attacking that color.
+     * @param  pc: The color attacking.
+     * @param  pos: The position being attacked.
+     * @return A pair of ptype and position, no_piece and -1 if no attacker is found.
+     */
+    chess_hot std::pair<ptype, int> get_least_valuable_attacker ( pcolor pc, int pos ) const chess_validate_throw;
+
+    /** @name  static_exchange_evaluation
+     * 
+     * @brief  Takes a color and position, and returns the possible material gain from the color attacking that position.
+     * @param  pc: The color attacking.
+     * @param  attacked_pos: The position being attacked.
+     * @param  attacked_pt: The piece type to assume that's occupying pos. If no_piece, will be calculated.
+     * @param  attacker_pos: The position of the first piece to attack attacked_pos.
+     * @param  attacker_pt: The piece type that's first attacking attacked_pos. If no_piece, will be set to the least valuable attacker.
+     * @param  prev_spec_gain: A speculative score, which will be used internally to cause cutoffs.
+     * @return An integer, 0 meaning no matierial gain, +/- meaning material gain or loss respectively.
+     */
+    int static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt = ptype::no_piece, int attacker_pos = -1, ptype attacker_pt = ptype::no_piece, int prev_spec_gain = 0 ) chess_validate_throw;
 
     /** @name  evaluate
      * 
