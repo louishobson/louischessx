@@ -383,31 +383,31 @@ std::pair<chess::ptype, int> chess::chessboard::get_least_valuable_attacker ( pc
  * @param  attacked_pt: The piece type to assume that's occupying pos. If no_piece, will be calculated.
  * @param  attacker_pos: The position of the first piece to attack attacked_pos.
  * @param  attacker_pt: The piece type that's first attacking attacked_pos. If no_piece, will be set to the least valuable attacker.
- * @param  prev_spec_gain: A speculative score, which will be used internally to cause cutoffs.
+ * @param  prev_gain: A the gain from previous calls. Used internally, should be 0 initially.
  * @return An integer, 0 meaning no matierial gain, +/- meaning material gain or loss respectively.
  */
-int chess::chessboard::static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt, int attacker_pos, ptype attacker_pt, int prev_spec_gain ) chess_validate_throw
+int chess::chessboard::static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt, int attacker_pos, ptype attacker_pt, int prev_gain ) chess_validate_throw
 {
     /* Create an array of material values for each ptype */
     constexpr std::array<int, 7> material_values { 100, 400, 400, 600, 1100, 10000, 0 };
 
-    /* Get the attacked type, if required. Return 0 if there is no attacked piece. */
+    /* Get the attacked type, if required. Return prev_gain if there is no attacked piece. */
     if ( attacked_pt == ptype::no_piece ) attacked_pt = find_type ( other_color ( pc ), attacked_pos );
-    if ( attacked_pt == ptype::no_piece ) return 0;
+    if ( attacked_pt == ptype::no_piece ) return prev_gain;
 
     /* Get the speculative gain */
-    const int spec_gain = material_values [ cast_penum ( attacked_pt ) ] - prev_spec_gain;
+    const int spec_gain = prev_gain + material_values [ cast_penum ( attacked_pt ) ];
 
     /* Possibly cutoff */
-    if ( std::max ( -prev_spec_gain, spec_gain ) < 0 ) return 0;
+    if ( std::max ( prev_gain, spec_gain ) < 0 ) return prev_gain;
 
     /* Get the least value piece of this color attacking pos.
      * If attacker_pos is set, then find the piece type at that position. Otherwise chose the least valuable attacker.
-     * Return 0 if there is no such piece.
+     * Return prev_gain if there is no such piece.
      */
     if ( attacker_pt == ptype::no_piece ) if ( attacked_pos != -1 ) attacker_pt = find_type ( pc, attacker_pos ); else
         std::tie ( attacker_pt, attacker_pos ) = get_least_valuable_attacker ( pc, attacked_pos );
-    if ( attacker_pt == ptype::no_piece ) return 0;
+    if ( attacker_pt == ptype::no_piece ) return prev_gain;
 
     /* Make the capture */
     get_bb ( pc              ).reset ( attacker_pos );
@@ -417,8 +417,8 @@ int chess::chessboard::static_exchange_evaluation ( pcolor pc, int attacked_pos,
     get_bb ( other_color ( pc )              ).reset ( attacked_pos );
     get_bb ( other_color ( pc ), attacked_pt ).reset ( attacked_pos );
 
-    /* Get the value from see */
-    const int value = std::max ( 0, material_values [ cast_penum ( attacked_pt ) ] - static_exchange_evaluation ( other_color ( pc ), attacked_pos, attacker_pt, -1, ptype::no_piece, spec_gain ) );
+    /* Get the gain from see */
+    const int gain = std::max ( prev_gain, -static_exchange_evaluation ( other_color ( pc ), attacked_pos, attacker_pt, -1, ptype::no_piece, -spec_gain ) );
 
     /* Unmake the capture */
     get_bb ( other_color ( pc )              ).set ( attacked_pos );
@@ -428,8 +428,8 @@ int chess::chessboard::static_exchange_evaluation ( pcolor pc, int attacked_pos,
     get_bb ( pc              ).set   ( attacker_pos );
     get_bb ( pc, attacker_pt ).set   ( attacker_pos );
 
-    /* Return the value */
-    return value;
+    /* Return the gain */
+    return gain;
 }
 
 

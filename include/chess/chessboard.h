@@ -701,10 +701,10 @@ public:
      * @param  attacked_pt: The piece type to assume that's occupying pos. If no_piece, will be calculated.
      * @param  attacker_pos: The position of the first piece to attack attacked_pos.
      * @param  attacker_pt: The piece type that's first attacking attacked_pos. If no_piece, will be set to the least valuable attacker.
-     * @param  prev_spec_gain: A speculative score, which will be used internally to cause cutoffs.
+     * @param  prev_gain: A the gain from previous calls. Used internally, should be 0 initially.
      * @return An integer, 0 meaning no matierial gain, +/- meaning material gain or loss respectively.
      */
-    int static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt = ptype::no_piece, int attacker_pos = -1, ptype attacker_pt = ptype::no_piece, int prev_spec_gain = 0 ) chess_validate_throw;
+    int static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt = ptype::no_piece, int attacker_pos = -1, ptype attacker_pt = ptype::no_piece, int prev_gain = 0 ) chess_validate_throw;
 
     /** @name  evaluate
      * 
