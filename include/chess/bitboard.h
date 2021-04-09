@@ -234,21 +234,23 @@ public:
      */
     constexpr bitboard nand ( bitboard other ) const noexcept { return bitboard { ~( bits & other.bits ) }; }
 
-    /** @name  only_if
+    /** @name  only_if, only_if_not
      * 
-     * @brief  If the condition is true, returns the bitboard unchanged, else returns an empty bitboard
+     * @brief  If the condition is true, returns the bitboard unchanged, else returns an empty bitboard. Condition is negated for only_if_not.
      * @param  cond: The condition described above
      * @return A new bitboard
      */
-    constexpr bitboard only_if ( bool cond ) const noexcept { return bitboard { cond * bits }; }
+    constexpr bitboard only_if     ( bool cond ) const noexcept { return bitboard {  cond * bits }; }
+    constexpr bitboard only_if_not ( bool cond ) const noexcept { return bitboard { !cond * bits }; }
 
-    /** @name  all_if
+    /** @name  all_if, all_if_not
      * 
-     * @brief  If the condition is true, returns a full bitboard, else returns the bitboard unchanged
+     * @brief  If the condition is true, returns a full bitboard, else returns the bitboard unchanged. Condition is negated for all_if_not.
      * @param  cond: The condition described above
      * @return A new bitboard
      */
-    constexpr bitboard all_if ( bool cond ) const noexcept { return bitboard { bits | ( cond * ~0ull ) }; }
+    constexpr bitboard all_if     ( bool cond ) const noexcept { return bitboard { bits | (  cond * ~0ull ) }; }
+    constexpr bitboard all_if_not ( bool cond ) const noexcept { return bitboard { bits | ( !cond * ~0ull ) }; }
 
     /** @name  contains
      * 
