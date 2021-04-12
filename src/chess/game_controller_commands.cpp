@@ -40,7 +40,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
     {
         /* Wait for the protover command and check for at least version 2 */
         std::string next_cmd; std::getline ( chess_in, next_cmd );
-        if ( !next_cmd.starts_with ( "protover " ) || next_cmd.size () < 10 || std::stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
+        if ( !next_cmd.starts_with ( "protover " ) || next_cmd.size () < 10 || safe_stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
 
         /* Send feature requests */
         chess_out << "feature done=0\n"          /* Pause timeout on feature requests */
@@ -49,7 +49,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
                   << "feature playother=1\n"     /* Allow the playother command */
                   << "feature san=1\n"           /* Force standard algebraic notation for moves */
                   << "feature usermove=1\n"      /* Force user moves to be given only with the usermove command */
-                  << "feature time=0\n"          /* Set time updates to be ignored */
+                  << "feature time=1\n"          /* Set time updates to be ignored */
                   << "feature sigint=0\n"        /* Stop interrupt signals from being sent */
                   << "feature sigterm=0\n"       /* Stop terminate signals from being send */
                   << "feature myname=LouisBot\n" /* Name this engine */
@@ -57,6 +57,13 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
                   << "feature done=1\n"          /* End of features */
                   << std::flush;
     } else
+
+    /** @name  accepted, rejected
+     * 
+     * @brief  Tells the engine whether features were accepted or rejected. Ignore these commands.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "accepted" ) || cmd.starts_with ( "rejected" ) ); else
 
     /** @name  new
      * 
@@ -71,8 +78,20 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Reset the board and clear the cumulative ttable */
         game_cb.reset_to_initial (); cumulative_ttable.clear ();
 
+        /* Change to normal mode */
+        mode = computer_mode_t::normal;
+
         /* Set the next color to white, the computer to black */
-        next_pc = pcolor::white; computer_pc = pcolor::black; 
+        next_pc = pcolor::white; computer_pc = pcolor::black;
+
+        /* Set to not be playing a computer */
+        opponent_is_computer = false;
+
+        /* Reset the clocks */
+        computer_clock = opponent_clock = time_base;
+
+        /* Start time control */
+        start_time_control ();
 
         /* Start precomputation */
         start_precomputation ();
@@ -101,8 +120,8 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Stop precomputation */
         stop_precomputation ();
 
-        /* Set the color that the computer plays to no_color */
-        computer_pc = pcolor::no_piece;
+        /* Enter force mode */
+        mode = computer_mode_t::force;
     } else
 
     /** @name  go
@@ -115,12 +134,18 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Stop precomputation */
         stop_precomputation ();
 
+        /* Set to normal mode */
+        mode = computer_mode_t::normal;
+
         /* Set the computer color to the currently active color */
         computer_pc = next_pc;
 
+        /* Start time control */
+        start_time_control ();
+
         /* Start a search and get the result */
         chessboard::ab_result_t ab_result = start_search ( game_cb, computer_pc, move_t {}, cumulative_ttable, true )->ab_result_future.get ();
-        
+
         /* Output the move, if any */
         make_and_output_move ( ab_result );
     } else
@@ -136,14 +161,103 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Stop precomputation */
         stop_precomputation ();
 
+        /* Set to normal mode */
+        mode = computer_mode_t::normal;
+
         /* Set the computer color to the color that's not currently active */
         computer_pc = other_color ( next_pc );
+
+        /* Start time control */
+        start_time_control ();
 
         /* Start pondering */
         start_precomputation ();
     } else
 
-    /** @name  move MOVE
+    /** @name  level CONTROL BASE INC
+     * 
+     * @brief  Set a classical or incremental time control. Which one is being set is given by the CONTROL parameter (see below).
+     * @param  CONTROL: For classical, the number of moves per time control. For incremental, always 0.
+     * @param  BASE: For classical, the size of the time control. For incremental, the time each player starts with. Defaults to minutes unless in MIN:SECS format.
+     * @param  INC: For classical, always 0. For incremental, the time increment per move by each player. Defaults to seconds unless in MIN:SECS format.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "level " ) )
+    {
+        /* Stop pondering */
+        stop_precomputation ();
+
+        /* Look for the parameters */
+        std::smatch time_match;
+        if ( !std::regex_match ( cmd, time_match, std::regex { "^level (\\d+) (\\d+)(?::(\\d+))? (?:(\\d+):)?(\\d+)$" } ) ) throw chess_input_error { "Could not format paramaters." };
+
+        /* Set the paramaters */
+        moves_per_control = safe_stoi ( time_match.str ( 1 ) );
+        time_base         = std::chrono::minutes { safe_stoi ( time_match.str ( 2 ) ) } + std::chrono::seconds { time_match.length ( 3 ) ? safe_stoi ( time_match.str ( 3 ) ) : 0 };
+        time_increase     = std::chrono::seconds { safe_stoi ( time_match.str ( 5 ) ) } + std::chrono::minutes { time_match.length ( 4 ) ? safe_stoi ( time_match.str ( 4 ) ) : 0 };
+        clock_type        = ( moves_per_control ? clock_type_t::classical : clock_type_t::incremental );
+    
+        /* Set the remaining time to the time base */
+        computer_clock = opponent_clock = time_base;
+
+        /* If in normal mode, restart pondering */
+        if ( mode == computer_mode_t::normal ) { start_time_control (); start_precomputation (); }
+    } else
+
+    /** @name  st TIME
+     * 
+     * @brief  Fixed max time controll.
+     * @param  TIME: The amount of time for each move. Defaults to seconds unless in MIN:SECS format.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "st " ) )
+    {
+        /* Stop pondering */
+        stop_precomputation ();
+
+        /* Look for the time part of the time control. Throw if ill-formed */
+        std::smatch time_match;
+        if ( !std::regex_search ( cmd, time_match, std::regex { "^st (?:(\\d+):)?(\\d+)$" } ) ) throw chess_input_error { "Could not format time parameter." };
+
+        /* Set the required paramaters */
+        clock_type = clock_type_t::fixed_max;
+        time_base  = std::chrono::seconds { safe_stoi ( time_match.str ( 2 ) ) } + std::chrono::minutes { time_match.length ( 1 ) ? safe_stoi ( time_match.str ( 1 ) ) : 0 };
+    
+        /* Set the remaining time to the time base */
+        computer_clock = opponent_clock = time_base;
+
+        /* If in normal mode, restart pondering */
+        if ( mode == computer_mode_t::normal ) { start_time_control (); start_precomputation (); } 
+    } else
+
+    /** @name  time N
+     * 
+     * @brief  Set the computer clock to have N centiseconds remaining. Used to synchronize clocks.
+     * @param  N: The time remaining, in centiseconds.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "time " ) )
+    {
+        /* Set the clock, if the clock type is not fixed max */
+        if ( clock_type != clock_type_t::fixed_max ) computer_clock = std::chrono::duration<chess_clock::rep, std::centi> { safe_stoi ( cmd.substr ( 5 ) ) };
+    } else
+
+    /** @name  otim N
+     * 
+     * @brief  Set the opponent clock to have N centiseconds remaining. Used to synchronize clocks.
+     * @param  N: The time remaining, in centiseconds.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "otim " ) )
+    {
+        /* Get the time in centiseconds */
+        const std::chrono::duration<chess_clock::rep, std::centi> new_opponent_clock { safe_stoi ( cmd.substr ( 5 ) ) };
+
+        /* If in normal mode, store it in opponent_sync_clock, otherwise set the clock immediately */
+        if ( mode == computer_mode_t::normal ) opponent_sync_clock = new_opponent_clock; else opponent_clock = new_opponent_clock; 
+    } else
+
+    /** @name  usermove MOVE
      * 
      * @brief  The move that the opponent has made.
      * @param  MOVE: The move in standard algebraic notation.
@@ -151,20 +265,26 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      */
     if ( cmd.starts_with ( "usermove " ) )
     {
-        /* Check that it is not the computer's move */
-        if ( next_pc == computer_pc ) throw chess_input_error { "User tried to move on computer's turn." };
-
         /* Check that there is a move supplied */
         if ( cmd.size () < 10 ) throw chess_input_error { "Move not supplied with usermove." };
 
         /* Try to decode the move description */
         const move_t move = game_cb.fide_deserialize_move ( next_pc, cmd.substr ( 9 ) );
 
-        /* Try to make the move and swap next_pc */
-        game_cb.make_move ( move ); next_pc = other_color ( next_pc );
+        /* Try to make the move */
+        game_cb.make_move ( move );
+        
+        /* Stop time control and tell the user if time has run out */
+        if ( !end_time_control () ) chess_out << "telluser You've run out of time!" << std::endl;
 
-        /* If not in forced mode, respond to the usermove */
-        if ( computer_pc == next_pc )
+        /* Switch next color */
+        next_pc = other_color ( next_pc );
+
+        /* Start time control */
+        start_time_control ();
+
+        /* If in normal mode, respond to the move */
+        if ( mode == computer_mode_t::normal )
         {
             /* Stop any precomputation */
             search_data_it_t search_data_it = stop_precomputation ( move );
@@ -175,7 +295,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
             if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
             chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
-            
+
             /* Output the move, if any */
             make_and_output_move ( ab_result );
         }
@@ -189,9 +309,6 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      */
     if ( cmd.starts_with ( "ping " ) )
     {
-        /* Check that there is an N present */
-        if ( cmd.size () < 6 ) throw chess_input_error { "No argument supplied with ping." };
-
         /* Output pong N */
         chess_out << "pong " << cmd.substr ( 5 ) << std::endl;
     } else
@@ -203,12 +320,20 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      */
     if ( cmd.starts_with ( "draw" ) )
     {
-        /* If in force mode, throw an input error */
-        if ( computer_pc == pcolor::no_piece ) throw chess_input_error { "Offered draw while in force mode." };
+        /* If not in normal mode, throw an input error */
+        if ( mode != computer_mode_t::normal ) throw chess_input_error { "Offered draw while in force mode." };
 
         /* If latest_best_value <= draw_offer_acceptance_value for the computer, then accept */
         if ( latest_best_value <= draw_offer_acceptance_value ) chess_out << "offer draw" << std::endl;
     } else
+
+    /** @name  result RESULT
+     * 
+     * @brief  The game has ended, according to xboard.
+     * @param  result: The result of the game.
+     * @return Nothing. Ignore the command.
+     */
+    if ( cmd.starts_with ( "result" ) ); else
 
     /** @name  setboard FEN
      * 
@@ -216,8 +341,11 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      * @param  FEN: The Forsyth-Edwards notation for the game state.
      * @return Nothing.
      */
-    if ( cmd.starts_with ( "setboard" ) )
+    if ( cmd.starts_with ( "setboard " ) )
     {
+        /* Throw if is not in force mode */
+        if ( mode != computer_mode_t::force ) throw chess_input_error { "Recieved 'setboard' command when the computer is not in force mode." };
+
         /* Stop any precomputation */
         stop_precomputation ();
 
@@ -235,8 +363,8 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      */
     if ( cmd.starts_with ( "undo" ) )
     {
-        /* Check is in force mode */
-        if ( computer_pc != pcolor::no_piece ) throw chess_input_error { "Recieved 'undo' command when the computer is not in force mode." };
+        /* Throw if is not in force mode */
+        if ( mode != computer_mode_t::force ) throw chess_input_error { "Recieved 'undo' command when the computer is not in force mode." };
 
         /* Undo the last move */
         game_cb.unmake_move ();
@@ -252,15 +380,22 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Stop precomputation */
         stop_precomputation ();
 
-        /* Throw if it is the computers turn */
-        if ( next_pc == computer_pc ) throw chess_input_error { "Recieved 'remove' command when it is the computer's turn." };
-
         /* Undo the last two moves */
         game_cb.unmake_move (); game_cb.unmake_move ();
 
         /* Restart precomputation */
         start_precomputation ();
-    }
+    } else
+
+    /** @name  computer
+     * 
+     * @brief  Set the opponent to be a computer
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "computer" ) ) opponent_is_computer = true;
+
+    /* Else the command is unrecognised, so throw an error */
+    else throw chess_input_error { "Unknown command." };
 
     /* Command handled, so return true */
     return true;
@@ -294,6 +429,27 @@ catch ( const chess_internal_error& e )
 
 
 
+/** @name  safe_stoi
+ * 
+ * @brief  Call std::stoi, but rethrow an exception as a chess_input_error.
+ * @param  str: The string to convert
+ * @return The converted integer.
+ */
+int chess::game_controller::safe_stoi ( const std::string& str ) const try
+{
+    /* Return std::stoi of str */
+    return std::stoi ( str );
+} 
+
+/* Catch an exception */
+catch ( const std::exception& e )
+{
+    /* Rethrow */
+    throw chess_input_error { "Failed to convert string to an inteter." };
+}
+
+
+
 /** @name  make_and_output_move
  * 
  * @brief  Takes an ab_result and performs, then outputs the best move, if there is one, as well as a result if the game has ended.
@@ -303,6 +459,9 @@ catch ( const chess_internal_error& e )
  */
 void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_result )
 {
+    /* Check is in normal mode */
+    if ( mode != computer_mode_t::normal ) throw chess_internal_error { "Computer tried to output a move while in force mode." };
+
     /* Check that it is the computer's move */
     if ( next_pc != computer_pc ) throw chess_internal_error { "Computer tried to output a move when it's not its turn." }; 
 
@@ -328,6 +487,9 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         /* Make the move */
         game_cb.make_move ( ab_result.moves.front ().first );
 
+        /* End time control */
+        end_time_control ();
+
         /* Set the latest best value */
         latest_best_value = ab_result.moves.front ().second;
 
@@ -342,8 +504,8 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         if ( ab_result.moves.front ().first.stalemate ) chess_out << "1/2-1/2 {Stalemate}" << std::endl; else
         if ( ab_result.moves.front ().first.draw      ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
 
-        /* Else, since the game has not ended, start precomputation */
-        start_precomputation ();
+        /* Else, since the game has not ended, start time controls and precomputation */
+        { start_time_control (); start_precomputation (); }
     }
 
     /* Else if there are no moves, it will be a checkmate or draw */

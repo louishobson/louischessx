@@ -58,6 +58,8 @@ class chess::game_controller
 {
 public:
 
+    /* CONSTRUCTORS AND DESTRUCTORS */
+
     /** @name  default constructor
      *
      * @brief  Construct the game controller with defailt parameters
@@ -70,8 +72,6 @@ public:
      */
     ~game_controller ();
 
-
-
     /** @name  reset_game
      * 
      * @brief  Reset the chess game to its initial state.
@@ -82,9 +82,33 @@ public:
 
     
 
-//private:
+    /* XBOARD INTERFACE */
+
+    /** @name  xboard_loop
+     * 
+     * @brief  Start looping over commands recieved by chess_in, expecing an xboard-like interface.
+     * @return void, when the xboard interface sends an exit command.
+     */
+    void xboard_loop ();
+
+
+
+private:
 
     /* TYPES */
+
+    /* An enum to store the mode the computer is currently in */
+    enum class computer_mode_t
+    {
+        /* Normal mode */
+        normal,
+
+        /* Force mode */
+        force,
+
+        /* Analysis mode */
+        analyze
+    };
 
     /* A struct to store the information for an active search */
     struct search_data_t
@@ -105,18 +129,46 @@ public:
         std::future<chessboard::ab_result_t> ab_result_future;
     };
 
+    /* An enum to store the type of clock being used */
+    enum class clock_type_t
+    {
+        /* Classical timing. 
+         * Each player has an initial amount of time, which decreases during their turn.
+         * After a certain number of moves, the time is increased by a given amount.
+         */
+        classical,
+
+        /* Incremental timing.
+         * Each player starts with initial amount of time, which decreases during their turn.
+         * After each move, the amount of time is increased by a given amount.
+         */
+        incremental,
+
+        /* Fixed max.
+         * Each player has a given amount of time to make a move during their turn.
+         * Any left over time does not carry over to their next turn.
+         */
+        fixed_max
+    };
 
 
-    /* ATTRIBUTES */
+
+    /* GENERAL GAME ATTRIBUTES */
 
     /* Store the main chessboard state */
     chessboard game_cb;
 
+    /* The mode of the computer */
+    computer_mode_t mode = computer_mode_t::force;
+
     /* The player who's turn it is */
     pcolor next_pc = pcolor::white;
 
-    /* The color this program is playing as */
-    pcolor computer_pc = pcolor::no_piece;
+    /* The color the computer is playing as. Assume black initially. */
+    pcolor computer_pc = pcolor::black;
+
+    /* Whether the opponent is a computer or not */
+    bool opponent_is_computer = false;
 
     /* The latest value a search by a computer produced */
     int latest_best_value = 0;
@@ -129,7 +181,21 @@ public:
     std::ostream& chess_out = std::cout;
     std::ostream& chess_error = std::cout;
 
+    /* The type of clock. Initially fixed_max. */
+    clock_type_t clock_type = clock_type_t::fixed_max;
 
+    /* The variables for the clock. Only time_base is used if the clock type is fixed_max. */
+    chess_clock::duration time_base = std::chrono::seconds { 15 };
+    chess_clock::duration time_increase;
+    chess_clock::duration computer_clock, opponent_clock;
+    int moves_per_control;
+
+    /* Sync clock for the opponent */
+    chess_clock::duration opponent_sync_clock = chess_clock::duration::max ();
+
+
+
+    /* SEARCH PARAMETER ATTRIBUTES */
 
     /* While waiting for the opponent to make a move, the time can be used for parallel searches on different possible responses. This is known as 'pondering'.
      * When the opponent moves, any searches based on other moves the opponent could have made are cancelled.
@@ -158,6 +224,11 @@ public:
 
 
 
+    /* ACTIVE SEARCH ATTRIBUTES */
+
+    /* The time at which the current color's turn began */
+    chess_clock::time_point turn_start_point;
+
     /* A list of search data */
     std::list<search_data_t> active_searches;
 
@@ -184,7 +255,7 @@ public:
 
 
 
-    /* COMMAND HANDLING */
+    /* COMMAND HANDLING METHODS */
 
     /** @name  handle_command
      * 
@@ -195,6 +266,14 @@ public:
      * @return True if the command was handled, false if it was unrecognised (thus ignored).
      */
     bool handle_command ( const std::string& cmd );
+
+    /** @name  safe_stoi
+     * 
+     * @brief  Call std::stoi, but rethrow an exception as a chess_input_error.
+     * @param  str: The string to convert
+     * @return The converted integer.
+     */
+    int safe_stoi ( const std::string& str ) const;
 
     /** @name  make_and_output_move
      * 
@@ -207,12 +286,55 @@ public:
 
 
 
+    /* TIME CONTROL */
+
+    /** @name  half_moves_made
+     * 
+     * @brief  Get the number of half moves made since the beginning of the game.
+     * @param  future: The number of half moves in the future that this figure should be given for.
+     * @return integer
+     */
+    int half_moves_made ( int future = 0 ) const noexcept { return game_cb.game_state_history.size () - 1 + future; }
+
+    /** @name  moves_made
+     * 
+     * @brief  Get the number of full moves made since the beginning of the game.
+     * @param  future: The number of HALF MOVES in the future that this figure should be given for.
+     * @return integer
+     */
+    int moves_made ( int future = 0 ) const noexcept { return half_moves_made ( future ) / 2; }
+
+    /** @name  configure_search_time_paramaters
+     * 
+     * @brief  Based on the current time control, reconsider the search parameters.
+     * @return void.
+     */
+    void configure_search_time_paramaters ();
+
+    /** @name  start_time_control
+     * 
+     * @brief  Consider next_pc to be starting their turn now.
+     *         If it is now the computer's turn, set up the search paramaters based on their clock etc.
+     * @return void
+     */
+    void start_time_control ();
+
+    /** @name  end_time_control
+     * 
+     * @brief  Consider next_pc to have just finished their turn. Decrement their clock, then add any increments.
+     *         If they exceeded time control limits, then return false.
+     * @return Boolean, true unless a time control has been exceeded.
+     */
+    bool end_time_control ();
+
+
+
     /* SEARCH METHODS */
 
     /** @name  start_search
      * 
      * @brief  Start a search, pushing the search data to the bottom of active_searches.
-     *         When the search finishes, the iterator to the active search will be pushed to completed_searched (protected by search_mx).
+     *         When the search finishes, the iterator to the active search will be pushed to completed_searches.
      *         search_cv will then be notified and the thread will exit.
      *         The game state will be stored, so can be safely modified after this function returns.
      * @param  cb: The chessboard state to run the search on.
@@ -253,4 +375,3 @@ public:
 
 /* HEADER GUARD */
 #endif /* #ifndef GAME_CONTROLLER_H_INCLUDED */
-

@@ -17,6 +17,145 @@
 
 
 
+/* TIME CONTROL */
+
+
+
+/** @name  configure_search_time_paramaters
+ * 
+ * @brief  Based on the current time control, reconsider the search parameters.
+ * @return void.
+ */
+void chess::game_controller::configure_search_time_paramaters ()
+{
+    /* Return if not in normal mode */
+    if ( mode != computer_mode_t::normal ) return;
+
+    /* Switch depending on the type of clock */
+    switch ( clock_type )
+    {
+        /* For classical clock */
+        case clock_type_t::classical:
+        {
+            /* Get the number of moves until the end of the time control for the computer.
+             * Look one half move into the future, depending on if the player in question is next or not.
+             */
+            const int computer_moves_until_time_control = moves_per_control - moves_made ( next_pc != computer_pc ) % moves_per_control;
+            const int opponent_moves_until_time_control = moves_per_control - moves_made ( next_pc == computer_pc ) % moves_per_control;
+
+            /* Set the maximum response time */
+            max_response_duration = std::min<chess_clock::duration> ( computer_clock / computer_moves_until_time_control, std::chrono::seconds { 20 } );
+
+            /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent. */
+            max_search_duration = std::min<chess_clock::duration> ( max_response_duration + ( opponent_clock / opponent_moves_until_time_control ), std::chrono::seconds { 40 } );
+
+            /* Break */
+            break;
+        }
+
+        /* For incremental clock */
+        case clock_type_t::incremental:
+        {
+            /* Set the maximum response time. Use up all the remaining time in the next 10 moves. */
+            max_response_duration = std::min<chess_clock::duration> ( time_increase + computer_clock / 10, std::chrono::seconds { 20 } );
+
+            /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent. */
+            max_search_duration = std::min<chess_clock::duration> ( max_response_duration + time_increase + opponent_clock / 10, std::chrono::seconds { 40 } );
+
+            /* Break */
+            break;
+        }
+        
+        /* For fixed max clock */
+        case clock_type_t::fixed_max:
+        {
+
+            /* Set the maximum response time */
+            max_response_duration = time_base;
+
+            /* Set the maximum thinking time */
+            max_search_duration = max_response_duration * 2;
+        }
+    }
+}
+
+
+
+/** @name  start_time_control
+ * 
+ * @brief  Consider next_pc to be starting their turn now.
+ *         If it is now the computer's turn, set up the search paramaters based on their clock etc.
+ * @return void
+ */
+void chess::game_controller::start_time_control ()
+{
+    /* Ignore if not in normal mode */
+    if ( mode != computer_mode_t::normal ) return;
+
+    /* Configure the search parameters */
+    configure_search_time_paramaters ();
+
+    /* Set the turn start point */
+    turn_start_point = chess_clock::now ();
+}
+
+
+
+/** @name  end_time_control
+ * 
+ * @brief  Consider next_pc to have just finished their turn. Decrement their clock, then add any increments.
+ *         If they exceeded time control limits, then return false.
+ * @return Boolean, true unless a time control has been exceeded.
+ */
+bool chess::game_controller::end_time_control ()
+{
+    /* Ignore if not in normal mode */
+    if ( mode != computer_mode_t::normal ) return true;
+
+    /* If this was the first move, and the move was made by a human player */
+    if ( moves_made () == 0 && next_pc != computer_pc && !opponent_is_computer )
+    {
+        /* If incremental clock, still apply the increment */
+        if ( clock_type == clock_type_t::incremental ) opponent_clock += time_increase;
+
+        /* Return true */
+        return true;
+    }
+
+    /* Get a reference to next_pc's clock */
+    chess_clock::duration& clock = ( next_pc == computer_pc ? computer_clock : opponent_clock );
+
+    /* Get the time they took for their turn */
+    const chess_clock::duration time_taken = chess_clock::now () - turn_start_point;
+
+    /* Get if the player has run out of time */
+    const bool out_of_time = time_taken > clock + std::chrono::milliseconds { 250 };
+
+    /* Reduce the clock */
+    clock = std::max ( clock - time_taken, chess_clock::duration::zero () );
+
+    /* Switch depending on the clock type to add time increments */
+    switch ( clock_type )
+    {
+        /* For classical clock, add time if their next move will be in a new control */
+        case clock_type_t::classical: if ( moves_made ( 1 ) % moves_per_control == 0 ) clock += time_base; break;
+
+        /* For incremental clock, add time just to this player */
+        case clock_type_t::incremental: clock += time_increase; break;
+
+        /* For fixed max clock, simply set the clock to the time base */
+        case clock_type_t::fixed_max: clock = time_base; break;
+    }
+
+    /* Synchronize the other player's clock, if it is not a fixed max clock, it was just their turn, an otim command has been supplied */
+    if ( clock_type != clock_type_t::fixed_max && next_pc != computer_pc && opponent_sync_clock != chess_clock::duration::max () ) opponent_clock = opponent_sync_clock;
+
+    /* Return !out_of_time */
+    return !out_of_time;
+}
+
+
+
 /* SEARCH METHODS */
 
 
@@ -24,7 +163,7 @@
 /** @name  start_search
  * 
  * @brief  Start a search, pushing the search data to the bottom of active_searches.
- *         When the search finishes, the iterator to the active search will be pushed to completed_searched (protected by search_mx).
+ *         When the search finishes, the iterator to the active search will be pushed to completed_searches.
  *         search_cv will then be notified and the thread will exit.
  *         The game state will be stored, so can be safely modified after this function returns.
  * @param  cb: The chessboard state to run the search on.
@@ -70,7 +209,7 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
  * 
  * @brief  Start a thread to precompute searches for possible opponent responses. The thread will be stored in search_controller.
  *         Setting search_end_flag to true then notifying search_cv will cancel all active searches and the controller thread will prompty finish execution.
- *         Setting known_opponent_move before doing the above will cause the controller thread to start the search in response to known_opponent_move, or not cancel it if already started. All other searches are cancelled.
+ *         Setting known_opponent_move before doing the above will cause the controller thread to not stop the search based on known_opponent_move (but will not start it if not already started).
  *         The game state will be stored, so can be safely modified after this function returns.
  * @return void
  */
@@ -89,7 +228,7 @@ void chess::game_controller::start_precomputation ()
     search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { cumulative_ttable } ] () mutable
     {
         /* Get the opponent moves */
-        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ) );
+        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ), false, chess_clock::now () + max_search_duration / 20 );
 
         /* Get the ttable back */
         ttable = std::move ( opponent_ab_result.ttable );
