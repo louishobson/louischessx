@@ -259,6 +259,30 @@ chess::pcolor chess::chessboard::fen_deserialize_board ( const std::string& desc
 
 
 
+/** @name  fen_deserialize_board_keep_history
+ * 
+ * @brief  Same as fen_deserialize_board, except the history is kept, and the most recent position replaced with the one described by the FEN.
+ * @param  desc: The board description
+ * @return The color who's move it is next
+ */
+chess::pcolor chess::chessboard::fen_deserialize_board_keep_history ( const std::string& desc )
+{
+    /* Save the history */
+    std::vector<game_state_t> history = std::move ( game_state_history );
+
+    /* Deserialize the FEN */
+    const pcolor pc = fen_deserialize_board ( desc );
+
+    /* Copy back the history and replace the most recent state */
+    game_state_history = std::move ( history );
+    game_state_history.back () = get_game_state ( other_color ( pc ) );
+
+    /* Return pc */
+    return pc;
+}
+
+
+
 /* FIDE MOVE SERIALIZATION */
 
 

@@ -350,7 +350,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         stop_precomputation ();
 
         /* Set the game state */
-        next_pc = game_cb.fen_deserialize_board ( cmd.substr ( 9 ) );
+        next_pc = game_cb.fen_deserialize_board_keep_history ( cmd.substr ( 9 ) );
 
         /* Clear the transposition table */
         cumulative_ttable.clear ();
@@ -382,6 +382,9 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
 
         /* Undo the last two moves */
         game_cb.unmake_move (); game_cb.unmake_move ();
+
+        /* Restart the clock */
+        start_time_control ();
 
         /* Restart precomputation */
         start_precomputation ();

@@ -905,6 +905,14 @@ public:
      */
     pcolor fen_deserialize_board ( const std::string& desc );
 
+    /** @name  fen_deserialize_board_keep_history
+     * 
+     * @brief  Same as fen_deserialize_board, except the history is kept, and the most recent position replaced with the one described by the FEN.
+     * @param  desc: The board description
+     * @return The color who's move it is next
+     */
+    pcolor fen_deserialize_board_keep_history ( const std::string& desc );
+
     /** @name  fide_serialize_move
      * 
      * @brief  Take a move valid for this position and serialize it based on the FIDE standard
