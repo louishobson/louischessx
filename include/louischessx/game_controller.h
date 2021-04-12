@@ -192,7 +192,7 @@ private:
     clock_type_t clock_type = clock_type_t::fixed_max;
 
     /* The variables for the clock. Only time_base is used if the clock type is fixed_max. */
-    chess_clock::duration time_base = std::chrono::seconds { 15 };
+    chess_clock::duration time_base = std::chrono::seconds { 20 };
     chess_clock::duration time_increase;
     chess_clock::duration computer_clock, opponent_clock;
     int moves_per_control;
