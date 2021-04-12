@@ -19,7 +19,7 @@
 
 
 /* INCLUDES */
-#include <chess/game_controller.h>
+#include <louis_chessx/game_controller.h>
 
 
 

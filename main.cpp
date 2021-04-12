@@ -13,7 +13,7 @@
 
 
 /* INCLUDES */
-#include <chess/chess.h>
+#include <louis_chessx/chess.h>
 #include <iostream>
 
 

@@ -22,7 +22,7 @@
 #include <array>
 #include <bit>
 #include <cassert>
-#include <chess/macros.h>
+#include <louis_chessx/macros.h>
 #include <string>
 
 
@@ -1107,7 +1107,7 @@ private:
 
 
 /* INCLUDE INLINE IMPLEMENTATION */
-#include <chess/bitboard.hpp>
+#include <louis_chessx/bitboard.hpp>
 
 
 

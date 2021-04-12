@@ -13,7 +13,7 @@
 
 
 /* INCLUDES */
-#include <chess/chessboard.h>
+#include <louis_chessx/chessboard.h>
 
 
 

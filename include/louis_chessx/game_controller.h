@@ -20,7 +20,7 @@
 
 /* INCLUDES */
 #include <atomic>
-#include <chess/chessboard.h>
+#include <louis_chessx/chessboard.h>
 #include <chrono>
 #include <condition_variable>
 #include <future>
@@ -376,7 +376,7 @@ private:
 
 
 /* INCLUDE INLINE IMPLEMENTATION */
-#include <chess/game_controller.hpp>
+#include <louis_chessx/game_controller.hpp>
 
 
 
