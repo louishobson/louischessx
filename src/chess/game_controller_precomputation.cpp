@@ -56,11 +56,11 @@ void chess::game_controller::configure_search_time_paramaters ()
         /* For incremental clock */
         case clock_type_t::incremental:
         {
-            /* Set the maximum response time. Use up all the remaining time in the next 10 moves. */
-            max_response_duration = std::min<chess_clock::duration> ( time_increase + computer_clock / 10, std::chrono::seconds { 20 } );
+            /* Set the maximum response time. Use up all the remaining time in the next 50 moves */
+            max_response_duration = std::min<chess_clock::duration> ( time_increase + computer_clock / 25, std::chrono::seconds { 20 } );
 
-            /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent. */
-            max_search_duration = std::min<chess_clock::duration> ( max_response_duration + time_increase + opponent_clock / 10, std::chrono::seconds { 40 } );
+            /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent */
+            max_search_duration = std::min<chess_clock::duration> ( max_response_duration + time_increase + opponent_clock / 25, std::chrono::seconds { 40 } );
 
             /* Break */
             break;
