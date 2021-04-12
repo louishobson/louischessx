@@ -21,8 +21,8 @@
 /* INCLUDES */
 #include <algorithm>
 #include <atomic>
-#include <louis_chessx/bitboard.h>
-#include <louis_chessx/macros.h>
+#include <louischessx/bitboard.h>
+#include <louischessx/macros.h>
 #include <cmath>
 #include <initializer_list>
 #include <iterator>
@@ -1074,7 +1074,7 @@ private:
 
 
 /* INCLUDE INLINE IMPLEMENTATION */
-#include <louis_chessx/chessboard.hpp>
+#include <louischessx/chessboard.hpp>
 
 
 

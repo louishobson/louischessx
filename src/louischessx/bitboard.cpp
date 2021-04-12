@@ -13,7 +13,7 @@
 
 
 /* INCLUDES */
-#include <louis_chessx/bitboard.h>
+#include <louischessx/bitboard.h>
 
 
 

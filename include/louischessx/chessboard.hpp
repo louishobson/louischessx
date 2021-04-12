@@ -19,7 +19,7 @@
 
 
 /* INCLUDES */
-#include <louis_chessx/chessboard.h>
+#include <louischessx/chessboard.h>
 
 
 

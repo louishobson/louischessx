@@ -15,7 +15,7 @@ AR=ar
 ARFLAGS=-rc
 
 # object files
-OBJ=src/louis_chessx/bitboard.o src/louis_chessx/chessboard_eval.o src/louis_chessx/chessboard_search.o src/louis_chessx/chessboard_format.o src/louis_chessx/chessboard_moves.o src/louis_chessx/game_controller_precomputation.o src/louis_chessx/game_controller_commands.o
+OBJ=src/louischessx/bitboard.o src/louischessx/chessboard_eval.o src/louischessx/chessboard_search.o src/louischessx/chessboard_format.o src/louischessx/chessboard_moves.o src/louischessx/game_controller_precomputation.o src/louischessx/game_controller_commands.o
 
 
 
@@ -23,8 +23,8 @@ OBJ=src/louis_chessx/bitboard.o src/louis_chessx/chessboard_eval.o src/louis_che
 
 # all
 #
-# make louis_chessx
-all: louis_chessx
+# make louischessx
+all: louischessx
 
 # clean
 #
@@ -39,37 +39,37 @@ clean:
 
 # COMPILATION TARGETS
 
-# liblouis_chessx.a
+# liblouischessx.a
 #
 # compile into a static library
-liblouis_chessx.a: $(OBJ)
-	$(AR) $(ARFLAGS) liblouis_chessx.a $(OBJ)
+liblouischessx.a: $(OBJ)
+	$(AR) $(ARFLAGS) liblouischessx.a $(OBJ)
 
-# liblouis_chessx.so
+# liblouischessx.so
 #
 # compile into a dynamic library
-liblouis_chessx.so: $(OBJ)
-	$(CPP) $(OBJ) -shared -o liblouis_chessx.so
+liblouischessx.so: $(OBJ)
+	$(CPP) $(OBJ) -shared -o liblouischessx.so
 
-# louis_chessx
+# louischessx
 #
-# compile the louis_chessx binary
-louis_chessx: liblouis_chessx.so main.o
-	$(CPP) $(CPPFLAGS) -llouis_chessx main.o -o louis_chessx
+# compile the louischessx binary
+louischessx: liblouischessx.so main.o
+	$(CPP) $(CPPFLAGS) -llouischessx main.o -o louischessx
 
 # install
 #
 # install the binary and includes
-install: louis_chessx liblouis_chessx.a liblouis_chessx.so
+install: louischessx liblouischessx.a liblouischessx.so
 	# Make directories
-	mkdir -p /usr/include/louis_chessx
+	mkdir -p /usr/include/louischessx
 
 	# Install headers and libraries
-	install -C -m 644 include/louis_chessx/* /usr/include/louis_chessx
-	install -C -m 755 liblouis_chessx.a liblouis_chessx.so /usr/lib
+	install -C -m 644 include/louischessx/* /usr/include/louischessx
+	install -C -m 755 liblouischessx.a liblouischessx.so /usr/lib
 
 	# Install binary
-	install -C -m 755 louis_chessx /bin
+	install -C -m 755 louischessx /bin
 
 	# Configure libraries
 	ldconfig /usr/lib
@@ -79,13 +79,13 @@ install: louis_chessx liblouis_chessx.a liblouis_chessx.so
 # uninstall any installation
 uninstall:
 	# Remove headers
-	rm -rf /usr/include/louis_chessx
+	rm -rf /usr/include/louischessx
 
 	# Remove library
-	rm -f /usr/lib/liblouis_chessx.a /usr/lib/liblouis_chessx.so
+	rm -f /usr/lib/liblouischessx.a /usr/lib/liblouischessx.so
 
 	# Remove binary
-	rm -f /bin/louis_chessx
+	rm -f /bin/louischessx
 
 	# Configure libraries
 	ldconfig /usr/lib
