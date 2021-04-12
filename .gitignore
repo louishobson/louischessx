@@ -30,7 +30,7 @@
 *.exe
 *.out
 *.app
-louis_chessx
+/louis_chessx
 
 # VSCode files
 *.vscode/
