@@ -1,4 +1,4 @@
-# Chess
+# louischessx
 
 A C++ chess engine designed to be an xboard backend.
 
