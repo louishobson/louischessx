@@ -358,7 +358,7 @@ chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const 
     move_t move { pc };
 
     /* Create the regex to extract the information */
-    std::regex move_regex { "^" "([PNBRQK]?)" "([a-h]?)([1-8]?)" "(?=.*?[a-h][1-8])" "(x?)" "([a-h][1-8])" "[=/]?([NBRQ]?)" };
+    std::regex move_regex { "^" "([PNBRQK]?)" "([a-h]?)([1-8]?)" "(x?)" "([a-h][1-8])" "[=/]?([NBRQ]?)" };
 
     /* Run the search, throw if no matches were found */
     std::smatch move_match;
