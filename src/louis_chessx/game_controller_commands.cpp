@@ -250,11 +250,15 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      */
     if ( cmd.starts_with ( "otim " ) )
     {
-        /* Get the time in centiseconds */
-        const std::chrono::duration<chess_clock::rep, std::centi> new_opponent_clock { safe_stoi ( cmd.substr ( 5 ) ) };
+        /* Ignore if the clock type is fixed max */
+        if ( clock_type != clock_type_t::fixed_max )
+        {
+            /* Get the time in centiseconds */
+            const std::chrono::duration<chess_clock::rep, std::centi> new_opponent_clock { safe_stoi ( cmd.substr ( 5 ) ) };
 
-        /* If in normal mode, store it in opponent_sync_clock, otherwise set the clock immediately */
-        if ( mode == computer_mode_t::normal ) opponent_sync_clock = new_opponent_clock; else opponent_clock = new_opponent_clock; 
+            /* If in normal mode, store it in opponent_sync_clock, otherwise set the clock immediately */
+            if ( mode == computer_mode_t::normal ) opponent_sync_clock = new_opponent_clock; else opponent_clock = new_opponent_clock; 
+        }
     } else
 
     /** @name  usermove MOVE
