@@ -53,17 +53,7 @@ int main ()
     //cb.get_bb ( chess::pcolor::black ).set_value                       ( 0b101111010011110011100111ull << 40 );
 
     chess::game_controller gc;
-    
-    while ( true )
-    {
-        std::string cmd; std::getline ( gc.chess_in, cmd ); if ( cmd.back () == '\n' ) cmd.pop_back ();
-//
-        gc.handle_command ( cmd );
-//
-        if ( cmd.starts_with ( "quit" ) ) return 0;
-    }
-
-
+    gc.xboard_loop ();
 
 
 
