@@ -411,7 +411,7 @@ catch ( const chess_input_error& e )
     if ( cmd.starts_with ( "usermove" ) ) chess_out << "Illegal move (" << e.what () << "): " << cmd << std::endl;
 
     /* Else output as a normal error */
-    else chess_error << "Error (" << e.what () << "): " << cmd << std::endl;
+    else chess_out << "Error (" << e.what () << "): " << cmd << std::endl;
 
     /* Return false */
     return false;
@@ -421,7 +421,7 @@ catch ( const chess_input_error& e )
 catch ( const chess_internal_error& e )
 {
     /* Output the error to the user */
-    chess_error << "tellusererror (" << e.what () << "): " << cmd << std::endl;
+    chess_out << "tellusererror (" << e.what () << "): " << cmd << std::endl;
 
     /* Resign */
     chess_out << "resign" << std::endl;

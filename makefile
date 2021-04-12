@@ -15,7 +15,7 @@ AR=ar
 ARFLAGS=-rc
 
 # object files
-OBJ=test.o src/chess/bitboard.o src/chess/chessboard_eval.o src/chess/chessboard_search.o src/chess/chessboard_format.o src/chess/chessboard_moves.o src/chess/game_controller_precomputation.o src/chess/game_controller_commands.o
+OBJ=main.o src/chess/bitboard.o src/chess/chessboard_eval.o src/chess/chessboard_search.o src/chess/chessboard_format.o src/chess/chessboard_moves.o src/chess/game_controller_precomputation.o src/chess/game_controller_commands.o
 
 
 
@@ -23,8 +23,8 @@ OBJ=test.o src/chess/bitboard.o src/chess/chessboard_eval.o src/chess/chessboard
 
 # all
 #
-# make test
-all: test
+# make louis_chessx
+all: louis_chessx
 
 # clean
 #
@@ -39,12 +39,8 @@ clean:
 
 # COMPILATION TARGETS
 
-# test
+# louis_chessx
 #
-# compile the test source
-test: $(OBJ)
-	$(CPP) $(CPPFLAGS) $(OBJ) -o test.out 
-	#objdump -d  --no-show-raw-insn test.out 2> /dev/null 1> test.dump
-	#objdump -dS --no-show-raw-insn test.out 2> /dev/null 1> test.s.dump
-	#objdump -d  --no-show-raw-insn --visualize-jumps test.out 2> /dev/null 1> test.v.dump
-	#objdump -dS --no-show-raw-insn --visualize-jumps test.out 2> /dev/null 1> test.vs.dump
+# compile the louis_chessx binary
+louis_chessx: $(OBJ)
+	$(CPP) $(CPPFLAGS) $(OBJ) -o louis_chessx

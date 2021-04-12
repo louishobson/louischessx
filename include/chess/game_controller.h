@@ -66,6 +66,14 @@ public:
      */
     game_controller () = default;
 
+    /** @name  pipe constructor
+     * 
+     * @brief  Construct with references to the pipes to use for input and output
+     * @param  in: The input pipe to use.
+     * @param  out: The output pipt to use. 
+     */
+    game_controller ( std::istream& in, std::ostream& out ) : chess_in { in }, chess_out { out } {}
+
     /** @name  destructor
      * 
      * @brief  Cancels any precomputation before destructing.
@@ -176,10 +184,9 @@ private:
     /* The cumulative transposition table */
     chessboard::ab_ttable_t cumulative_ttable;
 
-    /* The input, output and error streams to use */
+    /* The input and output streams to use */
     std::istream& chess_in = std::cin;
     std::ostream& chess_out = std::cout;
-    std::ostream& chess_error = std::cout;
 
     /* The type of clock. Initially fixed_max. */
     clock_type_t clock_type = clock_type_t::fixed_max;
