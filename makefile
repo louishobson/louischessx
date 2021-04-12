@@ -69,7 +69,7 @@ install: louischessx liblouischessx.a liblouischessx.so
 	install -C -m 755 liblouischessx.a liblouischessx.so /usr/lib
 
 	# Install binary
-	install -C -m 755 louischessx /bin
+	install -C -m 755 louischessx /usr/bin
 
 	# Configure libraries
 	ldconfig /usr/lib
@@ -85,7 +85,7 @@ uninstall:
 	rm -f /usr/lib/liblouischessx.a /usr/lib/liblouischessx.so
 
 	# Remove binary
-	rm -f /bin/louischessx
+	rm -f /usr/bin/louischessx
 
 	# Configure libraries
 	ldconfig /usr/lib
