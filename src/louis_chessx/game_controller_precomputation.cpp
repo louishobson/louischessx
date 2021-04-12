@@ -129,7 +129,7 @@ bool chess::game_controller::end_time_control ()
     const chess_clock::duration time_taken = chess_clock::now () - turn_start_point;
 
     /* Get if the player has run out of time */
-    const bool out_of_time = time_taken > clock + std::chrono::milliseconds { 250 };
+    const bool out_of_time = time_taken > clock + std::chrono::milliseconds { 500 };
 
     /* Reduce the clock */
     clock = std::max ( clock - time_taken, chess_clock::duration::zero () );
