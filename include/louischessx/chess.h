@@ -13,6 +13,6 @@
 
 
 /* INCLUDES */
-#include <louis_chessx/bitboard.h>
-#include <louis_chessx/chessboard.h>
-#include <louis_chessx/game_controller.h>
+#include <louischessx/bitboard.h>
+#include <louischessx/chessboard.h>
+#include <louischessx/game_controller.h>
