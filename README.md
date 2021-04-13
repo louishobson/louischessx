@@ -17,7 +17,7 @@ To download, build and install:
 $ cd ~/Downloads
 $ git clone https://github.com/louishobson/louischessx.git
 $ cd louischessx
-$ make louischessx
+$ make
 $ make install
 ```
 

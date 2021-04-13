@@ -23,8 +23,8 @@ OBJ=src/louischessx/bitboard.o src/louischessx/chessboard_eval.o src/louischessx
 
 # all
 #
-# make louischessx
-all: louischessx
+# make libraries and binary
+all: liblouischessx.a liblouischessx.so louischessx
 
 # clean
 #
@@ -60,7 +60,7 @@ louischessx: liblouischessx.so main.o
 # install
 #
 # install the binary and includes
-install: louischessx liblouischessx.a liblouischessx.so
+install: all
 	# Make directories
 	mkdir -p /usr/include/louischessx
 
