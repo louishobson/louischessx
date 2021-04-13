@@ -34,7 +34,7 @@ Note that the install and uninstall targets require write access to /usr/lib, /u
 
 Once installed, the binary /usr/bin/louischessx is created, which can communicate with XBoard through stdin and stdout.
 
-To connect to xboard, either:
+To connect to XBoard, either:
 
 - While xboard is open, go to _Engine_ > _Load new 1st engine_, then set the _Engine Directory_ to blank, the _Engine Command_ to 'louischessx', and click _OK_.
 - Alternatively start XBoard with the command `$ xboard -firstChessProgram louischessx`, which will automatically do the above on start.
