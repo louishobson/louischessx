@@ -13,8 +13,15 @@
 
 
 /* INCLUDES */
-#include <louischessx/chess.h>
+#include <boost/program_options.hpp>
+#include <fstream>
 #include <iostream>
+#include <louischessx/chess.h>
+
+
+
+/* PROGRAM OPTIONS NAMESPACE */
+namespace po = boost::program_options;
 
 
 
@@ -27,12 +34,44 @@
  */
 int main ( const int argc, const char ** argv )
 {
-    /* Create the engine */
+    /* Create a complete options description for the executable */
+    po::options_description options_desc;
+    options_desc.add_options ()
+
+        /* Help option */
+        ( "help,h", "produce help message" )
+
+        /* Debug options */
+        ( "debug,d", po::value<std::string> (), "path to write debug info to" );
+
+    /* Create a variables map and extract the command line arguments from argc and argv */
+    po::variables_map variables_map;
+    po::store ( po::parse_command_line ( argc, argv, options_desc ), variables_map );
+    po::notify ( variables_map );
+
+    /* If the help option was given, output the help and return */
+    if ( variables_map.count ( "help" ) )
+    {
+        /* Output the help */
+        std::cout << options_desc << std::endl;
+
+        /* Return 0 */
+        return 0;
+    }
+
+
+
+    /* Create the game controller */
     chess::game_controller game_controller;
 
-    /* Start the xboard communication */
+    /* If debug is specified, try to open the log file */
+    if ( variables_map.count ( "debug" ) ) game_controller.open_log_file ( variables_map.at ( "debug" ).as<std::string> () );
+
+    /* Start the xboard communication loop */
     game_controller.xboard_loop ();
 
-    /* Return 0 */
+
+
+    /* Loop finished, so return 0 */
     return 0;
 }

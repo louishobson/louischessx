@@ -39,6 +39,7 @@
 *.dump
 *.dbg
 *.debug
+*.log
 
 # pgn files
 *.pgn
