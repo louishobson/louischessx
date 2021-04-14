@@ -475,7 +475,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
         if ( search_it != ab_working->ttable.end () )
         {
             /* Extract the best move */
-            best_move = search_it->second.best_move;
+            best_move.from = search_it->second.best_move_from;
+            best_move.to   = search_it->second.best_move_to;
+            best_move.pt   = find_type ( pc, best_move.from );
 
             /* Set to have found a best move */
             ttable_best_move = best_move.pt != ptype::no_piece;
@@ -618,9 +620,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
             /* If is flagged to do so, add to the transposition table as a lower bound */
             if ( write_ttable ) if ( store_ttable_value )
-                ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { best_value, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
+                ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { best_value, static_cast<char> ( bk_depth ), ab_ttable_entry_t::bound_t::lower, static_cast<char> ( best_move.from ), static_cast<char> ( best_move.to ) } );
             else
-                ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { -10000 - bk_depth, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
+                ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { -10000 - bk_depth, static_cast<char> ( bk_depth ), ab_ttable_entry_t::bound_t::lower, static_cast<char> ( best_move.from ), static_cast<char> ( best_move.to ) } );
 
             /* Return */
             return true;
@@ -684,7 +686,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
     /* TRY BEST MOVE */
 
     /* Test if a best move has been found and try it if so */
-    if ( ttable_best_move ) if ( apply_move ( best_move ) ) return best_value;
+    if ( ttable_best_move ) if ( apply_move_set ( best_move.pt, best_move.from, singleton_bitboard ( best_move.to ) ) ) return best_value;
 
 
 
@@ -728,7 +730,7 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* If a best move was found, then it has already failed, so remove it from the move set */
     if ( ttable_best_move ) for ( auto& move_set : access_move_sets ( best_move.pt ) ) 
-        if ( move_set.first == best_move.from && move_set.second.test ( best_move.to ) ) move_set.second.reset ( best_move.to );
+        if ( move_set.first == best_move.from && move_set.second.test ( best_move.to ) ) { move_set.second.reset ( best_move.to ); break; }
 
 
 
@@ -822,9 +824,9 @@ int chess::chessboard::alpha_beta_search_internal ( const pcolor pc, int bk_dept
 
     /* If is flagged to do so, add to the transposition table */
     if ( write_ttable ) if ( store_ttable_value )
-        ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { best_value, bk_depth, ( best_value <= orig_alpha ? ab_ttable_entry_t::bound_t::upper : ab_ttable_entry_t::bound_t::exact ), best_move } );
+        ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { best_value, static_cast<char> ( bk_depth ), ( best_value <= orig_alpha ? ab_ttable_entry_t::bound_t::upper : ab_ttable_entry_t::bound_t::exact ), static_cast<char> ( best_move.from ), static_cast<char> ( best_move.to ) } );
     else
-        ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { -10000 - bk_depth, bk_depth, ab_ttable_entry_t::bound_t::lower, best_move } );
+        ab_working->ttable.insert_or_assign ( game_state_history.back (), ab_ttable_entry_t { -10000 - bk_depth, static_cast<char> ( bk_depth ), ab_ttable_entry_t::bound_t::lower, static_cast<char> ( best_move.from ), static_cast<char> ( best_move.to ) } );
 
     /* Return the best value */
     return best_value;

@@ -520,20 +520,17 @@ public:
     /* A structure for a ttable entry in alpha-beta search */
     struct ab_ttable_entry_t
     {
-        /* An enum for whether the ttable entry is exact or an upper or lower bound */
-        enum class bound_t { exact, upper, lower };
-
         /* The value of the ttable entry */
         int value;
 
         /* The bk_depth that the entry was made */
-        int bk_depth;
+        char bk_depth;
 
-        /* The bound of the ttable entry */
-        bound_t bound;
+        /* Whether the ttable entry is exact or an upper or lower bound */
+        enum class bound_t : char { exact, upper, lower } bound;
 
-        /* The best move at this state */
-        move_t best_move;
+        /* The departure and destination of the best move in this state */
+        char best_move_from, best_move_to;
     };
 
 
