@@ -23,6 +23,7 @@
 #include <louischessx/chessboard.h>
 #include <chrono>
 #include <condition_variable>
+#include <fstream>
 #include <future>
 #include <iostream>
 #include <list>
@@ -70,9 +71,11 @@ public:
      * 
      * @brief  Construct with references to the pipes to use for input and output
      * @param  in: The input pipe to use.
-     * @param  out: The output pipt to use. 
+     * @param  out: The output pipe to use.
+     * @param  log_path: The path to a logfile to use. Defualts to no log file, with logging disabled. If supplied, logging will be enabled.
      */
-    game_controller ( std::istream& in, std::ostream& out ) : chess_in { in }, chess_out { out } {}
+    game_controller ( std::istream& in, std::ostream& out, const std::string& log_path = "" ) : chess_in { in }, chess_out { out }
+        { if ( log_path.size () ) open_log_file ( log_path ); }
 
     /** @name  destructor
      * 
@@ -89,6 +92,26 @@ public:
     void reset_game ();
 
     
+
+    /* GENERAL OPTIONS */
+
+    /** @name  open_log_file
+     * 
+     * @brief  Tries to open a file to log to, and enabled logging.
+     * @param  path: The path of the logfile to open.
+     * @return void.
+     */
+    void open_log_file ( const std::string& path );
+
+    /** @name  enable_logging, disable_logging
+     * 
+     * @brief  Enable and disable logging to chess_log.
+     * @return void.
+     */
+    void enable_logging  () noexcept { output_log = true; }
+    void disable_logging () noexcept { output_log = false; }
+
+
 
     /* XBOARD INTERFACE */
 
@@ -184,9 +207,13 @@ private:
     /* The cumulative transposition table */
     chessboard::ab_ttable_t cumulative_ttable;
 
-    /* The input and output streams to use */
+    /* The input, output and log streams to use */
     std::istream& chess_in = std::cin;
     std::ostream& chess_out = std::cout;
+    std::ofstream chess_log;
+
+    /* Whether to output logging info to chess_log */
+    bool output_log = false;
 
     /* The type of clock. Initially fixed_max. */
     clock_type_t clock_type = clock_type_t::fixed_max;
@@ -259,6 +286,29 @@ private:
 
     /* A move_t, which gives the known opponent response to cancel other searches in the search controller */
     move_t known_opponent_move; 
+
+
+
+    /* INPUT AND OUTPUT */
+
+    /** @name  read_chess_in
+     * 
+     * @brief  Returns the next line availible from chess_in.
+     *         Also logs to chess_log, if enabled by output_log.
+     * @return String, with the newline stripped.
+     */
+    std::string read_chess_in ();
+
+    /** @name  write_chess_out
+     * 
+     * @brief  Write a command or response to chess_out.
+     *         A newline will be added and the stream will be flushed.
+     *         Also logs to chess_log, if enabled by output_log.
+     * @param  outputs...: Parameters of printable types to send to chess_out and maybe chess_log.
+     * @return void.
+     */
+    template<class... Ts>
+    void write_chess_out ( const Ts&... outputs );
 
 
 

@@ -19,6 +19,8 @@
 
 /* COMMAND HANDLING METHODS */
 
+
+
 /** @name  handle_command
  * 
  * @brief  Take a command and fully handle it before returning.
@@ -42,20 +44,19 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         std::string next_cmd; std::getline ( chess_in, next_cmd );
         if ( !next_cmd.starts_with ( "protover " ) || next_cmd.size () < 10 || safe_stoi ( next_cmd.substr ( 9 ) ) < 2 ) throw chess_input_error { "Did not recieve valid protover command after xboard" };
 
-        /* Send feature requests */
-        chess_out << "feature done=0\n"          /* Pause timeout on feature requests */
-                  << "feature ping=1\n"          /* Allow the ping command */
-                  << "feature setboard=1\n"      /* Allow the setboard command */
-                  << "feature playother=1\n"     /* Allow the playother command */
-                  << "feature san=1\n"           /* Force standard algebraic notation for moves */
-                  << "feature usermove=1\n"      /* Force user moves to be given only with the usermove command */
-                  << "feature time=1\n"          /* Set time updates to be ignored */
-                  << "feature sigint=0\n"        /* Stop interrupt signals from being sent */
-                  << "feature sigterm=0\n"       /* Stop terminate signals from being send */
-                  << "feature myname=LouisBot\n" /* Name this engine */
-                  << "feature colors=0\n"        /* Don't send the 'white' or 'black' commands */
-                  << "feature done=1\n"          /* End of features */
-                  << std::flush;
+        /* Send feature requests */ 
+        write_chess_out ( "feature done=0"          ); /* Pause timeout on feature requests */
+        write_chess_out ( "feature ping=1"          ); /* Allow the ping command */
+        write_chess_out ( "feature setboard=1"      ); /* Allow the setboard command */
+        write_chess_out ( "feature playother=1"     ); /* Allow the playother command */
+        write_chess_out ( "feature san=1"           ); /* Force standard algebraic notation for moves */
+        write_chess_out ( "feature usermove=1"      ); /* Force user moves to be given only with the usermove command */
+        write_chess_out ( "feature time=1"          ); /* Set time updates to be ignored */
+        write_chess_out ( "feature sigint=0"        ); /* Stop interrupt signals from being sent */
+        write_chess_out ( "feature sigterm=0"       ); /* Stop terminate signals from being send */
+        write_chess_out ( "feature myname=LouisBot" ); /* Name this engine */
+        write_chess_out ( "feature colors=0"        ); /* Don't send the 'white' or 'black' commands */
+        write_chess_out ( "feature done=1"          ); /* End of features */
     } else
 
     /** @name  accepted, rejected
@@ -279,7 +280,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         game_cb.make_move ( move );
         
         /* Stop time control and tell the user if time has run out */
-        if ( !end_time_control () ) chess_out << "telluser You've run out of time!" << std::endl;
+        if ( !end_time_control () ) write_chess_out ( "telluser You've run out of time!" );
 
         /* Switch next color */
         next_pc = other_color ( next_pc );
@@ -314,7 +315,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
     if ( cmd.starts_with ( "ping " ) )
     {
         /* Output pong N */
-        chess_out << "pong " << cmd.substr ( 5 ) << std::endl;
+        write_chess_out ( "pong ", cmd.substr ( 5 ) );
     } else
 
     /** @name  draw
@@ -328,7 +329,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         if ( mode != computer_mode_t::normal ) throw chess_input_error { "Offered draw while in force mode." };
 
         /* If latest_best_value <= draw_offer_acceptance_value for the computer, then accept */
-        if ( latest_best_value <= draw_offer_acceptance_value ) chess_out << "offer draw" << std::endl;
+        if ( latest_best_value <= draw_offer_acceptance_value ) write_chess_out ( "offer draw" );
     } else
 
     /** @name  result RESULT
@@ -412,10 +413,10 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
 catch ( const chess_input_error& e )
 {
     /* If the command was a usermove, send an illegal move command */
-    if ( cmd.starts_with ( "usermove" ) ) chess_out << "Illegal move (" << e.what () << "): " << cmd << std::endl;
+    if ( cmd.starts_with ( "usermove" ) ) write_chess_out ( "Illegal move (", e.what (), "): ", cmd );
 
     /* Else output as a normal error */
-    else chess_out << "Error (" << e.what () << "): " << cmd << std::endl;
+    else write_chess_out ( "Error (", e.what (), "): ", cmd );
 
     /* Return false */
     return false;
@@ -425,10 +426,10 @@ catch ( const chess_input_error& e )
 catch ( const chess_internal_error& e )
 {
     /* Output the error to the user */
-    chess_out << "tellusererror (" << e.what () << "): " << cmd << std::endl;
+    write_chess_out ( "tellusererror (", e.what (), "): ", cmd );
 
     /* Resign */
-    chess_out << "resign" << std::endl;
+    write_chess_out ( "resign" );
 
     /* Rethrow */
     throw;
@@ -479,17 +480,16 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
     if ( ab_result.moves.size () ) 
     {
         /* Output the move */
-        chess_out << "move " << game_cb.fide_serialize_move ( ab_result.moves.front ().first ) << std::endl;
+        write_chess_out ( "move ", game_cb.fide_serialize_move ( ab_result.moves.front ().first ) );
 
         /* Output information about the last move */
-        chess_out << "# duration = " << std::chrono::duration_cast<std::chrono::milliseconds> ( ab_result.duration ).count () << "ms"
-                  << "\n# depth = " << ab_result.depth 
-                  << "\n# av. q. depth = " << ab_result.av_q_depth 
-                  << "\n# nodes visited = " << ab_result.num_nodes 
-                  << "\n# q. nodes visited = " << ab_result.num_q_nodes 
-                  << "\n# av. moves per node  = " << ab_result.av_moves 
-                  << "\n# av. moves per q. node  = " << ab_result.av_q_moves
-                  << std::endl;
+        write_chess_out ( "# duration = ", std::chrono::duration_cast<std::chrono::milliseconds> ( ab_result.duration ).count (), "ms" );
+        write_chess_out ( "# depth = ",                  ab_result.depth        );
+        write_chess_out ( "# av. q. depth = ",           ab_result.av_q_depth   );
+        write_chess_out ( "# nodes visited = ",          ab_result.num_nodes    );
+        write_chess_out ( "# q. nodes visited = ",       ab_result.num_q_nodes  );
+        write_chess_out ( "# av. moves per node  = ",    ab_result.av_moves     );
+        write_chess_out ( "# av. moves per q. node  = ", ab_result.av_q_moves   );
 
         /* Make the move */
         game_cb.make_move ( ab_result.moves.front ().first );
@@ -507,9 +507,9 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         next_pc = other_color ( next_pc ); 
 
         /* If is a win, stalemate or draw, output a result */
-        if ( ab_result.moves.front ().first.checkmate ) chess_out << ( computer_pc == pcolor::white ? "1-0 {White mates}" : "0-1 {Black mates}" ) << std::endl; else
-        if ( ab_result.moves.front ().first.stalemate ) chess_out << "1/2-1/2 {Stalemate}" << std::endl; else
-        if ( ab_result.moves.front ().first.draw      ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
+        if ( ab_result.moves.front ().first.checkmate ) write_chess_out ( computer_pc == pcolor::white ? "1-0 {White mates}" : "0-1 {Black mates}" ); else
+        if ( ab_result.moves.front ().first.stalemate ) write_chess_out ( "1/2-1/2 {Stalemate}" ); else
+        if ( ab_result.moves.front ().first.draw      ) write_chess_out ( "1/2-1/2 {Draw by repetition}" ); else
 
         /* Else, since the game has not ended, start time controls and precomputation */
         { start_time_control (); start_precomputation (); }
@@ -523,13 +523,13 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         const bool computer_has_mobility = game_cb.has_mobility ( computer_pc, computer_check_info );
 
         /* If computer is in check with no mobility, this state is a checkmate */
-        if ( computer_check_info.check_count && !computer_has_mobility ) chess_out << ( computer_pc == pcolor::white ? "0-1 {Black mates}" : "1-0 {White mates}" ) << std::endl; else
+        if ( computer_check_info.check_count && !computer_has_mobility ) write_chess_out ( computer_pc == pcolor::white ? "0-1 {Black mates}" : "1-0 {White mates}" ); else
 
         /* Else if the computer is not in check and doesn't have any mobility, then this is a stalemate */
-        if ( !computer_check_info.check_count && !computer_has_mobility ) chess_out << "1/2-1/2 {Stalemate}" << std::endl; else
+        if ( !computer_check_info.check_count && !computer_has_mobility ) write_chess_out ( "1/2-1/2 {Stalemate}" ); else
 
         /* Else check if this is a draw state */
-        if ( game_cb.is_draw_state () ) chess_out << "1/2-1/2 {Draw by repetition}" << std::endl; else
+        if ( game_cb.is_draw_state () ) write_chess_out ( "1/2-1/2 {Draw by repetition}" ); else
 
         /* Else the ab_result has no moves for an unknown reason, so produce an internal error */
         throw chess_internal_error { "Cannot discern why ab_result has no possible moves." };

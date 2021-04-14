@@ -62,6 +62,30 @@ inline void chess::game_controller::reset_game ()
 
 
 
+/* GENERAL OPTIONS */
+
+
+
+/** @name  open_log_file
+ * 
+ * @brief  Tries to open a file to log to, and enabled logging.
+ * @param  path: The path of the logfile to open.
+ * @return void.
+ */
+inline void chess::game_controller::open_log_file ( const std::string& path )
+{
+    /* Try to open the file for writing */
+    chess_log.open ( path, std::ios::out );
+
+    /* If failed, throw */
+    if ( !chess_log ) chess::chess_input_error { "Failed to open log file." };
+
+    /* Enable logging */
+    output_log = true;
+}
+
+
+
 /* XBOARD INTERFACE */
 
 
@@ -79,17 +103,61 @@ inline void chess::game_controller::xboard_loop ()
     /* Loop until quit command */
     do
     {
-        /* Read a line from chess_in */
-        std::getline ( chess_in, cmd );
-        
-        /* Remove the endline, if present */
-        if ( cmd.back () == '\n' ) cmd.pop_back ();
+        /* Get the next command */
+        cmd = read_chess_in ();
 
         /* Handle the command */
         handle_command ( cmd );
 
         /* Break on a quit command */
     } while ( !cmd.starts_with ( "quit" ) );
+}
+
+
+
+/* INPUT AND OUTPUT */
+
+
+
+/** @name  read_chess_in
+ * 
+ * @brief  Returns the next line availible from chess_in.
+ *         Also logs to chess_log, if enabled by output_log.
+ * @return String, with the newline stripped.
+ */
+inline std::string chess::game_controller::read_chess_in ()
+{
+    /* Get a command */
+    std::string cmd; std::getline ( chess_in, cmd );
+        
+    /* Remove the endline, if present */
+    if ( cmd.back () == '\n' ) cmd.pop_back ();
+
+    /* Output log if required */
+    if ( output_log ) chess_log << ">  " << cmd << std::endl;
+
+    /* Return the command */
+    return cmd;
+}
+
+
+
+/** @name  write_chess_out
+ * 
+ * @brief  Write a command or response to chess_out.
+ *         A newline will be added and the stream will be flushed.
+ *         Also logs to chess_log, if enabled by output_log.
+ * @param  outputs...: Parameters of printable types to send to chess_out and maybe chess_log.
+ * @return void.
+ */
+template<class... Ts>
+inline void chess::game_controller::write_chess_out ( const Ts&... outputs )
+{
+    /* Send to chess_out */
+    ( chess_out << ... << outputs ) << std::endl;
+
+    /* Output log if required */
+    if ( output_log ) ( chess_log << " < " << ... << outputs ) << std::endl;
 }
 
 
