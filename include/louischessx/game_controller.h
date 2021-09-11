@@ -111,6 +111,14 @@ public:
     void enable_logging  () noexcept { output_log = true; }
     void disable_logging () noexcept { output_log = false; }
 
+    /** @name  set_parallel_searches
+     * 
+     * @brief  Set the number of parallel searches.
+     * @param  parallel_searches: The new number of parallel searches.
+     * @return void.
+     */
+    void set_parallel_searches ( int parallel_searches ) { num_parallel_searches = parallel_searches; }
+
 
 
     /* XBOARD INTERFACE */
