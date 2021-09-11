@@ -8,7 +8,7 @@ CFLAGS=-std=c++20 -Iinclude -g -O2 -march=native -flto
 
 # g++ setup
 CPP=g++
-CPPFLAGS=-std=c++20 -Iinclude -L. -O3 -march=native -flto=auto -pedantic -pthread -latomic -lboost_program_options
+CPPFLAGS=-std=c++20 -Iinclude -L. -O2 -march=native -flto=auto -pedantic -pthread -latomic -lboost_program_options
 
 # ar setup
 AR=ar
