@@ -228,7 +228,7 @@ void chess::game_controller::start_precomputation ()
     search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { cumulative_ttable } ] () mutable
     {
         /* Get the opponent moves */
-        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ), false, chess_clock::now () + max_search_duration / 20 );
+        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ), false, chess_clock::now () + std::chrono::milliseconds ( 750 ) );
 
         /* Get the ttable back */
         ttable = std::move ( opponent_ab_result.ttable );
