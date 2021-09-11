@@ -42,7 +42,10 @@ int main ( const int argc, const char ** argv )
         ( "help,h", "produce help message" )
 
         /* Debug options */
-        ( "debug,d", po::value<std::string> (), "path to write debug info to" );
+        ( "debug,d", po::value<std::string> (), "path to write debug info to" )
+
+        /* Threading options */
+        ( "threads,t", po::value<int> ()->default_value ( 4 ), "the number of threads while pondering" );
 
     /* Create a variables map and extract the command line arguments from argc and argv */
     po::variables_map variables_map;
@@ -66,6 +69,9 @@ int main ( const int argc, const char ** argv )
 
     /* If debug is specified, try to open the log file */
     if ( variables_map.count ( "debug" ) ) game_controller.open_log_file ( variables_map.at ( "debug" ).as<std::string> () );
+
+    /* Set the number of parallel searches */
+    game_controller.set_parallel_searches ( variables_map.at ( "threads" ).as<int> () );
 
     /* Start the xboard communication loop */
     game_controller.xboard_loop ();
