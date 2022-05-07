@@ -484,3 +484,31 @@ chess::move_t chess::chessboard::fide_deserialize_move ( const pcolor pc, const 
     /* Return the move */
     return move;
 }
+
+
+
+/** @name  get_cecp_thinking
+ *
+ * @brief  Create a string describing an alpha-beta search result, in the CECP format.
+ *
+ * @param  ab_result: The result to format.
+ * @return string
+ */
+std::string chess::chessboard::get_cecp_thinking ( const ab_result_t& ab_result ) const
+{
+    /* If empty or incomplete, return an empty string */
+    if ( ab_result.incomplete || ab_result.moves.empty () ) return "";
+
+    /* Create the string */
+    std::stringstream ss; ss
+        << ab_result.depth << ' '
+        << ab_result.moves.front ().second << ' '
+        << std::chrono::duration_cast<std::chrono::duration<long, std::centi>> ( ab_result.duration ).count () << ' '
+        << ab_result.num_nodes << ' '
+        << ab_result.av_q_depth << ' '
+        << ab_result.ttable_hits << '\t'
+        << fide_serialize_move ( ab_result.moves.front ().first );
+
+    /* Return it */
+    return ss.str ();
+}
