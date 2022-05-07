@@ -44,10 +44,10 @@ void chess::game_controller::configure_search_time_paramaters ()
             const int opponent_moves_until_time_control = moves_per_control - moves_made ( next_pc == computer_pc ) % moves_per_control;
 
             /* Set the maximum response time */
-            max_response_duration = std::min<chess_clock::duration> ( computer_clock / computer_moves_until_time_control, std::chrono::seconds { 20 } );
+            max_response_duration = computer_clock / computer_moves_until_time_control, std::chrono::seconds { 20 };
 
             /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent. */
-            max_search_duration = std::min<chess_clock::duration> ( max_response_duration + ( opponent_clock / opponent_moves_until_time_control ), std::chrono::seconds { 40 } );
+            max_search_duration = max_response_duration + std::max<chess_clock::duration> ( opponent_clock / opponent_moves_until_time_control, average_opponent_response_time );
 
             /* Break */
             break;
@@ -57,10 +57,10 @@ void chess::game_controller::configure_search_time_paramaters ()
         case clock_type_t::incremental:
         {
             /* Set the maximum response time. Use up all the remaining time in the next 50 moves */
-            max_response_duration = std::min<chess_clock::duration> ( time_increase + computer_clock / 25, std::chrono::seconds { 20 } );
+            max_response_duration = time_increase + computer_clock / 20;
 
             /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent */
-            max_search_duration = std::min<chess_clock::duration> ( max_response_duration + time_increase + opponent_clock / 25, std::chrono::seconds { 40 } );
+            max_search_duration = max_response_duration + std::max<chess_clock::duration> ( time_increase + opponent_clock / 20, average_opponent_response_time );
 
             /* Break */
             break;
@@ -69,7 +69,6 @@ void chess::game_controller::configure_search_time_paramaters ()
         /* For fixed max clock */
         case clock_type_t::fixed_max:
         {
-
             /* Set the maximum response time */
             max_response_duration = time_base;
 
@@ -126,10 +125,10 @@ bool chess::game_controller::end_time_control ()
     chess_clock::duration& clock = ( next_pc == computer_pc ? computer_clock : opponent_clock );
 
     /* Get the time they took for their turn */
-    const chess_clock::duration time_taken = chess_clock::now () - turn_start_point;
+    const chess_clock::duration time_taken = chess_clock::now () - turn_start_point;    
 
     /* Get if the player has run out of time */
-    const bool out_of_time = time_taken > clock + std::chrono::milliseconds { 500 };
+    const bool out_of_time = time_taken > clock + std::chrono::seconds { 1 };
 
     /* Reduce the clock */
     clock = std::max ( clock - time_taken, chess_clock::duration::zero () );
@@ -149,6 +148,9 @@ bool chess::game_controller::end_time_control ()
 
     /* Synchronize the other player's clock, if it is not a fixed max clock, it was just their turn, an otim command has been supplied */
     if ( clock_type != clock_type_t::fixed_max && next_pc != computer_pc && opponent_sync_clock != chess_clock::duration::max () ) opponent_clock = opponent_sync_clock;
+
+    /* If this is the opponent's move, update the rolling average opponent thinking time */
+    if ( next_pc != computer_pc ) average_opponent_response_time = std::chrono::duration_cast<chess_clock::duration> ( average_opponent_response_time * 0.8 + time_taken * 0.2 );
 
     /* Return !out_of_time */
     return !out_of_time;
@@ -171,12 +173,13 @@ bool chess::game_controller::end_time_control ()
  * @param  opponent_move: The opponent move which lead to this state, empty move by default.
  * @param  ttable: The transposition table from previous searches. Empty by default.
  * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
+ * @param  output_thinking: If true, then thinking is printed. False by default.
  * @return An iterator to the search data in active_searches.
  */
-chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, chessboard::ab_ttable_t ttable, const bool direct_response )
+chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, chessboard::ab_ttable_t ttable, const bool direct_response, const bool output_thinking )
 {
     /* Create the search data */
-    active_searches.emplace_back ( cb, pc, opponent_move, false );
+    active_searches.emplace_back ( cb, pc, opponent_move, false, output_thinking );
 
     /* Get an iterator to the active search */
     search_data_it_t search_data_it = --active_searches.end ();
@@ -185,7 +188,7 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
     active_searches.back ().ab_result_future = std::async ( std::launch::async, [ this, search_data_it, ttable { std::move ( ttable ) }, direct_response ] () mutable
     {
         /* Wait for the search to complete */
-        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, std::move ( ttable ), search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ) );
+        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, std::move ( ttable ), search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ), search_data_it->cecp_thinking );
 
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
         std::unique_lock search_lock { search_mx };
