@@ -25,6 +25,7 @@
 #include <louischessx/macros.h>
 #include <cmath>
 #include <initializer_list>
+#include <iostream>
 #include <iterator>
 #include <future>
 #include <memory>
@@ -559,6 +560,12 @@ public:
         /* Average quiescence depth and moves per node */
         double av_q_depth = 0.0, av_moves = 0.0, av_q_moves = 0.0;
 
+        /* Maximum quiscence depth */
+        int max_q_depth = 0;
+
+        /* The number of ttable hits */
+        int ttable_hits = 0;
+
         /* Boolean flags for if the search was incomplete, failed low or failed high */
         bool incomplete = false, failed_low = false, failed_high = false;
 
@@ -839,11 +846,12 @@ public:
      * @param  ttable: The transposition table to use for the search. Empty by default.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
+     * @param  cecp_thinking: An atomic boolean, which when set to true will cause information on the search to be printed after each iteration. False by default.
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
      * @return ab_result_t
      */
     ab_result_t alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::atomic_bool& end_flag = false,
-        chess_clock::time_point end_point = chess_clock::time_point::max (), bool finish_first = true );
+        chess_clock::time_point end_point = chess_clock::time_point::max (), const std::atomic_bool& cecp_thinking = false, bool finish_first = true );
 
 
 
@@ -937,12 +945,18 @@ private:
     {
         /* Accumulate the sum of quiescence depth and moves made */
         unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
-        
+
         /* Accumulate the number of full nodes and quiescence nodes visited */
         int num_nodes = 0, num_q_nodes = 0;
 
+        /* The maximum fowards depth reached */
+        int max_q_depth = 0;
+
         /* The largest fd_depth for which a draw state could occur */
         int draw_max_fd_depth = 0;
+
+        /* Accumulate the number of ttable hits */
+        int ttable_hits = 0;
 
         /* Array of sets of moves */
         std::vector<std::array<std::vector<std::pair<int, bitboard>>, 6>> move_sets;
@@ -1033,7 +1047,7 @@ private:
      * @brief  Apply an alpha-beta search to a given depth.
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color whose move it is next.
-     * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search.
+     * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search.  Quiescence search begins when the value is non-positive.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
      * @param  end_flag: An atomic boolean, which when set to true, will end the search.
      * @param  end_point: A time point at which the search will end. Never by default.
@@ -1041,15 +1055,13 @@ private:
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
      * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
-     * @param  q_depth: The quiescence depth, or the number of nodes that quiescence search has been active for, 0 by default.
      * @return alpha_beta_t
      */
     chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, bool best_only, const std::atomic_bool& end_flag = false, chess_clock::time_point end_point = chess_clock::time_point::max (),
         int alpha        = -20000, 
         int beta         = +20000, 
         int fd_depth     = 0, 
-        int null_depth   = 0, 
-        int q_depth      = 0
+        int null_depth   = 0
     );
 
 
@@ -1065,6 +1077,19 @@ private:
      * @return void
      */
     void sanity_check_bbs ( pcolor _last_pc ) const chess_validate_throw;
+
+
+
+    /* FORMATTING */
+
+    /** @name  get_cecp_thinking
+     *
+     * @brief  Create a string describing an alpha-beta search result, in the CECP format.
+     *
+     * @param  ab_result: The result to format.
+     * @return string
+     */
+     std::string get_cecp_thinking ( const ab_result_t& ab_result ) const;
 
 };
 

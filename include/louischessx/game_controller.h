@@ -164,6 +164,9 @@ private:
         /* The end flag for the search */
         std::atomic_bool end_flag;
 
+        /* Whether to output thinking */
+        std::atomic_bool cecp_thinking;
+
         /* A future to the result of the search */
         std::future<chessboard::ab_result_t> ab_result_future;
     };
@@ -212,6 +215,9 @@ private:
     /* The latest value a search by a computer produced */
     int latest_best_value = 0;
 
+    /* Whether to output thinking info. False by default, */
+    bool output_post = false;
+
     /* The cumulative transposition table */
     chessboard::ab_ttable_t cumulative_ttable;
 
@@ -234,6 +240,9 @@ private:
 
     /* Sync clock for the opponent */
     chess_clock::duration opponent_sync_clock = chess_clock::duration::max ();
+
+    /* Rolling average opponent response time */
+    chess_clock::duration average_opponent_response_time = chess_clock::duration::zero ();
 
 
 
@@ -407,9 +416,10 @@ private:
      * @param  opponent_move: The opponent move which lead to this state, empty move by default.
      * @param  ttable: The transposition table from previous searches. Empty by default.
      * @param  direct_response: If true, then this search is in response to an opponent move, so max_response_duration should be used instead of max_search_duration. False by default.
+     * @param  output_thinking: If true, then thinking is printed. False by default.
      * @return An iterator to the search data in active_searches.
      */
-    search_data_it_t start_search ( const chessboard& cb, pcolor pc, const move_t& opponent_move = move_t {}, chessboard::ab_ttable_t ttable = chessboard::ab_ttable_t {}, bool direct_response = false );
+    search_data_it_t start_search ( const chessboard& cb, pcolor pc, const move_t& opponent_move = move_t {}, chessboard::ab_ttable_t ttable = chessboard::ab_ttable_t {}, bool direct_response = false, bool output_thinking = false );
 
     /** @name  start_precomputation
      * 
