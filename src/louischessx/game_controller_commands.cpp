@@ -294,12 +294,16 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             /* Stop any precomputation */
             search_data_it_t search_data_it = stop_precomputation ( move );
 
-            /* Start the correct search if had not already been started */
-            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( cumulative_ttable, ttable_min_bk_depth ), true );
+            /* Start the correct search if had not already been started. Set to output thinking if requested. */
+            if ( search_data_it == active_searches.end () ) search_data_it = start_search ( game_cb, computer_pc, move, game_cb.purge_ttable ( cumulative_ttable, ttable_min_bk_depth ), true, output_post );
+            else search_data_it->cecp_thinking = output_post;
 
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
             if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
             chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
+
+            /* Output thinking */
+            write_chess_out ( game_cb.get_cecp_thinking ( ab_result ) );
 
             /* Output the move, if any */
             make_and_output_move ( ab_result );
@@ -394,6 +398,20 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Restart precomputation */
         start_precomputation ();
     } else
+
+    /** @name  post
+     *
+     * @brief  Set the computer to output information on its pondering.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "post" ) ) output_post = true; else
+
+    /** @name  nopost
+     *
+     * @brief  Set the computer to not output information on its pondering.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "nopost" ) ) output_post = false; else
 
     /** @name  computer
      * 
