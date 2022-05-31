@@ -299,8 +299,8 @@ std::string chess::chessboard::fide_serialize_move ( const move_t& move ) const
     check_move_is_valid ( move );
 
     /* Check if the move is a castling move */
-    if ( move.is_kingside_castle  () ) return "0-0"; 
-    if ( move.is_queenside_castle () ) return "0-0-0";
+    if ( move.is_kingside_castle  () ) return std::string { "0-0" } + ( move.checkmate ? "#" : ( move.check ? "+"  : "" ) ); 
+    if ( move.is_queenside_castle () ) return std::string { "0-0-0" } + ( move.checkmate ? "#" : ( move.check ? "+"  : "" ) );
 
     /* Get the check info */
     const check_info_t check_info = get_check_info ( move.pc );
@@ -504,7 +504,7 @@ std::string chess::chessboard::get_cecp_thinking ( const ab_result_t& ab_result 
         << ab_result.depth << ' '
         << ab_result.moves.front ().second << ' '
         << std::chrono::duration_cast<std::chrono::duration<long, std::centi>> ( ab_result.duration ).count () << ' '
-        << ab_result.num_nodes << ' '
+        << ab_result.num_nodes + ab_result.num_q_nodes << ' '
         << ab_result.av_q_depth << ' '
         << ab_result.ttable_hits << '\t'
         << fide_serialize_move ( ab_result.moves.front ().first );
