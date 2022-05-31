@@ -44,7 +44,7 @@ void chess::game_controller::configure_search_time_paramaters ()
             const int opponent_moves_until_time_control = moves_per_control - moves_made ( next_pc == computer_pc ) % moves_per_control;
 
             /* Set the maximum response time */
-            max_response_duration = computer_clock / computer_moves_until_time_control, std::chrono::seconds { 20 };
+            max_response_duration = computer_clock / computer_moves_until_time_control;
 
             /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent. */
             max_search_duration = max_response_duration + std::max<chess_clock::duration> ( opponent_clock / opponent_moves_until_time_control, average_opponent_response_time );
@@ -57,10 +57,10 @@ void chess::game_controller::configure_search_time_paramaters ()
         case clock_type_t::incremental:
         {
             /* Set the maximum response time. Use up all the remaining time in the next 50 moves */
-            max_response_duration = time_increase + computer_clock / 20;
+            max_response_duration = time_increase + computer_clock / 25;
 
             /* Set the maximum thinking time. This is the sum of the response duration for both the computer and opponent */
-            max_search_duration = max_response_duration + std::max<chess_clock::duration> ( time_increase + opponent_clock / 20, average_opponent_response_time );
+            max_search_duration = max_response_duration + std::max<chess_clock::duration> ( time_increase + opponent_clock / 25, average_opponent_response_time );
 
             /* Break */
             break;
