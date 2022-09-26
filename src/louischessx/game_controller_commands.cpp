@@ -54,8 +54,9 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         write_chess_out ( "feature time=1"          ); /* Set time updates to be ignored */
         write_chess_out ( "feature sigint=0"        ); /* Stop interrupt signals from being sent */
         write_chess_out ( "feature sigterm=0"       ); /* Stop terminate signals from being send */
-        write_chess_out ( "feature myname=LouisBot" ); /* Name this engine */
+        write_chess_out ( "feature myname=LouisChessX" ); /* Name this engine */
         write_chess_out ( "feature colors=0"        ); /* Don't send the 'white' or 'black' commands */
+        write_chess_out ( "feature smp=1"           ); /* Allow the cores command */
         write_chess_out ( "feature done=1"          ); /* End of features */
     } else
 
@@ -91,11 +92,8 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Reset the clocks */
         computer_clock = opponent_clock = time_base;
 
-        /* Start time control */
-        start_time_control ();
-
-        /* Start precomputation */
-        start_precomputation ();
+        /* Set the start time */
+        game_start_point = chess_clock::now ();
     } else
 
     /** @name  variant
@@ -200,14 +198,11 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
     
         /* Set the remaining time to the time base */
         computer_clock = opponent_clock = time_base;
-
-        /* If in normal mode, restart pondering */
-        if ( mode == computer_mode_t::normal ) { start_time_control (); start_precomputation (); }
     } else
 
     /** @name  st TIME
      * 
-     * @brief  Fixed max time controll.
+     * @brief  Fixed max time control.
      * @param  TIME: The amount of time for each move. Defaults to seconds unless in MIN:SECS format.
      * @return Nothing.
      */
@@ -226,9 +221,6 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
     
         /* Set the remaining time to the time base */
         computer_clock = opponent_clock = time_base;
-
-        /* If in normal mode, restart pondering */
-        if ( mode == computer_mode_t::normal ) { start_time_control (); start_precomputation (); } 
     } else
 
     /** @name  time N
@@ -273,6 +265,9 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
         /* Check that there is a move supplied */
         if ( cmd.size () < 10 ) throw chess_input_error { "Move not supplied with usermove." };
 
+        /* If the start of the user's turn was before the start of the game, the clock was never started. Start it now. */
+        if ( turn_start_point < game_start_point ) start_time_control ();
+
         /* Try to decode the move description */
         const move_t move = game_cb.fide_deserialize_move ( next_pc, cmd.substr ( 9 ) );
 
@@ -299,7 +294,7 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
             else search_data_it->cecp_thinking = output_post;
 
             /* Get the result of the search. Wait slightly longer than the max response duration, to stop the timeout from just missing the end of the search. */
-            if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag = true;
+            if ( search_data_it->ab_result_future.wait_for ( max_response_duration ) == std::future_status::timeout ) search_data_it->end_flag.request_stop ();
             chessboard::ab_result_t ab_result = search_data_it->ab_result_future.get ();
 
             /* Output thinking */
@@ -418,7 +413,47 @@ bool chess::game_controller::handle_command ( const std::string& cmd ) try
      * @brief  Set the opponent to be a computer
      * @return Nothing.
      */
-    if ( cmd.starts_with ( "computer" ) ) opponent_is_computer = true;
+    if ( cmd.starts_with ( "computer" ) ) opponent_is_computer = true; else
+
+    /** @name  cores N
+     * 
+     * @brief  Set the number of threads to use
+     * @param  N, an integer.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "cores " ) ) 
+    {
+        /* Stop precomputation */
+        stop_precomputation ();
+
+        /* Change the number of parallel searches */
+        num_parallel_searches = safe_stoi ( cmd.substr ( 5 ) );
+    } else
+
+    /** @name  easy
+     * 
+     * @brief  Turn off pondering.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "easy" ) ) 
+    {
+        /* Stop precomputation */
+        stop_precomputation ();
+
+        /* Turn off pondering */
+        pondering = false;
+    } else
+
+    /** @name  hard
+     * 
+     * @brief  Turn on pondering.
+     * @return Nothing.
+     */
+    if ( cmd.starts_with ( "hard" ) ) 
+    {
+        /* Turn on pondering */
+        pondering = true;
+    }
 
     /* Else the command is unrecognised, so throw an error */
     else throw chess_input_error { "Unknown command." };
@@ -527,10 +562,10 @@ void chess::game_controller::make_and_output_move ( chessboard::ab_result_t& ab_
         /* If is a win, stalemate or draw, output a result */
         if ( ab_result.moves.front ().first.checkmate ) write_chess_out ( computer_pc == pcolor::white ? "1-0 {White mates}" : "0-1 {Black mates}" ); else
         if ( ab_result.moves.front ().first.stalemate ) write_chess_out ( "1/2-1/2 {Stalemate}" ); else
-        if ( ab_result.moves.front ().first.draw      ) write_chess_out ( "1/2-1/2 {Draw by repetition}" ); else
+        if ( ab_result.moves.front ().first.draw      ) write_chess_out ( "1/2-1/2 {Draw by repetition}" );
 
         /* Else, since the game has not ended, start time controls and precomputation */
-        { start_time_control (); start_precomputation (); }
+        else { start_time_control (); start_precomputation (); }
     }
 
     /* Else if there are no moves, it will be a checkmate or draw */

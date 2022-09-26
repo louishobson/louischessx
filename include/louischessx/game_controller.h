@@ -162,7 +162,7 @@ private:
         move_t opponent_move;
 
         /* The end flag for the search */
-        std::atomic_bool end_flag;
+        std::stop_source end_flag;
 
         /* Whether to output thinking */
         std::atomic_bool cecp_thinking;
@@ -244,6 +244,9 @@ private:
     /* Rolling average opponent response time */
     chess_clock::duration average_opponent_response_time = chess_clock::duration::zero ();
 
+    /* The start point of the game */
+    chess_clock::time_point game_start_point = chess_clock::time_point::min ();
+
 
 
     /* SEARCH PARAMETER ATTRIBUTES */
@@ -260,6 +263,7 @@ private:
      * A list of depths that will be searched in iterative deepening.
      * A list of depths that will be searched to determine the opponent's best moves.
      * The number of parallel searches to make. If a search finishes, further searches will be started keeping a maximum of 6 simultaneous searches.
+     * Whether pondering is allowed.
      * The maximum time duration an search can take, at which point other opponent responses will be tried. See above about what happens if the opponent moves before or after this time us up.
      * The maximum time AFTER the opponent has moved that the computer should take searching before making a move.
      * The minimum bk_depth for an entry in the cumulative ttable entry to be considered worth keeping.
@@ -268,6 +272,7 @@ private:
     std::vector<int> search_depths = { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
     std::vector<int> opponent_search_depths = { 3, 4, 5, 6 };
     int num_parallel_searches = 4;
+    bool pondering = true;
     chess_clock::duration max_search_duration = std::chrono::seconds { 30 };
     chess_clock::duration max_response_duration = std::chrono::seconds { 15 };
     int ttable_min_bk_depth = 4;
@@ -278,7 +283,7 @@ private:
     /* ACTIVE SEARCH ATTRIBUTES */
 
     /* The time at which the current color's turn began */
-    chess_clock::time_point turn_start_point;
+    chess_clock::time_point turn_start_point = chess_clock::time_point::min ();
 
     /* A list of search data */
     std::list<search_data_t> active_searches;

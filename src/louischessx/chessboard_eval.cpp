@@ -348,7 +348,7 @@ std::pair<chess::ptype, int> chess::chessboard::get_least_valuable_attacker ( pc
                 /* If is a rook, return now, else set attacking_queen_pos */
                 if ( bb ( pc, ptype::rook ).test ( attacker_pos ) ) return { ptype::rook, attacker_pos }; else attacking_queen_pos = attacker_pos;
             }
-        }    
+        }
     }
 
     /* If an attacking queen was found, return that */
@@ -994,12 +994,12 @@ int chess::chessboard::evaluate ( pcolor pc )
         const int en_passant_target = aux_info.en_passant_target;
 
         /* Add white en passant captures if they don't lead to check */
-        if ( bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ).only_if ( aux_info.en_passant_color == pcolor::white ).test ( en_passant_target ) )
+        if ( aux_info.en_passant_color == pcolor::white && bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::ne ).test ( en_passant_target ) )
         {
             make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, en_passant_target - 9, en_passant_target } );
             if ( !is_in_check ( pc ) ) white_pawn_captures_e.set ( en_passant_target );
             unmake_move_internal ();
-        } if ( bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw ).only_if ( aux_info.en_passant_color == pcolor::white ).test ( en_passant_target ) )
+        } if ( aux_info.en_passant_color == pcolor::white && bb ( pcolor::white, ptype::pawn ).pawn_attack ( diagonal_compass::nw ).test ( en_passant_target ) )
         {
             make_move_internal ( move_t { pcolor::white, ptype::pawn, ptype::pawn, ptype::no_piece, en_passant_target - 7, en_passant_target } );
             if ( !is_in_check ( pc ) ) white_pawn_captures_w.set ( en_passant_target );
@@ -1007,12 +1007,12 @@ int chess::chessboard::evaluate ( pcolor pc )
         }
         
         /* Add black en passant captures if they don't lead to check */
-        if ( bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se ).only_if ( aux_info.en_passant_color == pcolor::black ).test ( en_passant_target ) )
+        if ( aux_info.en_passant_color == pcolor::black && bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::se ).test ( en_passant_target ) )
         {
             make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, en_passant_target + 7, en_passant_target } );
             if ( !is_in_check ( pc ) ) black_pawn_captures_e.set ( en_passant_target );
             unmake_move_internal ();
-        } if ( bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw ).only_if ( aux_info.en_passant_color == pcolor::black ).test ( en_passant_target ) )
+        } if ( aux_info.en_passant_color == pcolor::black && bb ( pcolor::black, ptype::pawn ).pawn_attack ( diagonal_compass::sw ).test ( en_passant_target ) )
         {
             make_move_internal ( move_t { pcolor::black, ptype::pawn, ptype::pawn, ptype::no_piece, en_passant_target + 9, en_passant_target } );
             if ( !is_in_check ( pc ) ) black_pawn_captures_w.set ( en_passant_target );

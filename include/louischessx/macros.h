@@ -64,6 +64,34 @@
  */
 #define chess_hot [[ using gnu : flatten, hot, noinline ]]
 
+/* chess_inline
+ *
+ * Force a function to be inlined
+ */
+#define chess_inline [[ using gnu : always_inline ]]
+
+/* chess_const
+ *
+ * Notify that a function's return value depends only on its parameters
+ */
+#define chess_const [[ using gnu : const ]]
+
+/* chess_pure
+ *
+ * Notify that a function's return value has no effect other than its return value
+ */
+#define chess_pure [[ using gnu : pure ]]
+
+/* chess_pure_validate
+ *
+ * Same as chess_pure, but evaluates no nothing if CHESS_VALIDATE is true
+ */
+#if CHESS_VALIDATE
+    #define chess_pure_validate
+#else
+    #define chess_pure_validate [[ using gnu : pure ]]
+#endif
+
 
 
 /** @name  CHESS_BUILTIN_POPCOUNT64

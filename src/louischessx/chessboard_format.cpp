@@ -27,7 +27,7 @@
  * @param  pt: The character to convert
  * @return char
  */
-char chess::chessboard::ptype_to_character ( ptype pt ) noexcept
+constexpr char chess::chessboard::ptype_to_character ( ptype pt ) noexcept
 {
     /* Cast and return using the cast as an index */
     return piece_chars [ cast_penum ( pt ) ];
@@ -39,7 +39,7 @@ char chess::chessboard::ptype_to_character ( ptype pt ) noexcept
  * @param  c: The character to convert
  * @return ptype
  */
-chess::ptype chess::chessboard::character_to_ptype ( char c ) noexcept
+constexpr chess::ptype chess::chessboard::character_to_ptype ( char c ) noexcept
 {
     /* Look for the character in piece_chars. Using + 7 as an upper bound means that unknown characters will end on no_piece */
     const char * pt_ptr = std::find ( piece_chars, piece_chars + 7, c );

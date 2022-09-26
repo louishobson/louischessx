@@ -20,7 +20,7 @@
 
 /* INCLUDES */
 #include <algorithm>
-#include <atomic>
+#include <stop_token>
 #include <louischessx/bitboard.h>
 #include <louischessx/macros.h>
 #include <cmath>
@@ -463,9 +463,9 @@ public:
          * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
          * @return The bitboard for pt
          */
-        bitboard bb ( pcolor pc )           const chess_validate_throw { check_penum ( pc ); return bbs [ cast_penum ( pc ) ]; }
-        bitboard bb ( ptype pt )            const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) + 2 ]; }
-        bitboard bb ( pcolor pc, ptype pt ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pc ) ] & bbs [ cast_penum ( pt ) + 2 ]; }
+        chess_pure bitboard bb ( pcolor pc )           const chess_validate_throw { check_penum ( pc ); return bbs [ cast_penum ( pc ) ]; }
+        chess_pure bitboard bb ( ptype pt )            const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) + 2 ]; }
+        chess_pure bitboard bb ( pcolor pc, ptype pt ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pc ) ] & bbs [ cast_penum ( pt ) + 2 ]; }
 
         /** @name  castle_made, castle_lost, has_kingside_castling_rights, has_queenside_castling_rights, has_any_castling_rights
          * 
@@ -473,11 +473,11 @@ public:
          * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
          * @return boolean
          */
-        bool castle_made ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000001 << cast_penum ( pc ) ); }
-        bool castle_lost ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000100 << cast_penum ( pc ) ); }
-        bool has_kingside_castling_rights  ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00010000 << cast_penum ( pc ) ); }
-        bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
-        bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
+        chess_pure bool castle_made ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000001 << cast_penum ( pc ) ); }
+        chess_pure bool castle_lost ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000100 << cast_penum ( pc ) ); }
+        chess_pure bool has_kingside_castling_rights  ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00010000 << cast_penum ( pc ) ); }
+        chess_pure bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
+        chess_pure bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
 
 
 
@@ -587,8 +587,8 @@ public:
      * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
      * @return The bitboard for pt 
      */
-    bitboard& get_bb ( pcolor pc, ptype pt = ptype::any_piece ) chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
-    const bitboard& get_bb ( pcolor pc, ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
+    chess_pure bitboard& get_bb ( pcolor pc, ptype pt = ptype::any_piece ) chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
+    chess_pure const bitboard& get_bb ( pcolor pc, ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
 
     /** @name  bb
      * 
@@ -597,8 +597,8 @@ public:
      * @param  pt: One of ptype, any_piece by default, which gives all the pieces of that color. Undefined behavior if is no_piece and validation is disabled.
      * @return The bitboard for pt
      */
-    bitboard bb ( pcolor pc, ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
-    bitboard bb ( ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pcolor::white ) ] | bbs [ cast_penum ( pt ) ] [ cast_penum ( pcolor::black ) ]; }
+    chess_pure bitboard bb ( pcolor pc, ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pc, pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pc ) ]; }
+    chess_pure bitboard bb ( ptype pt = ptype::any_piece ) const chess_validate_throw { check_penum ( pt ); return bbs [ cast_penum ( pt ) ] [ cast_penum ( pcolor::white ) ] | bbs [ cast_penum ( pt ) ] [ cast_penum ( pcolor::black ) ]; }
     
     /** @name  castle_made, castle_lost, has_kingside_castling_rights, has_queenside_castling_rights, has_any_castling_rights
      * 
@@ -606,11 +606,11 @@ public:
      * @param  pc: One of pcolor. Undefined behaviour if is no_piece.
      * @return boolean
      */
-    bool castle_made ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000001 << cast_penum ( pc ) ); }
-    bool castle_lost ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000100 << cast_penum ( pc ) ); }
-    bool has_kingside_castling_rights  ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00010000 << cast_penum ( pc ) ); }
-    bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
-    bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
+    chess_pure bool castle_made ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000001 << cast_penum ( pc ) ); }
+    chess_pure bool castle_lost ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00000100 << cast_penum ( pc ) ); }
+    chess_pure bool has_kingside_castling_rights  ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b00010000 << cast_penum ( pc ) ); }
+    chess_pure bool has_queenside_castling_rights ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01000000 << cast_penum ( pc ) ); }
+    chess_pure bool has_any_castling_rights       ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return aux_info.castling_rights & ( 0b01010000 << cast_penum ( pc ) ); }
 
     /** @name  set_castle_made, set_castle_lost, set_kingside_castle_lost, set_queenside_castle_lost 
      * 
@@ -628,8 +628,8 @@ public:
      * @brief  Return the current aux info
      * @return aux_info_t
      */
-    aux_info_t& get_aux_info () noexcept { return aux_info; };
-    const aux_info_t& get_aux_info () const noexcept { return aux_info; };
+    chess_pure aux_info_t& get_aux_info () noexcept { return aux_info; };
+    chess_pure const aux_info_t& get_aux_info () const noexcept { return aux_info; };
 
     /** @name  get_game_state
      * 
@@ -637,7 +637,7 @@ public:
      * @param  last_pc: The player whose who last moved (to lead to this state)
      * @return game_state_t
      */
-    game_state_t get_game_state ( pcolor last_pc ) const noexcept { return game_state_t { * this, last_pc }; };
+    chess_pure game_state_t get_game_state ( pcolor last_pc ) const noexcept { return game_state_t { * this, last_pc }; };
 
 
 
@@ -649,7 +649,7 @@ public:
      * @param  pc: The color whose king we will look at
      * @return check_info_t
      */
-    chess_hot check_info_t get_check_info ( pcolor pc ) const chess_validate_throw;
+    chess_pure chess_hot check_info_t get_check_info ( pcolor pc ) const chess_validate_throw;
 
     /** @name  is_protected
      * 
@@ -659,7 +659,7 @@ public:
      * @param  pos: The position of the cell to check the defence of.
      * @return boolean
      */
-    chess_hot bool is_protected ( pcolor pc, int pos ) const chess_validate_throw;  
+    chess_pure chess_hot bool is_protected ( pcolor pc, int pos ) const chess_validate_throw;  
 
     /** @name  is_in_check
      * 
@@ -667,7 +667,7 @@ public:
      * @param  pc: The color whose king we will look at
      * @return boolean
      */
-    bool is_in_check ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros () ); }
+    chess_pure bool is_in_check ( pcolor pc ) const chess_validate_throw { check_penum ( pc ); return is_protected ( other_color ( pc ), bb ( pc, ptype::king ).trailing_zeros () ); }
 
     /** @name  can_castle, can_kingside_castle, can_queenside_castle
      * 
@@ -676,16 +676,16 @@ public:
      * @param  check_info: The check info for the king in its current position
      * @return boolean
      */
-    bool can_kingside_castle  ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
-    bool can_queenside_castle ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
-    bool can_castle           ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw { return can_kingside_castle ( pc, check_info ) | can_queenside_castle ( pc, check_info ); }
+    chess_pure bool can_kingside_castle  ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
+    chess_pure bool can_queenside_castle ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw;
+    chess_pure bool can_castle           ( pcolor pc, const check_info_t& check_info ) const chess_validate_throw { return can_kingside_castle ( pc, check_info ) | can_queenside_castle ( pc, check_info ); }
 
     /** @name  is_draw_state
      * 
      * @brief  Returns true if this state is a draw state by repetition.
      * @return boolean
      */
-    bool is_draw_state () const noexcept { return game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ); }
+    chess_pure bool is_draw_state () const noexcept { return game_state_history.size () >= 9 && game_state_history.back () == game_state_history.at ( game_state_history.size () - 5 ) && game_state_history.back () == game_state_history.at ( game_state_history.size () - 9 ); }
 
     /** @name  get_least_valuable_attacker
      * 
@@ -694,7 +694,7 @@ public:
      * @param  pos: The position being attacked.
      * @return A pair of ptype and position, no_piece and -1 if no attacker is found.
      */
-    chess_hot std::pair<ptype, int> get_least_valuable_attacker ( pcolor pc, int pos ) const chess_validate_throw;
+    chess_pure chess_hot std::pair<ptype, int> get_least_valuable_attacker ( pcolor pc, int pos ) const chess_validate_throw;
 
     /** @name  static_exchange_evaluation
      * 
@@ -707,15 +707,15 @@ public:
      * @param  prev_gain: A the gain from previous calls. Used internally, should be 0 initially.
      * @return An integer, 0 meaning no matierial gain, +/- meaning material gain or loss respectively.
      */
-    int static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt = ptype::no_piece, int attacker_pos = -1, ptype attacker_pt = ptype::no_piece, int prev_gain = 0 ) chess_validate_throw;
+    chess_pure int static_exchange_evaluation ( pcolor pc, int attacked_pos, ptype attacked_pt = ptype::no_piece, int attacker_pos = -1, ptype attacker_pt = ptype::no_piece, int prev_gain = 0 ) chess_validate_throw;
 
     /** @name  evaluate
      * 
-     * @brief  Symmetrically evaluate the board state.
+     * @brief  Symmetrically evaluate the board state. Note that chess_pure is allowed, as no lasting change is made to the object.
      * @param  pc: The color whose move it is next
      * @return Integer value, positive for pc, negative for not pc
      */
-    chess_hot int evaluate ( pcolor pc );
+    chess_pure chess_hot int evaluate ( pcolor pc );
 
 
 
@@ -736,7 +736,7 @@ public:
      * @param  move: The move to apply
      * @return void
      */
-    void make_move ( const move_t& move ) { check_move_is_valid ( move ); make_move_internal ( move ); }
+    void make_move ( const move_t& move ) chess_validate_throw { check_move_is_valid ( move ); make_move_internal ( move ); }
 
     /** @name  unmake_move
      * 
@@ -754,8 +754,8 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the piece in question
      */
-    bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info );
-    bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) const { return chessboard { * this }.get_move_set ( pc, pt, pos, check_info ); };
+    chess_pure bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info );
+    chess_pure bitboard get_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) const { return chessboard { * this }.get_move_set ( pc, pt, pos, check_info ); };
 
     /** @name  has_mobility
      * 
@@ -764,7 +764,7 @@ public:
      * @param  check_info: The check info for pc.
      * @return boolean
      */
-    bool has_mobility ( pcolor pc, const check_info_t& check_info );
+    chess_pure bool has_mobility ( pcolor pc, const check_info_t& check_info );
 
     /** @name  get_pawn_move_set
      * 
@@ -774,7 +774,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the pawn in question
      */
-    bitboard get_pawn_move_set ( pcolor pc, int pos, const check_info_t& check_info );
+    chess_pure bitboard get_pawn_move_set ( pcolor pc, int pos, const check_info_t& check_info );
 
     /** @name  get_knight_move_set
      * 
@@ -784,7 +784,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the knight in question
      */
-    bitboard get_knight_move_set ( pcolor pc, int pos, const check_info_t& check_info );
+    chess_pure bitboard get_knight_move_set ( pcolor pc, int pos, const check_info_t& check_info ) noexcept;
 
     /** @name  get_sliding_move_set
      * 
@@ -795,7 +795,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the sliding in question
      */
-    bitboard get_sliding_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info );
+    chess_pure bitboard get_sliding_move_set ( pcolor pc, ptype pt, int pos, const check_info_t& check_info ) noexcept;
 
     /** @name  get_king_move_set
      * 
@@ -804,7 +804,7 @@ public:
      * @param  check_info: The check info for pc
      * @return A bitboard containing the possible moves for the king in question
      */
-    bitboard get_king_move_set ( pcolor pc, const check_info_t& check_info );
+    chess_pure bitboard get_king_move_set ( pcolor pc, const check_info_t& check_info ) chess_validate_throw;
 
 
 
@@ -827,13 +827,13 @@ public:
      * @param  depth: The number of moves that should be made by individual colors. Returns evaluate () at depth = 0.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
      * @param  ttable: The transposition table to use for the search. Empty by default.
-     * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
+     * @param  end_flag: A stop token which will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @return ab_result_t
      */
-    ab_result_t alpha_beta_search ( pcolor pc, int depth, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::atomic_bool& end_flag = false, chess_clock::time_point end_point = chess_clock::time_point::max (), int alpha = -20000, int beta = +20000 );
+    ab_result_t alpha_beta_search ( pcolor pc, int depth, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::stop_token& end_flag = std::stop_token {}, chess_clock::time_point end_point = chess_clock::time_point::max (), int alpha = -20000, int beta = +20000 );
 
     /** @name  alpha_beta_iterative_deepening
      * 
@@ -844,13 +844,13 @@ public:
      * @param  depths: A list of depth values to search.
      * @param  best_only: If true, the search will be optimised as only the best move is returned.
      * @param  ttable: The transposition table to use for the search. Empty by default.
-     * @param  end_flag: An atomic boolean, which when set to true, will end the search. Can be unspecified.
+     * @param  end_flag: A stop token which will end the search. Can be unspecified.
      * @param  end_point: A time point at which the search will be automatically stopped. Never by default.
      * @param  cecp_thinking: An atomic boolean, which when set to true will cause information on the search to be printed after each iteration. False by default.
      * @param  finish_first: If true, always wait for the lowest depth search to finish, regardless of end_point or end_flag. True by default.
      * @return ab_result_t
      */
-    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::atomic_bool& end_flag = false,
+    ab_result_t alpha_beta_iterative_deepening ( pcolor pc, const std::vector<int>& depths, bool best_only, ab_ttable_t ttable = ab_ttable_t {}, const std::stop_token& end_flag = std::stop_token {},
         chess_clock::time_point end_point = chess_clock::time_point::max (), const std::atomic_bool& cecp_thinking = false, bool finish_first = true );
 
 
@@ -865,8 +865,8 @@ public:
      * @param  file: The file of the position
      * @return One of pcolor
      */
-    pcolor find_color ( int pos ) const chess_validate_throw;
-    pcolor find_color ( int rank, int file ) const chess_validate_throw { return find_color ( rank * 8 + file ); }
+    chess_pure pcolor find_color ( int pos ) const chess_validate_throw;
+    chess_pure pcolor find_color ( int rank, int file ) const chess_validate_throw { return find_color ( rank * 8 + file ); }
 
     /** @name  find_type
      * 
@@ -877,8 +877,8 @@ public:
      * @param  file: The file of the position
      * @return One of ptype
      */
-    ptype find_type ( pcolor pc, int pos ) const chess_validate_throw;
-    ptype find_type ( pcolor pc, int rank, int file ) const chess_validate_throw { return find_type ( pc, rank * 8 + file ); }
+    chess_pure ptype find_type ( pcolor pc, int pos ) const chess_validate_throw;
+    chess_pure ptype find_type ( pcolor pc, int rank, int file ) const chess_validate_throw { return find_type ( pc, rank * 8 + file ); }
 
 
 
@@ -943,6 +943,15 @@ private:
     /* A structure containing temporary alpha-beta search data */
     struct ab_working_t
     {
+		/* Whether the search is only looking for the best move, or a ranking */
+		bool best_only;
+
+		/* The end flag */
+		std::stop_token end_flag;
+
+		/* The end point */
+		chess_clock::time_point end_point = chess_clock::time_point::max ();
+
         /* Accumulate the sum of quiescence depth and moves made */
         unsigned long long sum_q_depth = 0, sum_moves = 0, sum_q_moves = 0;
 
@@ -969,6 +978,218 @@ private:
 
         /* The transposition table */
         std::unordered_map<game_state_t, ab_ttable_entry_t, hash> ttable;
+    };
+
+    /* A structure that performs an alpha-beta search */
+    struct ab_search_t
+    {
+        /* CONESTEXPRS */
+
+        /* Set the minimum bk_depth at which the transposition table will be searched and written to.
+        * Should not be too small, as this will increase ttable usage and reduce its effectiveness (CPU cycles and memory usage).
+        */
+        static inline constexpr int TTABLE_MIN_BK_DEPTH = 2;
+
+        /* The maximum fd_depth at which the transposition table will be searched and written to.
+        * This complements the above, in that it can stop absurdly large amounts of data from accumulating in the ttable.
+        */
+        static inline constexpr int TTABLE_MAX_FD_DEPTH = 10;
+
+        /* Set the minimum fd_depth at which the value from the transposition table will be used.
+        * Should NOT be 0, since this may cause a too early cutoff.
+        */
+        static inline constexpr int TTABLE_USE_VALUE_MIN_FD_DEPTH = 1;
+
+        /* Set the maximum depth quiescence search can go to.
+        * This is important as it stops rare infinite loops relating to check in quiescence search.
+        */
+        static inline constexpr int QUIESCENCE_MAX_Q_DEPTH = 10;
+
+        /* The mimumum fd_depth that a null move may be tried.
+        * Should be more than or equal to DRAW_MAX_FD_DEPTH.
+        * Should not be too low, as this will increase the likelihood of innaccuracies of affecting the search result.
+        */
+        static inline constexpr int NULL_MOVE_MIN_FD_DEPTH = 4;
+
+        /* The change in bk_depth for a null move, and the amount of bk_depth that should be left over after reducing bk_depth.
+        * The leftover depth should NOT be 0 (as this will introduce serious errors).
+        * The maximum leftover depth reduces the overhead of computing a null move search to too large a depth.
+        */
+        static inline constexpr int NULL_MOVE_CHANGE_BK_DEPTH = 2, NULL_MOVE_MIN_LEFTOVER_BK_DEPTH = 1, NULL_MOVE_MAX_LEFTOVER_BK_DEPTH = 5;
+
+        /* The number of pieces such that if any player has less than this, the game is considered endgame */
+        static inline constexpr int ENDGAME_PIECES = 8;
+
+        /* The minimum bk_depth at which an end flag or point cutoff is noticed.
+        * Reading from the clock and atomically checking the end_flag is costly, so avoid doing it in later nodes.
+        */
+        static inline constexpr int END_CUTOFF_MIN_BK_DEPTH = 4;
+
+
+
+        /* CONSTANTS */
+
+        /* The board */
+        chessboard& board;
+
+        /* A pointer to ab_working */
+        ab_working_t * ab_working;
+
+        /* The player's color */
+        const pcolor pc;
+
+        /* The other player's color */
+        const pcolor npc;
+
+        /* Integer parameters of the search */
+        const int bk_depth, orig_alpha, orig_beta, fd_depth, null_depth;
+
+        /* The check info of pc */
+        const check_info_t check_info;
+
+        /* The king position */
+        const int king_pos;
+
+        /* The primary and secondary propagator sets */
+        const bitboard pp, sp;
+
+        /* The opposing concentation. True for north of board, false for south. */
+        const bool opposing_conc;
+
+        /* The 7th and 8th ranks */
+        const bitboard rank_8;
+        const bitboard rank_7;
+        const bitboard rank_7_and_8;
+
+
+
+        /* BOOLEAN FLAGS */
+
+        /* Get whether we are in the endgame. Any of:
+         * The number of pieces must be less than ENDGAME_PIECES.
+         * There must be pieces other than the king and pawns.
+         */
+        const bool endgame;
+
+        /* Get whether a draw cycle should be detected. All of:
+         * Must not be trying a null move.
+         * Must not be quiescing.
+         * Must have fd_depth <= ab_working->draw_max_fd_depth.
+         */
+        const bool check_for_draw_cycle;
+
+        /* Get whether the ttable should be read from. All of:
+         * Must not be trying a null move.
+         * Must have bk_depth >= TTABLE_MIN_BK_DEPTH.
+         * Must have fd_depth <= TTABLE_MAX_FD_DEPTH.
+         */
+        const bool read_ttable;
+
+        /* Get whether the value in the ttable should be used. All of:
+         * Has fd_depth >= TTABLE_USE_VALUE_MIN_FD_DEPTH.
+         * Has fd_depth >= ab_working->draw_max_fd_depth.
+         */
+        const bool use_ttable_value;
+
+        /* Whether the value should be written to the ttable. All of:
+         * Has fd_depth >= ab_working->draw_max_fd_depth.
+         */
+        const bool store_ttable_value;
+
+        /* Get whether delta pruning should be used. All of:
+        * Must not be the endgame.
+        */
+        const bool use_delta_pruning;
+
+        /* Whether should try a null move. All of:
+         * Must not already be trying a null move.
+         * Must not be quiescing.
+         * Must not be the endgame.
+         * Must not be in check.
+         * Must have an fd_depth of at least NULL_MOVE_MIN_FD_DEPTH.
+         * Reducing fd_depth by NULL_MOVE_CHANGE_BK_DEPTH must cause a leftover depth within the specified range.
+         * Must not have fd_depth < ab_working->draw_max_fd_depth.
+         */
+        const bool use_null_move;
+
+
+
+        /* NON-CONSTANTS */
+
+        /* Store the current best value. Assume checkmate until improved upon. */
+        int best_value;
+
+        /* Store the best move */
+        move_t best_move;
+
+        /* The new alpha and beta */
+        int alpha, beta;
+
+        /* Whether the ttable should be written to. Set initially to read_ttable. */
+        bool write_ttable;
+
+        /* Whether a best move was found from the ttable */
+        bool ttable_best_move;
+
+
+
+        /* METHODS */
+
+        /** @name constructor
+         * 
+         * @param  board: The board the search is being applied to.
+         * @param  pc: The color whose move it is next.
+         * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search.  Quiescence search begins when the value is non-positive.
+         * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
+         * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
+         * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
+         * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
+         */
+        ab_search_t ( chessboard& board_, const pcolor pc_, int bk_depth_, int alpha_, int beta_, int fd_depth_, int null_depth_ );
+
+
+
+        /** @name search
+         * 
+         * @brief  Actually perform the search.
+         * @return int.
+         */
+        chess_hot int search ();
+
+        /** @name  access_move_sets
+         *
+         * @brief  Returns a reference to the array of moves for this depth
+         * @param  pt: The piece to get the move array for
+         * @return A reference to that array
+         */
+        chess_inline std::vector<std::pair<int, bitboard>>& access_move_sets ( ptype pt );
+
+        /** @name  access_killer_move
+         *
+         * @brief  Returns a killer move for this depth
+         * @param  index: The index of the killer move (0 or 1)
+         * @return The killer move
+         */
+        chess_inline move_t& access_killer_move ( int index );
+
+        /** @name  apply_move
+         *
+         * @brief  Applies a move and recursively searches on each of them
+         * @param  move: The move to make
+         * @return boolean, true for an alpha-beta cutoff, false otherwise
+         */
+        chess_hot bool apply_move ( const move_t& move );
+
+        /** @name  apply_move_set
+         *
+         * @brief  Applies a set of moves in sequence
+         * @param  pt: The type of the piece currently in focus
+         * @param  from: The pos from which the piece is moving from
+         * @param  move_set: The possible moves for that piece (not necessarily a singleton)
+         * @return boolean, true for an alpha-beta cutoff, false otherwise
+         */
+        chess_hot bool apply_move_set ( const ptype pt, const int from, bitboard move_set );
+
     };
 
 
@@ -1013,7 +1234,7 @@ private:
      * @param  move: The move to apply
      * @return void
      */
-    void make_move_internal ( const move_t& move );
+    void make_move_internal ( const move_t& move ) chess_validate_throw;
 
     /** @name  unmake_move
      * 
@@ -1028,7 +1249,7 @@ private:
      * @param  pt: The character to convert
      * @return char
      */
-    static char ptype_to_character ( ptype pt ) noexcept;
+    chess_const static constexpr char ptype_to_character ( ptype pt ) noexcept;
 
     /** @name  character_to_ptype
      * 
@@ -1036,7 +1257,7 @@ private:
      * @param  c: The character to convert
      * @return ptype
      */
-    static ptype character_to_ptype ( char c ) noexcept;
+    chess_const static constexpr ptype character_to_ptype ( char c ) noexcept;
 
 
 
@@ -1048,21 +1269,13 @@ private:
      *         Note that although is non-const, a call to this function which does not throw will leave the object unmodified.
      * @param  pc: The color whose move it is next.
      * @param  bk_depth: The backwards depth, or the number of moves left before quiescence search.  Quiescence search begins when the value is non-positive.
-     * @param  best_only: If true, the search will be optimised as only the best move is returned.
-     * @param  end_flag: An atomic boolean, which when set to true, will end the search.
-     * @param  end_point: A time point at which the search will end. Never by default.
      * @param  alpha: The maximum value pc has discovered, defaults to an abitrarily large negative integer.
      * @param  beta:  The minimum value not pc has discovered, defaults to an abitrarily large positive integer.
      * @param  fd_depth: The forwards depth, or the number of moves since the root node, 0 by default.
      * @param  null_depth: The null depth, or the number of nodes that null move search has been active for, 0 by default.
-     * @return alpha_beta_t
+     * @return int
      */
-    chess_hot int alpha_beta_search_internal ( pcolor pc, int bk_depth, bool best_only, const std::atomic_bool& end_flag = false, chess_clock::time_point end_point = chess_clock::time_point::max (),
-        int alpha        = -20000, 
-        int beta         = +20000, 
-        int fd_depth     = 0, 
-        int null_depth   = 0
-    );
+    int alpha_beta_search_internal ( pcolor pc, int bk_depth, int alpha = -20000, int beta = +20000, int fd_depth = 0, int null_depth = 0 );
 
 
 

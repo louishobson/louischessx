@@ -82,7 +82,7 @@ void chess::chessboard::check_move_is_valid ( const move_t& move )
  * @param  move: The move to apply
  * @return void
  */
-void chess::chessboard::make_move_internal ( const move_t& move )
+void chess::chessboard::make_move_internal ( const move_t& move ) chess_validate_throw
 {
     /* Get the aux info */
     const aux_info_t aux = aux_info;
@@ -402,7 +402,7 @@ chess::bitboard chess::chessboard::get_pawn_move_set ( const pcolor pc, const in
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the knight in question
  */
-chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const int pos, const check_info_t& check_info )
+chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const int pos, const check_info_t& check_info ) noexcept
 {
     /* Get the knight in question */
     const bitboard knight = singleton_bitboard ( pos );
@@ -425,7 +425,7 @@ chess::bitboard chess::chessboard::get_knight_move_set ( const pcolor pc, const 
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the sliding in question
  */
-chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const ptype pt, const int pos, const check_info_t& check_info )
+chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const ptype pt, const int pos, const check_info_t& check_info ) noexcept
 {
     /* Get the piece in question */
     const bitboard pt_bb = singleton_bitboard ( pos );
@@ -437,7 +437,7 @@ chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const
     /* If the piece is pinned, then it is possible the piece may be immobile.
      * First check if it is on a straight pin vector.
      */
-    if ( pt_bb & check_info.straight_pin_vectors ) [[ unlikely ]]
+    if ( pt_bb & check_info.straight_pin_vectors )
     {
         /* If in check, or is a bishop, return an empty move set */
         if ( check_info.check_count || ( pt == ptype::bishop ) ) return bitboard {};
@@ -448,7 +448,7 @@ chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const
     } else
 
     /* Else check if is on a diagonal pin vector */
-    if ( pt_bb & check_info.diagonal_pin_vectors ) [[ unlikely ]]
+    if ( pt_bb & check_info.diagonal_pin_vectors )
     {
         /* If in check, or is a rook, return an empty move set */
         if ( check_info.check_count || ( pt == ptype::rook ) ) return bitboard {};
@@ -484,7 +484,7 @@ chess::bitboard chess::chessboard::get_sliding_move_set ( const pcolor pc, const
  * @param  check_info: The check info for pc
  * @return A bitboard containing the possible moves for the king in question
  */
-chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, const check_info_t& check_info )
+chess::bitboard chess::chessboard::get_king_move_set ( const pcolor pc, const check_info_t& check_info ) chess_validate_throw
 {
     /* Get the king */
     const bitboard king = bb ( pc, ptype::king );

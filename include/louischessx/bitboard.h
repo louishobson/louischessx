@@ -59,10 +59,10 @@ namespace chess
      * @param  dir: The compass to cast
      * @return int
      */
-    constexpr int cast_compass ( compass dir ) noexcept;
-    constexpr int cast_compass ( knight_compass dir ) noexcept;
-    constexpr int cast_compass ( straight_compass dir ) noexcept;
-    constexpr int cast_compass ( diagonal_compass dir ) noexcept;
+    chess_const constexpr int cast_compass ( compass dir ) noexcept;
+    chess_const constexpr int cast_compass ( knight_compass dir ) noexcept;
+    chess_const constexpr int cast_compass ( straight_compass dir ) noexcept;
+    chess_const constexpr int cast_compass ( diagonal_compass dir ) noexcept;
 
     /* (knight/straight/diagonal_)compass_array
      *
@@ -103,8 +103,8 @@ namespace chess
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    constexpr bitboard singleton_bitboard ( int pos ) noexcept;
-    constexpr bitboard singleton_bitboard ( int rank, int file ) noexcept;
+    chess_const constexpr bitboard singleton_bitboard ( int pos ) noexcept;
+    chess_const constexpr bitboard singleton_bitboard ( int rank, int file ) noexcept;
 }
 
 
@@ -142,16 +142,16 @@ public:
      * @param  other: The bitboard to compare
      * @return boolean
      */
-    constexpr bool operator== ( bitboard other ) const noexcept { return bits == other.bits; }
-    constexpr bool operator!= ( bitboard other ) const noexcept { return bits != other.bits; }
+    chess_pure constexpr bool operator== ( bitboard other ) const noexcept { return bits == other.bits; }
+    chess_pure constexpr bool operator!= ( bitboard other ) const noexcept { return bits != other.bits; }
 
     /** @name  operator bool, operator!
      * 
      * @brief  Truth operators
      * @return boolean
      */
-    explicit constexpr operator bool  () const noexcept { return bits; }
-    constexpr bool operator! () const noexcept { return !bits; }
+    chess_pure explicit constexpr operator bool  () const noexcept { return bits; }
+    chess_pure constexpr bool operator! () const noexcept { return !bits; }
 
     /** @name  operator&, operator|, operator^
      * 
@@ -159,16 +159,16 @@ public:
      * @param  other: The other bitboard required for the bitwise operation
      * @return A new bitboard from the bitwise operation of this and other
      */
-    constexpr bitboard operator& ( bitboard other ) const noexcept { return bitboard { bits & other.bits }; }
-    constexpr bitboard operator| ( bitboard other ) const noexcept { return bitboard { bits | other.bits }; }
-    constexpr bitboard operator^ ( bitboard other ) const noexcept { return bitboard { bits ^ other.bits }; }
+    chess_pure constexpr bitboard operator& ( bitboard other ) const noexcept { return bitboard { bits & other.bits }; }
+    chess_pure constexpr bitboard operator| ( bitboard other ) const noexcept { return bitboard { bits | other.bits }; }
+    chess_pure constexpr bitboard operator^ ( bitboard other ) const noexcept { return bitboard { bits ^ other.bits }; }
 
     /** @name  operator~
      * 
      * @brief  Ones-complement
      * @return A new bitboard from the ones-complement of this bitboard
      */
-    constexpr bitboard operator~ () const noexcept { return bitboard { ~bits }; }
+    chess_pure constexpr bitboard operator~ () const noexcept { return bitboard { ~bits }; }
 
     /** @name  operator&=, operator|=, operator^= 
      *   
@@ -176,9 +176,9 @@ public:
      * @param  other: The other bitboard required for the bitwise operation
      * @return A reference to this bitboard
      */
-    constexpr bitboard& operator&= ( bitboard other ) noexcept { bits &= other.bits; return * this; }
-    constexpr bitboard& operator|= ( bitboard other ) noexcept { bits |= other.bits; return * this; }
-    constexpr bitboard& operator^= ( bitboard other ) noexcept { bits ^= other.bits; return * this; }
+    chess_pure constexpr bitboard& operator&= ( bitboard other ) noexcept { bits &= other.bits; return * this; }
+    chess_pure constexpr bitboard& operator|= ( bitboard other ) noexcept { bits |= other.bits; return * this; }
+    chess_pure constexpr bitboard& operator^= ( bitboard other ) noexcept { bits ^= other.bits; return * this; }
 
     /** @name  operator<<, operator>>
      * 
@@ -186,8 +186,8 @@ public:
      * @param  offset: The amount to shift by
      * @return A new bitboard
      */
-    constexpr bitboard operator<< ( unsigned offset ) const noexcept { return bitboard { bits << offset }; }
-    constexpr bitboard operator>> ( unsigned offset ) const noexcept { return bitboard { bits >> offset }; }
+    chess_pure constexpr bitboard operator<< ( unsigned offset ) const noexcept { return bitboard { bits << offset }; }
+    chess_pure constexpr bitboard operator>> ( unsigned offset ) const noexcept { return bitboard { bits >> offset }; }
 
     /** @name  operator<<=, operator>>=
      * 
@@ -195,8 +195,8 @@ public:
      * @param  offset: The amount to shift by
      * @return A reference to this bitboard
      */
-    constexpr bitboard& operator<<= ( unsigned offset ) noexcept { bits <<= offset; return * this; }
-    constexpr bitboard& operator>>= ( unsigned offset ) noexcept { bits >>= offset; return * this; }
+    chess_pure constexpr bitboard& operator<<= ( unsigned offset ) noexcept { bits <<= offset; return * this; }
+    chess_pure constexpr bitboard& operator>>= ( unsigned offset ) noexcept { bits >>= offset; return * this; }
 
 
 
@@ -208,7 +208,7 @@ public:
      * @param  other: The other bitboard as described above
      * @return A new bitboard
      */
-    constexpr bitboard rel_comp ( bitboard other ) const noexcept { return bitboard { ~bits & other.bits }; }
+    chess_pure constexpr bitboard rel_comp ( bitboard other ) const noexcept { return bitboard { ~bits & other.bits }; }
 
     /** @name  implication
      * 
@@ -216,7 +216,7 @@ public:
      * @param  other: The other bitboard as described above
      * @return A new bitboard
      */
-    constexpr bitboard implication ( bitboard other ) const noexcept { return bitboard { ~bits | other.bits }; }
+    chess_pure constexpr bitboard implication ( bitboard other ) const noexcept { return bitboard { ~bits | other.bits }; }
 
     /** @name  xnor
      * 
@@ -224,7 +224,7 @@ public:
      * @param  other: The other bitboard to apply xnor to
      * @return A new bitboard
      */
-    constexpr bitboard xnor ( bitboard other ) const noexcept { return bitboard { ~( bits ^ other.bits ) }; }
+    chess_pure constexpr bitboard xnor ( bitboard other ) const noexcept { return bitboard { ~( bits ^ other.bits ) }; }
 
     /** @name  nand
      * 
@@ -232,7 +232,7 @@ public:
      * @param  other: The other bitboard to apply nand to
      * @return A new bitboard
      */
-    constexpr bitboard nand ( bitboard other ) const noexcept { return bitboard { ~( bits & other.bits ) }; }
+    chess_pure constexpr bitboard nand ( bitboard other ) const noexcept { return bitboard { ~( bits & other.bits ) }; }
 
     /** @name  only_if, only_if_not
      * 
@@ -240,8 +240,8 @@ public:
      * @param  cond: The condition described above
      * @return A new bitboard
      */
-    constexpr bitboard only_if     ( bool cond ) const noexcept { return bitboard {  cond * bits }; }
-    constexpr bitboard only_if_not ( bool cond ) const noexcept { return bitboard { !cond * bits }; }
+    chess_pure constexpr bitboard only_if     ( bool cond ) const noexcept { return bitboard {  cond * bits }; }
+    chess_pure constexpr bitboard only_if_not ( bool cond ) const noexcept { return bitboard { !cond * bits }; }
 
     /** @name  all_if, all_if_not
      * 
@@ -249,8 +249,8 @@ public:
      * @param  cond: The condition described above
      * @return A new bitboard
      */
-    constexpr bitboard all_if     ( bool cond ) const noexcept { return bitboard { bits | (  cond * ~0ull ) }; }
-    constexpr bitboard all_if_not ( bool cond ) const noexcept { return bitboard { bits | ( !cond * ~0ull ) }; }
+    chess_pure constexpr bitboard all_if     ( bool cond ) const noexcept { return bitboard { bits | (  cond * ~0ull ) }; }
+    chess_pure constexpr bitboard all_if_not ( bool cond ) const noexcept { return bitboard { bits | ( !cond * ~0ull ) }; }
 
     /** @name  contains
      * 
@@ -258,7 +258,7 @@ public:
      * @param  other: The bitboard that is a potential subset
      * @return boolean
      */
-    constexpr bool contains ( bitboard other ) const noexcept { return ( bits & other.bits ) == other.bits; }
+    chess_pure constexpr bool contains ( bitboard other ) const noexcept { return ( bits & other.bits ) == other.bits; }
 
     /** @name  has_common
      * 
@@ -266,7 +266,7 @@ public:
      * @param  other: The bitboard to test against
      * @return boolean
      */
-    constexpr bool has_common ( bitboard other ) const noexcept { return ( bits & other.bits ) != 0; }
+    chess_pure constexpr bool has_common ( bitboard other ) const noexcept { return ( bits & other.bits ) != 0; }
 
     /** @name  is_disjoint
      * 
@@ -274,28 +274,28 @@ public:
      * @param  other: The other bitboard that is potentially disjoint
      * @return boolean
      */
-    constexpr bool is_disjoint ( bitboard other ) const noexcept { return ( bits & other.bits ) == 0; }
+    chess_pure constexpr bool is_disjoint ( bitboard other ) const noexcept { return ( bits & other.bits ) == 0; }
 
     /** @name  is_empty
      *  
      * @brief  Tests if the bitboard contains no set bits
      * @return boolean
      */
-    constexpr bool is_empty () const noexcept { return bits == 0; }
+    chess_pure constexpr bool is_empty () const noexcept { return bits == 0; }
 
     /** @name  is_nonempty
      * 
      * @brief  Tests if the bitboard containts set bits
      * @return boolean
      */
-    constexpr bool is_nonempty () const noexcept { return bits != 0; }
+    chess_pure constexpr bool is_nonempty () const noexcept { return bits != 0; }
 
     /** @name  is_singleton
      * 
      * @brief  Tests if the bitboard contains a single set bit
      * @return boolean
      */
-    constexpr bool is_singleton () const noexcept;
+    chess_pure constexpr bool is_singleton () const noexcept;
 
 
 
@@ -305,21 +305,21 @@ public:
      * 
      * @return integer
      */
-    constexpr int popcount () const noexcept;
+    chess_pure constexpr int popcount () const noexcept;
 
     /** @name  hamming_dist
      * 
      * @param  other: Another bitboard
      * @return The number of different bits comparing this and other
      */
-    constexpr int hamming_dist ( bitboard other ) const noexcept;
+    chess_pure constexpr int hamming_dist ( bitboard other ) const noexcept;
 
     /** @name  leading/trailing_zeros
      * 
      * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
      */
-    constexpr int leading_zeros  () const noexcept;
-    constexpr int trailing_zeros () const noexcept;
+    chess_pure constexpr int leading_zeros  () const noexcept;
+    chess_pure constexpr int trailing_zeros () const noexcept;
 
     /** @name  bit_rotl/r
      * 
@@ -327,8 +327,8 @@ public:
      * @param  offset: The amount to shift by
      * @return A new bitboard
      */
-    constexpr bitboard bit_rotl ( int offset ) const noexcept;
-    constexpr bitboard bit_rotr ( int offset ) const noexcept;
+    chess_pure constexpr bitboard bit_rotl ( int offset ) const noexcept;
+    chess_pure constexpr bitboard bit_rotr ( int offset ) const noexcept;
 
     /** @name  bitshift
      * 
@@ -336,7 +336,7 @@ public:
      * @param  offset: The amount to shift by
      * @return A new bitboard
      */
-    constexpr bitboard bitshift ( int offset ) const noexcept { return bitboard { offset > 0 ? ( bits << offset ) : ( bits >> -offset ) }; }
+    chess_pure constexpr bitboard bitshift ( int offset ) const noexcept { return bitboard { offset > 0 ? ( bits << offset ) : ( bits >> -offset ) }; }
 
     /** @name  vertical_flip
      * 
@@ -344,7 +344,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return A new bitboard
      */
-    constexpr bitboard vertical_flip () const noexcept;
+    chess_pure constexpr bitboard vertical_flip () const noexcept;
 
     /** @name  horizontal_flip
      * 
@@ -352,7 +352,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return A new bitboard
      */
-    constexpr bitboard horizontal_flip () const noexcept;
+    chess_pure constexpr bitboard horizontal_flip () const noexcept;
     
     /** @name  pos_diag_flip
      * 
@@ -360,7 +360,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return A new bitboard
      */
-    constexpr bitboard pos_diag_flip () const noexcept;
+    chess_pure constexpr bitboard pos_diag_flip () const noexcept;
 
     /** @name  neg_diag_flip
      * 
@@ -368,7 +368,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Flip_and_Mirror
      * @return A new bitboard
      */
-    constexpr bitboard neg_diag_flip () const noexcept;
+    chess_pure constexpr bitboard neg_diag_flip () const noexcept;
 
     /** @name  rotate_180
      * 
@@ -376,7 +376,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Rotating
      * @return A new bitboard
      */
-    constexpr bitboard rotate_180 () const noexcept { return vertical_flip ().horizontal_flip (); }
+    chess_pure constexpr bitboard rotate_180 () const noexcept { return vertical_flip ().horizontal_flip (); }
 
     /** @name  rotate_90_(a)clock
      * 
@@ -384,8 +384,8 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Rotating
      * @return A new bitboard
      */
-    constexpr bitboard rotate_90_clock  () const noexcept { return vertical_flip ().neg_diag_flip (); }
-    constexpr bitboard rotate_90_aclock () const noexcept { return vertical_flip ().pos_diag_flip (); }
+    chess_pure constexpr bitboard rotate_90_clock  () const noexcept { return vertical_flip ().neg_diag_flip (); }
+    chess_pure constexpr bitboard rotate_90_aclock () const noexcept { return vertical_flip ().pos_diag_flip (); }
 
     /** @name  pseudo_rotate_45_clock
      * 
@@ -393,7 +393,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
      * @return A new bitboard
      */
-    constexpr bitboard pseudo_rotate_45_clock () const noexcept;
+    chess_pure constexpr bitboard pseudo_rotate_45_clock () const noexcept;
 
     /** @name  pseudo_rotate_45_aclock
      * 
@@ -401,7 +401,7 @@ public:
      * @see    https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#Pseudo-Rotation_by_45_degrees
      * @return A new bitboard
      */
-    constexpr bitboard pseudo_rotate_45_aclock () const noexcept;
+    chess_pure constexpr bitboard pseudo_rotate_45_aclock () const noexcept;
 
     /** @name  shift
      * 
@@ -410,8 +410,8 @@ public:
      * @param  dir: The direction to shift
      * @return A new bitboard
      */
-    constexpr bitboard shift ( compass dir )        const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
-    constexpr bitboard shift ( knight_compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
+    chess_pure constexpr bitboard shift ( compass dir )        const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
+    chess_pure constexpr bitboard shift ( knight_compass dir ) const noexcept { return bitshift ( shift_val ( dir ) ) & shift_mask ( dir ); }
 
 
 
@@ -425,7 +425,7 @@ public:
      * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard fill ( compass dir, bitboard p = ~bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard fill ( compass dir, bitboard p = ~bitboard {} ) const noexcept;
 
     /** @name  span
      * 
@@ -436,7 +436,7 @@ public:
      *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
-    constexpr bitboard span ( compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return fill ( dir, pp ).shift ( dir ) & ( pp | sp ); }
+    chess_pure constexpr bitboard span ( compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return fill ( dir, pp ).shift ( dir ) & ( pp | sp ); }
 
     /** @name  flood_fill
      * 
@@ -446,7 +446,7 @@ public:
      *         Note: a piece can move over a diagonal boundary (like it would with a diagonal fill).
      * @return A new bitboard
      */
-    constexpr bitboard flood_fill ( bitboard p ) const noexcept;
+    chess_pure constexpr bitboard flood_fill ( bitboard p ) const noexcept;
 
     /** @name  straight/diagonal_flood_fill
      * 
@@ -454,8 +454,8 @@ public:
      * @param  p: Propagator set: set bits are where the board is allowed to flow
      * @return A new bitboard
      */
-    constexpr bitboard straight_flood_fill ( bitboard p ) const noexcept;
-    constexpr bitboard diagonal_flood_fill ( bitboard p ) const noexcept;
+    chess_pure constexpr bitboard straight_flood_fill ( bitboard p ) const noexcept;
+    chess_pure constexpr bitboard diagonal_flood_fill ( bitboard p ) const noexcept;
 
     /** @name  flood_span
      * 
@@ -465,7 +465,7 @@ public:
      * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow with capture, empty by default
      * @return A new bitboard
      */
-    constexpr bitboard flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
 
     /** @name  straight/diagonal_flood_span
      * 
@@ -474,8 +474,8 @@ public:
      * @param  sp: Secondary propagator set: set bits are where the board is allowed to flow with capture, empty by default
      * @return A new bitboard
      */
-    constexpr bitboard straight_flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
-    constexpr bitboard diagonal_flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard straight_flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard diagonal_flood_span ( bitboard pp, bitboard sp = bitboard {} ) const noexcept;
 
     /** @name  is_connected
      * 
@@ -486,7 +486,7 @@ public:
      * @param  t: Target set: if all set bits can be reached then true is returned, false otherwise
      * @return boolean
      */
-    constexpr bool is_connected ( bitboard p, bitboard t ) const noexcept;
+    chess_pure constexpr bool is_connected ( bitboard p, bitboard t ) const noexcept;
 
     /** @name  file_fill
      * 
@@ -495,7 +495,7 @@ public:
      * @param  p: Propagator set: set bits are where the board is allowed to flow, universe by default
      * @return A bitboard
      */
-    constexpr bitboard file_fill ( bitboard p = ~bitboard {} ) const noexcept { return fill ( compass::n, p ) | fill ( compass::s, p ); }
+    chess_pure constexpr bitboard file_fill ( bitboard p = ~bitboard {} ) const noexcept { return fill ( compass::n, p ) | fill ( compass::s, p ); }
 
 
 
@@ -508,8 +508,8 @@ public:
      * @param  p: Propagator set: set bits are empty cells, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_push_n ( bitboard p = ~bitboard {} ) const noexcept;
-    constexpr bitboard pawn_push_s ( bitboard p = ~bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard pawn_push_n ( bitboard p = ~bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard pawn_push_s ( bitboard p = ~bitboard {} ) const noexcept;
 
     /** @name  pawn_attack
      * 
@@ -519,7 +519,7 @@ public:
      * @param  p: Propagator set: set bits are opposing pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_attack ( diagonal_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( static_cast<compass> ( dir ) ) & p; }
+    chess_pure constexpr bitboard pawn_attack ( diagonal_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( static_cast<compass> ( dir ) ) & p; }
 
     /** @name  pawn_any_attack_n/s
      * 
@@ -528,8 +528,8 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::nw ) | shift ( compass::ne ) ) & p; }
-    constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::sw ) | shift ( compass::se ) ) & p; }
+    chess_pure constexpr bitboard pawn_any_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::nw ) | shift ( compass::ne ) ) & p; }
+    chess_pure constexpr bitboard pawn_any_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::sw ) | shift ( compass::se ) ) & p; }
 
     /** @name  pawn_double_attack_n/s
      * 
@@ -538,8 +538,8 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::nw ) & shift ( compass::ne ) & p; }
-    constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::sw ) & shift ( compass::se ) & p; }
+    chess_pure constexpr bitboard pawn_double_attack_n ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::nw ) & shift ( compass::ne ) & p; }
+    chess_pure constexpr bitboard pawn_double_attack_s ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::sw ) & shift ( compass::se ) & p; }
 
     /** @name  pawn_attack_fill_e/w
      * 
@@ -547,8 +547,8 @@ public:
      * @param  p: Propagator set: set bits are empty cells, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_attack_fill_e ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::e ).file_fill ( p ); }
-    constexpr bitboard pawn_attack_fill_w ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::w ).file_fill ( p ); }
+    chess_pure constexpr bitboard pawn_attack_fill_e ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::e ).file_fill ( p ); }
+    chess_pure constexpr bitboard pawn_attack_fill_w ( bitboard p = ~bitboard {} ) const noexcept { return shift ( compass::w ).file_fill ( p ); }
 
     /** @name  pawn_any_attack_fill
      * 
@@ -556,7 +556,7 @@ public:
      * @param  p: Propagator set: set bits are empty cells, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard pawn_any_attack_fill ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::e ) | shift ( compass::w ) ).file_fill ( p ); }  
+    chess_pure constexpr bitboard pawn_any_attack_fill ( bitboard p = ~bitboard {} ) const noexcept { return ( shift ( compass::e ) | shift ( compass::w ) ).file_fill ( p ); }  
 
 
 
@@ -565,7 +565,7 @@ public:
     /** @name  king_attack
      * @brief  See shift ()
      */
-    constexpr bitboard king_attack ( compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
+    chess_pure constexpr bitboard king_attack ( compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
 
     /** @name  king_any_attack
      * 
@@ -577,7 +577,7 @@ public:
      *         Note: setting to true using an empty bitboard will cause undefined behavior.
      * @return A new bitboard
      */
-    constexpr bitboard king_any_attack ( bitboard p = ~bitboard {}, bool single = false ) const noexcept;
+    chess_pure constexpr bitboard king_any_attack ( bitboard p = ~bitboard {}, bool single = false ) const noexcept;
 
 
 
@@ -592,9 +592,9 @@ public:
      *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
-    constexpr bitboard rook_attack   ( straight_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( static_cast<compass> ( dir ), pp, sp ); }
-    constexpr bitboard bishop_attack ( diagonal_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( static_cast<compass> ( dir ), pp, sp ); }
-    constexpr bitboard queen_attack  ( compass dir,          bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( dir, pp, sp ); }
+    chess_pure constexpr bitboard rook_attack   ( straight_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( static_cast<compass> ( dir ), pp, sp ); }
+    chess_pure constexpr bitboard bishop_attack ( diagonal_compass dir, bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( static_cast<compass> ( dir ), pp, sp ); }
+    chess_pure constexpr bitboard queen_attack  ( compass dir,          bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept { return span ( dir, pp, sp ); }
 
     /** @name  rook/bishop/queen_any_attack
      * 
@@ -604,9 +604,9 @@ public:
      *             Should technically be a superset of pp, however ( pp | sp ) is used rather than sp alone, sp can simply be the set of capturable pieces.
      * @return A new bitboard
      */
-    constexpr bitboard rook_all_attack   ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
-    constexpr bitboard bishop_all_attack ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
-    constexpr bitboard queen_all_attack  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard rook_all_attack   ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard bishop_all_attack ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard queen_all_attack  ( bitboard pp = ~bitboard {}, bitboard sp = bitboard {} ) const noexcept;
 
 
 
@@ -620,7 +620,7 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard knight_attack ( knight_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
+    chess_pure constexpr bitboard knight_attack ( knight_compass dir, bitboard p = ~bitboard {} ) const noexcept { return shift ( dir ) & p; }
 
     /** @name  knight_any_attack
      * 
@@ -629,7 +629,7 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard knight_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard knight_any_attack ( bitboard p = ~bitboard {} ) const noexcept;
 
     /** @name  knight_mult_attack
      * 
@@ -637,7 +637,7 @@ public:
      * @param  p: Propagator set: set bits are empty cells or capturable pieces, universe by default
      * @return A new bitboard
      */
-    constexpr bitboard knight_mult_attack ( bitboard p = ~bitboard {} ) const noexcept;
+    chess_pure constexpr bitboard knight_mult_attack ( bitboard p = ~bitboard {} ) const noexcept;
 
 
 
@@ -647,7 +647,7 @@ public:
      * 
      * @return The value of the bitboard
      */
-    constexpr unsigned long long get_value () const noexcept { return bits; }
+    chess_pure constexpr unsigned long long get_value () const noexcept { return bits; }
 
     /** @name  set_value
      * 
@@ -695,8 +695,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return boolean
      */
-    constexpr bool test ( int pos ) const noexcept { return bits & singleton_bitset ( pos ); }
-    constexpr bool test ( int rank, int file ) const noexcept { return bits & singleton_bitset ( rank, file ); }
+    chess_pure constexpr bool test ( int pos ) const noexcept { return bits & singleton_bitset ( pos ); }
+    chess_pure constexpr bool test ( int rank, int file ) const noexcept { return bits & singleton_bitset ( rank, file ); }
 
     /** @name  empty
      * 
@@ -717,10 +717,10 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard pawn_pyramid_n_lookup ( int pos ) noexcept { return bitboard { pawn_pyramid_n_lookups [ pos ] }; }
-    static constexpr bitboard pawn_pyramid_s_lookup ( int pos ) noexcept { return bitboard { pawn_pyramid_s_lookups [ pos ] }; }
-    static constexpr bitboard pawn_pyramid_n_lookup ( int rank, int file ) noexcept { return bitboard { pawn_pyramid_n_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard pawn_pyramid_s_lookup ( int rank, int file ) noexcept { return bitboard { pawn_pyramid_s_lookups [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard pawn_pyramid_n_lookup ( int pos ) noexcept { return bitboard { pawn_pyramid_n_lookups [ pos ] }; }
+    chess_const static constexpr bitboard pawn_pyramid_s_lookup ( int pos ) noexcept { return bitboard { pawn_pyramid_s_lookups [ pos ] }; }
+    chess_const static constexpr bitboard pawn_pyramid_n_lookup ( int rank, int file ) noexcept { return bitboard { pawn_pyramid_n_lookups [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard pawn_pyramid_s_lookup ( int rank, int file ) noexcept { return bitboard { pawn_pyramid_s_lookups [ rank * 8 + file ] }; }
 
     /** @name  king_attack_lookup, knight_attack_lookup
      * 
@@ -730,10 +730,10 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard king_attack_lookup   ( int pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
-    static constexpr bitboard knight_attack_lookup ( int pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
-    static constexpr bitboard king_attack_lookup   ( int rank, int file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
-    static constexpr bitboard knight_attack_lookup ( int rank, int file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard king_attack_lookup   ( int pos ) noexcept { return bitboard { king_attack_lookups   [ pos ] }; }
+    chess_const static constexpr bitboard knight_attack_lookup ( int pos ) noexcept { return bitboard { knight_attack_lookups [ pos ] }; }
+    chess_const static constexpr bitboard king_attack_lookup   ( int rank, int file ) noexcept { return bitboard { king_attack_lookups   [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard knight_attack_lookup ( int rank, int file ) noexcept { return bitboard { knight_attack_lookups [ rank * 8 + file ] }; }
 
     /** @name  straight_attack_lookup, diagonal_attack_lookup, queen_attack_lookup
      * 
@@ -743,12 +743,12 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard straight_attack_lookup ( int pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
-    static constexpr bitboard diagonal_attack_lookup ( int pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
-    static constexpr bitboard queen_attack_lookup    ( int pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
-    static constexpr bitboard straight_attack_lookup ( int rank, int file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard diagonal_attack_lookup ( int rank, int file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
-    static constexpr bitboard queen_attack_lookup    ( int rank, int file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard straight_attack_lookup ( int pos ) noexcept { return bitboard { straight_attack_lookups [ pos ] }; }
+    chess_const static constexpr bitboard diagonal_attack_lookup ( int pos ) noexcept { return bitboard { diagonal_attack_lookups [ pos ] }; }
+    chess_const static constexpr bitboard queen_attack_lookup    ( int pos ) noexcept { return bitboard { queen_attack_lookups    [ pos ] }; }
+    chess_const static constexpr bitboard straight_attack_lookup ( int rank, int file ) noexcept { return bitboard { straight_attack_lookups [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard diagonal_attack_lookup ( int rank, int file ) noexcept { return bitboard { diagonal_attack_lookups [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard queen_attack_lookup    ( int rank, int file ) noexcept { return bitboard { queen_attack_lookups    [ rank * 8 + file ] }; }
 
     /** @name  omnidir_attack_lookup
      * 
@@ -759,8 +759,8 @@ public:
      * @param  file: The file of the bit [0,7]
      * @return bitboard
      */
-    static constexpr bitboard omnidir_attack_lookup ( compass dir, int pos ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ pos ] }; }
-    static constexpr bitboard omnidir_attack_lookup ( compass dir, int rank, int file ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ rank * 8 + file ] }; }
+    chess_const static constexpr bitboard omnidir_attack_lookup ( compass dir, int pos ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ pos ] }; }
+    chess_const static constexpr bitboard omnidir_attack_lookup ( compass dir, int rank, int file ) noexcept { return bitboard { omnidir_attack_lookups [ cast_compass ( dir ) ] [ rank * 8 + file ] }; }
 
 
 
@@ -792,7 +792,7 @@ public:
      * @param  name: The cell name
      * @return integer
      */
-    static int cell_pos          ( const std::string& name ) { return ( name.at ( 0 ) - 'a' ) + ( name.at ( 1 ) - '1' ) * 8; } 
+    static int cell_pos ( const std::string& name ) { return ( name.at ( 0 ) - 'a' ) + ( name.at ( 1 ) - '1' ) * 8; } 
 
 private:
 
@@ -1086,10 +1086,10 @@ private:
      * @param  dir: Compass direction
      * @return Shift value or mask
      */
-    static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ cast_compass ( dir ) ]; }
-    static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ cast_compass ( dir ) ]; }
-    static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ cast_compass ( dir ) ] }; }
-    static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ cast_compass ( dir ) ] }; }
+    chess_const static constexpr int shift_val ( compass dir )        noexcept { return shift_vals        [ cast_compass ( dir ) ]; }
+    chess_const static constexpr int shift_val ( knight_compass dir ) noexcept { return knight_shift_vals [ cast_compass ( dir ) ]; }
+    chess_const static constexpr bitboard shift_mask ( compass dir )        noexcept { return bitboard { shift_masks        [ cast_compass ( dir ) ] }; }
+    chess_const static constexpr bitboard shift_mask ( knight_compass dir ) noexcept { return bitboard { knight_shift_masks [ cast_compass ( dir ) ] }; }
 
     /** @name  singleton_bitset
      * 
@@ -1099,8 +1099,8 @@ private:
      * @param  file: The file of the bit [0,7]
      * @return 64-bit integer
      */
-    static constexpr unsigned long long singleton_bitset ( int pos ) noexcept { return 1ull << pos; }
-    static constexpr unsigned long long singleton_bitset ( int rank, int file ) noexcept { return 1ull << ( rank * 8 + file ); }
+    chess_const static constexpr unsigned long long singleton_bitset ( int pos ) noexcept { return 1ull << pos; }
+    chess_const static constexpr unsigned long long singleton_bitset ( int rank, int file ) noexcept { return 1ull << ( rank * 8 + file ); }
 
 };
 

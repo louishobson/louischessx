@@ -4,7 +4,7 @@
 
 # gcc setup
 CC=g++
-CFLAGS=-std=c++20 -Iinclude -g -O2 -march=native -flto
+CFLAGS=-std=c++20 -Iinclude -O2 -march=native -flto
 
 # g++ setup
 CPP=g++

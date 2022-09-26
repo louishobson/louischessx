@@ -179,7 +179,7 @@ bool chess::game_controller::end_time_control ()
 chess::game_controller::search_data_it_t chess::game_controller::start_search ( const chessboard& cb, const pcolor pc, const move_t& opponent_move, chessboard::ab_ttable_t ttable, const bool direct_response, const bool output_thinking )
 {
     /* Create the search data */
-    active_searches.emplace_back ( cb, pc, opponent_move, false, output_thinking );
+    active_searches.emplace_back ( cb, pc, opponent_move, std::stop_source {}, output_thinking );
 
     /* Get an iterator to the active search */
     search_data_it_t search_data_it = --active_searches.end ();
@@ -188,7 +188,7 @@ chess::game_controller::search_data_it_t chess::game_controller::start_search ( 
     active_searches.back ().ab_result_future = std::async ( std::launch::async, [ this, search_data_it, ttable { std::move ( ttable ) }, direct_response ] () mutable
     {
         /* Wait for the search to complete */
-        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, std::move ( ttable ), search_data_it->end_flag, chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ), search_data_it->cecp_thinking );
+        chessboard::ab_result_t ab_result = search_data_it->cb.alpha_beta_iterative_deepening ( search_data_it->pc, search_depths, true, std::move ( ttable ), search_data_it->end_flag.get_token(), chess_clock::now () + ( direct_response ? max_response_duration : max_search_duration ), search_data_it->cecp_thinking );
 
         /* Lock the mutex, add search_data_it to the list of completed searches, and unlock the mutex */
         std::unique_lock search_lock { search_mx };
@@ -227,11 +227,11 @@ void chess::game_controller::start_precomputation ()
     /* Set the end flag to false and the known opponent move to unknown */
     search_end_flag = false; known_opponent_move = move_t {};
 
-    /* Start the new thread */
-    search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { cumulative_ttable } ] () mutable
+    /* Start the new thread if pondering is allowed */
+    if ( pondering && num_parallel_searches ) search_controller = std::thread { [ this, cb { game_cb }, pc { computer_pc }, ttable { cumulative_ttable } ] () mutable
     {
         /* Get the opponent moves */
-        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ), false, chess_clock::now () + std::chrono::milliseconds ( 750 ) );
+        chessboard::ab_result_t opponent_ab_result = cb.alpha_beta_iterative_deepening ( other_color ( pc ), opponent_search_depths, false, std::move ( ttable ), std::stop_token {}, chess_clock::now () + std::chrono::milliseconds ( 750 ) );
 
         /* Get the ttable back */
         ttable = std::move ( opponent_ab_result.ttable );
@@ -268,7 +268,7 @@ void chess::game_controller::start_precomputation ()
         }
 
         /* Cancel all searches, except if the search matches known_opponent_move */
-        for ( search_data_t& search_data : active_searches ) if ( search_data.opponent_move != known_opponent_move ) search_data.end_flag = true;
+        for ( search_data_t& search_data : active_searches ) if ( search_data.opponent_move != known_opponent_move ) search_data.end_flag.request_stop ();
 
         /* Unlock search_mx */
         search_lock.unlock ();

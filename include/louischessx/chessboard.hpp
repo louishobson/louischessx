@@ -277,7 +277,5 @@ inline std::size_t chess::chessboard::hash::operator () ( const move_t& mv ) con
 }
 
 
-
-
 /* HEADER GUARD */
 #endif /* #ifndef CHESS_CHESSBOARD_HPP_INCLUDED */
