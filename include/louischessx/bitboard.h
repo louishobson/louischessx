@@ -316,7 +316,7 @@ public:
 
     /** @name  leading/trailing_zeros
      * 
-     * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
+     * @return The number of leading/trailing zeros
      */
     chess_pure constexpr int leading_zeros  () const noexcept;
     chess_pure constexpr int trailing_zeros () const noexcept;

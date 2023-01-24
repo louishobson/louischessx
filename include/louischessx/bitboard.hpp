@@ -90,13 +90,13 @@ inline constexpr int chess::bitboard::hamming_dist ( const bitboard other ) cons
 
 /** @name  leading/trailing_zeros
  * 
- * @return The number of leading/trailing zeros, but undefined if the bitboard is empty
+ * @return The number of leading/trailing zeros
  */
 inline constexpr int chess::bitboard::leading_zeros () const noexcept
 {
     /* Use builtin if availible, otherwise use the checking method */
 #ifdef CHESS_BUILTIN_CLZ64
-    return CHESS_BUILTIN_CLZ64 ( bits );
+    return bits ? CHESS_BUILTIN_CLZ64 ( bits ) : 64;
 #else
     return std::countl_zero ();
 #endif
@@ -105,7 +105,7 @@ inline constexpr int chess::bitboard::trailing_zeros () const noexcept
 {
     /* Use builtin if availible, otherwise use the checking method */
 #ifdef CHESS_BUILTIN_CTZ64
-    return CHESS_BUILTIN_CTZ64 ( bits );
+    return bits ? CHESS_BUILTIN_CTZ64 ( bits ) : 64;
 #else
     return std::countr_zero ();
 #endif
